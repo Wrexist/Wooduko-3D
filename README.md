@@ -3,7 +3,7 @@
 A clean, tactile Woodoku-style block puzzle with real 3D carved wood blocks, built with Three.js.
 Place blocks on a 9×9 board and clear rows, columns and 3×3 squares.
 
-Status: **Phase 1 rebuild complete** (v0.2.0): TypeScript + Three.js, home/pause/settings, tutorial. See `RELEASE_CHECKLIST.md` for the road to release and `POLISH.md` for the feel/visual backlog.
+Status: **v1.0.0 release candidate.** Code complete through phase 11; the remaining steps need your accounts, a Mac and real phones — see `RELEASE.md`.
 
 ## Run it
 
@@ -17,7 +17,10 @@ npm run lint       # checks code style
 npm run sim        # bot playtest: hundreds of simulated games, report in shots/playtest.md (~5 min)
 ```
 
-With `npm run dev` running in another terminal: `npm run shots` (screenshots), `npm run flows` (clicks through the whole game), `npm run soak` (memory leak check).
+With `npm run dev` running in another terminal: `npm run shots` (screenshots), `npm run flows` (clicks through the whole game), `npm run layout` (13 screen sizes), `npm run soak` (memory leak check), `npm run store-shots` (App Store screenshots), `npm run icons` (icon + launch screen).
+Without it: `npm run sim` (bot playtest), `npm run prod-check` (production build), `npm run release-check` (ship blockers).
+
+Docs: `DESIGN.md` (rules), `RELEASE.md` (how to ship), `STORE.md` (account setup), `ASO.md` (listing), `PRIVACY.md` (policy draft), `PLAYTEST.md`.
 
 `prototype/grain.html` is the original single-file prototype. It opens straight in a browser with no install and is kept as a reference.
 
