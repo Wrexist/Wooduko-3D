@@ -6,7 +6,7 @@ Everything that makes it feel premium. Mostly phase 6, some phase 7.
 ## Visuals — wood & lighting
 - [ ] **[must]** Swap procedural textures for real photo-scanned wood (top end-grain, side long-grain, table, board) with normal + roughness maps
 - [x] **[must]** Contact shadows / baked ambient occlusion where blocks meet the board floor and ridges
-- [x] **[should]** Slight colour variation per block (several wood tones, not just brightness)
+- [ ] **[should]** Slight colour variation per block (several wood tones, not just brightness)
 - [ ] **[should]** Subtle environment reflection for a satin lacquer sheen on block tops
 - [ ] **[should]** Board edge: real routed profile (chamfer + inner lip) instead of a straight cut
 - [ ] **[nice]** Soft depth-of-field / vignette on the table edges
