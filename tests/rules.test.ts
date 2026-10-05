@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { emptyBoard } from '../src/core/board';
 import { ORIENTATIONS } from '../src/core/shapes';
-import { isGameOver, newGame, nextStreak, normalizeLoaded, playMove, trayFits } from '../src/core/rules';
+import {
+  isGameOver,
+  newGame,
+  nextCombo,
+  normalizeLoaded,
+  playMove,
+  RULES,
+  trayFits,
+} from '../src/core/rules';
 import type { GameState, Piece, Tray } from '../src/core/types';
 import { boardFrom, checkerboard, fullBoardExcept, SEED, shapeIndexOf } from './helpers';
 
@@ -18,17 +26,35 @@ function state(partial: Partial<GameState>): GameState {
     tray: [null, null, null],
     score: 0,
     streak: 0,
+    misses: 0,
+    sinceSmall: 0,
     rng: 1,
     over: false,
     ...partial,
   };
 }
 
-describe('streak', () => {
-  it('increments on a clear and resets to 0 on a non-clear', () => {
-    expect(nextStreak(0, 1)).toBe(1);
-    expect(nextStreak(3, 2)).toBe(4);
-    expect(nextStreak(5, 0)).toBe(0);
+describe('combo rule', () => {
+  it('strict (grace 0): +1 on a clear, reset on any miss', () => {
+    expect(nextCombo(0, 0, 1, 0)).toEqual({ streak: 1, misses: 0 });
+    expect(nextCombo(3, 0, 2, 0)).toEqual({ streak: 4, misses: 0 });
+    expect(nextCombo(5, 0, 0, 0)).toEqual({ streak: 0, misses: 0 });
+  });
+
+  it('grace 1: a live streak survives one miss, resets on the second', () => {
+    let c = nextCombo(2, 0, 0, 1);
+    expect(c).toEqual({ streak: 2, misses: 1 });
+    expect(nextCombo(c.streak, c.misses, 1, 1)).toEqual({ streak: 3, misses: 0 });
+    c = nextCombo(c.streak, c.misses, 0, 1);
+    expect(c).toEqual({ streak: 0, misses: 0 });
+  });
+
+  it('misses do not accumulate without a streak', () => {
+    expect(nextCombo(0, 0, 0, 2)).toEqual({ streak: 0, misses: 0 });
+  });
+
+  it('the configured grace is the default', () => {
+    expect(nextCombo(1, 0, 0)).toEqual(nextCombo(1, 0, 0, RULES.grace));
   });
 });
 
@@ -74,14 +100,19 @@ describe('playMove', () => {
     expect(playMove({ ...s, over: true }, 0, 0, 0)).toBeNull();
   });
 
-  it('places, scores 1 per cell, resets streak, and empties the slot', () => {
+  it('places, scores 1 per cell, applies the combo grace, and empties the slot', () => {
     const s = state({ tray: [piece('o4'), piece('mono'), piece('mono')], streak: 2, score: 10 });
     const m = playMove(s, 0, 3, 3);
     expect(m).not.toBeNull();
     if (!m) return;
     expect(m.points).toBe(4);
     expect(m.state.score).toBe(14);
-    expect(m.state.streak).toBe(0);
+    // one miss is forgiven (grace 1): the streak survives, the second miss resets it
+    expect(m.state.streak).toBe(2);
+    expect(m.state.misses).toBe(1);
+    const m2 = playMove(m.state, 1, 0, 0);
+    expect(m2?.state.streak).toBe(0);
+    expect(m2?.state.misses).toBe(0);
     expect(m.state.tray[0]).toBeNull();
     expect(m.dealt).toBeNull();
     expect(m.placed.center).toEqual([4, 4]); // shape centre (1,1) + offset (3,3)

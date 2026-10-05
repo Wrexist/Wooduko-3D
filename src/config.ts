@@ -43,10 +43,57 @@ export const SCORING = {
   boardClear: 150,
 } as const;
 
-export const GENERATOR = {
-  traySize: 3,
+export interface GeneratorConfig {
+  readonly traySize: number;
   /** Re-roll a tray up to this many times until at least one piece fits. */
+  readonly fitRetries: number;
+  /** After the re-rolls, force one fitting piece into the tray (fit is then guaranteed). */
+  readonly forceFit: boolean;
+  /** Pieces with at most this many cells count as "small" for the drought guard. */
+  readonly smallCells: number;
+  /** A tray must contain a small piece once this many pieces have been dealt without one. */
+  readonly droughtMax: number;
+  /** Pieces with at least this many cells count as "big" for the difficulty ramp. */
+  readonly bigCells: number;
+  /** Ramp reaches full strength at this score. */
+  readonly rampScore: number;
+  /** Weight multipliers at score 0 → at rampScore. */
+  readonly bigWeight: readonly [start: number, end: number];
+  readonly smallWeight: readonly [start: number, end: number];
+}
+
+export const GENERATOR: GeneratorConfig = {
+  traySize: 3,
   fitRetries: 40,
+  forceFit: true,
+  smallCells: 3,
+  droughtMax: 7,
+  bigCells: 5,
+  rampScore: 4000,
+  bigWeight: [0.85, 1.2],
+  smallWeight: [1.1, 0.92],
+};
+
+/** The prototype's generator, kept for before/after comparisons in the playtest simulator. */
+export const GENERATOR_PROTOTYPE: GeneratorConfig = {
+  ...GENERATOR,
+  forceFit: false,
+  droughtMax: Infinity,
+  bigWeight: [1, 1],
+  smallWeight: [1, 1],
+};
+
+/**
+ * Combo rule. The streak grows on every placement that clears. A placement that clears nothing
+ * is a "miss": the streak survives `grace` misses in a row and resets on the next one.
+ * grace 0 = strict (the prototype's rule).
+ *
+ * Decided in Phase 3 from the bot playtest (`npm run sim`, see LEARNINGS.md): grace 1 doubles how
+ * often casual players see a combo (23% → 45% of clears) for ~13% higher median scores; grace 2
+ * makes combos the norm (70–80%) and doubles skilled scores, which cheapens them.
+ */
+export const COMBO = {
+  grace: 1,
 } as const;
 
 /** Per-block wood look, rolled once per piece and kept through splits. */
@@ -60,7 +107,7 @@ export const WOOD_SEED = {
 } as const;
 
 export const SAVE = {
-  version: 1,
+  version: 2,
   gameKey: 'grain_save_v1',
   bestKey: 'grain_best_v1',
   settingsKey: 'grain_settings_v1',

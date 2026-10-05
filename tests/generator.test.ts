@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { BASE_SHAPES, GENERATOR, WOOD_SEED } from '../src/config';
+import { BASE_SHAPES, GENERATOR, GENERATOR_PROTOTYPE, WOOD_SEED } from '../src/config';
 import { canFitAnywhere, emptyBoard } from '../src/core/board';
-import { createRng, dealTray, makeWoodSeed, nextFloat, pickShape } from '../src/core/generator';
+import {
+  createRng,
+  dealTray,
+  isSmall,
+  makeWoodSeed,
+  nextFloat,
+  pickShape,
+  rampWeights,
+} from '../src/core/generator';
 import { getShape, ORIENTATIONS } from '../src/core/shapes';
 import { fullBoardExcept } from './helpers';
 
@@ -52,32 +60,78 @@ describe('pickShape', () => {
   });
 });
 
+const CTX = { score: 0, sinceSmall: 0 };
+const anyFits = (board: ReturnType<typeof emptyBoard>, pieces: { shapeIndex: number }[]) =>
+  pieces.some((p) => {
+    const sh = getShape(p.shapeIndex);
+    return sh !== undefined && canFitAnywhere(board, sh);
+  });
+
 describe('dealTray', () => {
   it('deals traySize pieces with valid shapes', () => {
-    const tray = dealTray(emptyBoard(), createRng(1));
-    expect(tray).toHaveLength(GENERATOR.traySize);
-    tray.forEach((p) => expect(getShape(p.shapeIndex)).toBeDefined());
+    const { pieces } = dealTray(emptyBoard(), createRng(1), CTX);
+    expect(pieces).toHaveLength(GENERATOR.traySize);
+    pieces.forEach((p) => expect(getShape(p.shapeIndex)).toBeDefined());
   });
 
-  it('re-rolls until at least one piece fits when that is possible', () => {
-    // Only a single hole: only the 1-cell piece fits. Most trays won't contain one.
-    // A single tray hits it ~12% of the time; 40 retries should push that near 99%.
+  it('always deals at least one piece that fits (forced fit)', () => {
+    // a single hole: only the 1-cell piece fits
     const board = fullBoardExcept([[4, 4]]);
-    const trials = 500;
-    let fits = 0;
-    for (let seed = 1; seed <= trials; seed++) {
-      const tray = dealTray(board, createRng(seed));
-      const anyFits = tray.some((p) => {
-        const s = getShape(p.shapeIndex);
-        return s !== undefined && canFitAnywhere(board, s);
-      });
-      if (anyFits) fits++;
+    for (let seed = 1; seed <= 500; seed++) {
+      expect(anyFits(board, dealTray(board, createRng(seed), CTX).pieces)).toBe(true);
     }
-    expect(fits / trials).toBeGreaterThan(0.97);
   });
 
-  it('still returns a tray when nothing can fit', () => {
-    const tray = dealTray(fullBoardExcept([]), createRng(3));
-    expect(tray).toHaveLength(GENERATOR.traySize);
+  it('the prototype generator could deal an unplayable tray; the new one never does', () => {
+    const board = fullBoardExcept([[4, 4]]);
+    let protoMisses = 0;
+    for (let seed = 1; seed <= 2000; seed++) {
+      if (!anyFits(board, dealTray(board, createRng(seed), CTX, GENERATOR_PROTOTYPE).pieces)) protoMisses++;
+    }
+    expect(protoMisses).toBeGreaterThan(0);
+  });
+
+  it('the prototype config reproduces the old random sequence exactly', () => {
+    const r1 = createRng(42);
+    const r2 = createRng(42);
+    const old = Array.from({ length: 3 }, () => pickShape(r1));
+    const now = dealTray(emptyBoard(), r2, CTX, GENERATOR_PROTOTYPE).pieces.map((p) => p.shapeIndex);
+    expect(now).toEqual(old);
+  });
+
+  it('drought guard: never more than droughtMax + traySize - 2 non-small pieces in a row', () => {
+    const rng = createRng(9);
+    const board = emptyBoard();
+    let sinceSmall = 0;
+    let run = 0;
+    let worst = 0;
+    for (let t = 0; t < 3000; t++) {
+      const deal = dealTray(board, rng, { score: 5000, sinceSmall });
+      for (const p of deal.pieces) {
+        const sh = getShape(p.shapeIndex);
+        run = sh && isSmall(sh) ? 0 : run + 1;
+        worst = Math.max(worst, run);
+      }
+      sinceSmall = deal.sinceSmall;
+      expect(sinceSmall).toBe(run);
+    }
+    expect(worst).toBeLessThanOrEqual(GENERATOR.droughtMax + GENERATOR.traySize - 2);
+  });
+
+  it('ramp: big pieces get more likely as the score climbs, small ones less', () => {
+    const share = (score: number, pred: (n: number) => boolean) => {
+      const w = rampWeights(score);
+      const total = w.reduce((a, b) => a + b, 0);
+      return ORIENTATIONS.reduce((a, o, i) => a + (pred(o.cells.length) ? (w[i] ?? 0) : 0), 0) / total;
+    };
+    const big = (n: number) => n >= GENERATOR.bigCells;
+    const small = (n: number) => n <= GENERATOR.smallCells;
+    expect(share(GENERATOR.rampScore, big)).toBeGreaterThan(share(0, big));
+    expect(share(GENERATOR.rampScore, small)).toBeLessThan(share(0, small));
+    expect(share(GENERATOR.rampScore * 10, big)).toBeCloseTo(share(GENERATOR.rampScore, big), 10);
+  });
+
+  it('still returns a tray when nothing at all can fit', () => {
+    expect(dealTray(fullBoardExcept([]), createRng(3), CTX).pieces).toHaveLength(GENERATOR.traySize);
   });
 });

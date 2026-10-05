@@ -8,6 +8,8 @@ export function toSave(state: GameState): SaveData {
     version: SAVE.version,
     score: state.score,
     streak: state.streak,
+    misses: state.misses,
+    sinceSmall: state.sinceSmall,
     rng: state.rng,
     groups: state.board.groups.map((g) => ({ cells: g.cells, center: g.center, seed: g.seed })),
     tray: state.tray.map((p) => (p ? { shapeIndex: p.shapeIndex, seed: p.seed } : null)),
@@ -55,19 +57,20 @@ function readPiece(v: unknown, shapeKey: string): Piece | null | undefined {
 }
 
 /**
- * Upgrade older save formats to the current shape.
+ * Upgrade older save formats step by step to the current shape.
  * v0 = the single-file prototype: no `version`, tray items use `shape`, no RNG state.
+ * v1 = Phase 1 rebuild: no combo misses, no generator drought counter.
  */
-function migrate(raw: Obj, fallbackRng: number): Obj | null {
-  const version = raw.version ?? 0;
-  if (version === SAVE.version) return raw;
-  if (version === 0) {
+function migrate(input: Obj, fallbackRng: number): Obj | null {
+  let raw = input;
+  if ((raw.version ?? 0) === 0) {
     const tray = Array.isArray(raw.tray)
       ? raw.tray.map((t: unknown) => (isObj(t) ? { shapeIndex: t.shape, seed: t.seed } : t))
       : raw.tray;
-    return { ...raw, version: SAVE.version, rng: fallbackRng, tray };
+    raw = { ...raw, version: 1, rng: fallbackRng, tray };
   }
-  return null;
+  if (raw.version === 1) raw = { ...raw, version: 2, misses: 0, sinceSmall: 0 };
+  return raw.version === SAVE.version ? raw : null;
 }
 
 /**
@@ -85,8 +88,9 @@ export function parseSave(json: string | null, fallbackRng: number): GameState |
   if (!isObj(parsed)) return null;
   const raw = migrate(parsed, fallbackRng);
   if (!raw) return null;
-  const { score, streak, rng, groups, tray } = raw;
+  const { score, streak, misses, sinceSmall, rng, groups, tray } = raw;
   if (!isNonNegInt(score) || !isNonNegInt(streak) || !isNonNegInt(rng)) return null;
+  if (!isNonNegInt(misses) || !isNonNegInt(sinceSmall)) return null;
   if (!Array.isArray(groups) || !Array.isArray(tray) || tray.length !== GENERATOR.traySize) return null;
 
   let board: BoardState = emptyBoard();
@@ -112,7 +116,7 @@ export function parseSave(json: string | null, fallbackRng: number): GameState |
     pieces.push(p);
   }
 
-  return { board, tray: pieces, score, streak, rng, over: false };
+  return { board, tray: pieces, score, streak, misses, sinceSmall, rng, over: false };
 }
 
 export function parseBest(raw: string | null): number {

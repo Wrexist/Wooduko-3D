@@ -226,6 +226,23 @@ button {
   opacity: 1;
   transform: translateX(-50%) scale(1);
 }
+/* streak survived a miss: dimmer, slow pulse until the next clear */
+.combo.risk {
+  filter: saturate(0.45) brightness(0.85);
+  animation: risk 1.1s ease-in-out infinite;
+}
+@keyframes risk {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.reduced .combo.risk {
+  animation: none;
+}
 .combo.kick {
   animation: kick 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
 }

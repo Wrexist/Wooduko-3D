@@ -22,3 +22,19 @@
 - Overlays: `display: flex` + `overflow-y: auto` + `margin: auto` on the card centres when it fits and scrolls from the top when it doesn't (`place-items: center` cuts off the top instead). Needs `touch-action: pan-y` because the body disables touch scrolling.
 - Never run a long soak against the dev server: editing a .ts file reloads the page. Use the test build.
 - Never stop the dev server with `taskkill /IM node.exe`: it kills every Node process on the machine. Stop the specific PID.
+
+## Playtests
+
+### Bot playtest — Phase 3 (2026-10-05, `npm run sim`, 240 casual + 60 skilled games per config)
+| | casual: median moves / score | casual: clears at combo ≥2 | skilled: median moves / score | longest run without a small piece |
+|---|---|---|---|---|
+| prototype generator, strict combo | 64 / 664 | 22.7% | 1850 / 22.6k | 17–20 |
+| new generator, strict combo | 76 / 813 | 23.4% | 1418 / 17.9k | 8 |
+| **new generator, grace 1 (shipped)** | 77 / 915 | 45.5% | 1100 / 16.5k | 8 |
+| new generator, grace 2 | 74 / 1117 | 70.5% | 1478 / 35.9k | 8 |
+
+- The fairer generator helps beginners (casual games +19% longer) and the ramp shortens marathon games (skilled −23% moves). That is the intended shape: easy start, rising pressure.
+- Dead trays (nothing fits) never showed up in bot games even with the prototype generator, but a unit test finds them on near-full boards; the forced fit removes them entirely.
+- Combo rule: **grace 1** (a streak survives one miss). It doubles how often a casual player sees "Combo" for ~13% higher median scores. Grace 2 makes combos the default and doubles skilled scores, so a combo stops feeling special. The pill dims and pulses while a streak is at risk.
+- The skilled bot still hits the 2,500-move cap in ~20% of games: a perfect player can play nearly forever. Fine for a calm game; revisit with real players before making the ramp steeper.
+- Bots are not people: use these numbers to compare before/after, not as absolute difficulty. Human playtest script: `PLAYTEST.md`.

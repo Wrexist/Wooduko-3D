@@ -133,3 +133,28 @@ describe('best and settings', () => {
     });
   });
 });
+
+describe('save v2', () => {
+  it('round-trips combo misses and the drought counter', () => {
+    const s = { ...newGame(11), misses: 1, sinceSmall: 5, streak: 3 };
+    const back = parseSave(serializeSave(s), 1);
+    expect(back?.misses).toBe(1);
+    expect(back?.sinceSmall).toBe(5);
+    expect(back?.streak).toBe(3);
+  });
+
+  it('migrates a v1 save (no misses / sinceSmall) to v2 with zeros', () => {
+    const v1 = { ...valid(), version: 1 };
+    delete (v1 as Record<string, unknown>).misses;
+    delete (v1 as Record<string, unknown>).sinceSmall;
+    const s = parse(v1);
+    expect(s).not.toBeNull();
+    expect(s?.misses).toBe(0);
+    expect(s?.sinceSmall).toBe(0);
+  });
+
+  it('rejects bad misses / sinceSmall values', () => {
+    expect(parse({ ...valid(), misses: -1 })).toBeNull();
+    expect(parse({ ...valid(), sinceSmall: 'x' })).toBeNull();
+  });
+});

@@ -14,6 +14,7 @@ npm run build      # makes the production version in dist/
 npm test           # runs the rule tests
 npm run typecheck  # checks the TypeScript
 npm run lint       # checks code style
+npm run sim        # bot playtest: hundreds of simulated games, report in shots/playtest.md (~5 min)
 ```
 
 With `npm run dev` running in another terminal: `npm run shots` (screenshots), `npm run flows` (clicks through the whole game), `npm run soak` (memory leak check).

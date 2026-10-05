@@ -50,7 +50,16 @@ function step(
     text,
     slot: 1,
     target,
-    game: { board: boardWith(cells, seed + 1), tray, score: 0, streak: 0, rng: rng.state, over: false },
+    game: {
+      board: boardWith(cells, seed + 1),
+      tray,
+      score: 0,
+      streak: 0,
+      misses: 0,
+      sinceSmall: 0,
+      rng: rng.state,
+      over: false,
+    },
   };
 }
 

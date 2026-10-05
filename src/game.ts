@@ -239,7 +239,7 @@ export class Game {
       this.later(TRAY.dealSoundDelay, () => this.sound.deal());
     }
     this.hud.setScore(s.game.score, true);
-    this.hud.combo.set(s.game.streak);
+    this.hud.combo.set(s.game.streak, s.game.misses > 0);
   }
 
   private onPhase(s: StoreState): void {
@@ -317,7 +317,7 @@ export class Game {
     const s = this.store.getState();
     this.hud.setScore(s.game.score);
     this.hud.bump();
-    this.hud.combo.set(s.game.streak);
+    this.hud.combo.set(s.game.streak, s.game.misses > 0);
 
     if (tutorial) {
       if (move.clear.units > 0) this.later(FX.overCardDelay, () => this.nextTutorialStep());

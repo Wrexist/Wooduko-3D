@@ -1,4 +1,5 @@
-import { GENERATOR } from '../config';
+import { COMBO, GENERATOR } from '../config';
+import type { GeneratorConfig } from '../config';
 import {
   applyClear,
   canFitAnywhere,
@@ -14,8 +15,29 @@ import { boardClearBonus, clearPoints, placementPoints } from './scoring';
 import { getShape, shapeCenter } from './shapes';
 import type { BoardState, Cell, ClearResult, GameState, Group, Piece, Tray } from './types';
 
-/** Combo rule: +1 for each consecutive placement that clears, reset to 0 on one that clears nothing. */
-export const nextStreak = (streak: number, units: number): number => (units > 0 ? streak + 1 : 0);
+/** Tunable rules, overridable by the playtest simulator. */
+export interface RuleSet {
+  readonly generator: GeneratorConfig;
+  /** Misses a live streak survives (see `COMBO`). */
+  readonly grace: number;
+}
+
+export const RULES: RuleSet = { generator: GENERATOR, grace: COMBO.grace };
+
+/**
+ * Combo rule: +1 for every placement that clears. A placement that clears nothing is a miss;
+ * a live streak survives `grace` misses in a row and resets on the next one.
+ */
+export function nextCombo(
+  streak: number,
+  misses: number,
+  units: number,
+  grace: number = RULES.grace,
+): { streak: number; misses: number } {
+  if (units > 0) return { streak: streak + 1, misses: 0 };
+  if (streak > 0 && misses < grace) return { streak, misses: misses + 1 };
+  return { streak: 0, misses: 0 };
+}
 
 export function pieceFits(board: BoardState, piece: Piece | null): boolean {
   const shape = piece ? getShape(piece.shapeIndex) : undefined;
@@ -29,11 +51,20 @@ export const trayFits = (board: BoardState, tray: Tray): boolean[] => tray.map((
 export const isGameOver = (board: BoardState, tray: Tray): boolean =>
   tray.some((p) => p !== null) && !tray.some((p) => pieceFits(board, p));
 
-export function newGame(rngState: number): GameState {
+export function newGame(rngState: number, rules: RuleSet = RULES): GameState {
   const rng = createRng(rngState);
   const board = emptyBoard();
-  const tray = dealTray(board, rng);
-  return { board, tray, score: 0, streak: 0, rng: rng.state, over: false };
+  const deal = dealTray(board, rng, { score: 0, sinceSmall: 0 }, rules.generator);
+  return {
+    board,
+    tray: deal.pieces,
+    score: 0,
+    streak: 0,
+    misses: 0,
+    sinceSmall: deal.sinceSmall,
+    rng: rng.state,
+    over: false,
+  };
 }
 
 export interface MoveResult {
@@ -57,7 +88,13 @@ export interface MoveResult {
 }
 
 /** Place tray piece `slot` with its top-left at (r0, c0). Returns null if the move is illegal. */
-export function playMove(state: GameState, slot: number, r0: number, c0: number): MoveResult | null {
+export function playMove(
+  state: GameState,
+  slot: number,
+  r0: number,
+  c0: number,
+  rules: RuleSet = RULES,
+): MoveResult | null {
   if (state.over) return null;
   const piece = state.tray[slot];
   const shape = piece ? getShape(piece.shapeIndex) : undefined;
@@ -70,7 +107,8 @@ export function playMove(state: GameState, slot: number, r0: number, c0: number)
 
   const pPoints = placementPoints(cells.length);
   const clear = findBoardClears(board);
-  const streak = nextStreak(state.streak, clear.units);
+  const combo = nextCombo(state.streak, state.misses, clear.units, rules.grace);
+  const streak = combo.streak;
   let applied: ClearApplied | null = null;
   let cPoints = 0;
   let boardClear = false;
@@ -82,18 +120,31 @@ export function playMove(state: GameState, slot: number, r0: number, c0: number)
   }
   const bonus = boardClearBonus(boardClear);
   const points = pPoints + cPoints + bonus;
+  const score = state.score + points;
 
   let tray: Tray = state.tray.map((p, i) => (i === slot ? null : p));
   let dealt: Piece[] | null = null;
   const rng = createRng(state.rng);
+  let sinceSmall = state.sinceSmall;
   if (tray.every((p) => p === null)) {
-    dealt = dealTray(board, rng);
+    const deal = dealTray(board, rng, { score, sinceSmall }, rules.generator);
+    dealt = deal.pieces;
+    sinceSmall = deal.sinceSmall;
     tray = dealt;
   }
   const over = isGameOver(board, tray);
 
   return {
-    state: { board, tray, score: state.score + points, streak: over ? 0 : streak, rng: rng.state, over },
+    state: {
+      board,
+      tray,
+      score,
+      streak: over ? 0 : streak,
+      misses: over ? 0 : combo.misses,
+      sinceSmall,
+      rng: rng.state,
+      over,
+    },
     placed: placedRes.group,
     cells,
     placementPoints: pPoints,
@@ -110,11 +161,13 @@ export function playMove(state: GameState, slot: number, r0: number, c0: number)
 
 /** Make sure a loaded state has a usable tray and a correct `over` flag. */
 export function normalizeLoaded(state: GameState): GameState {
-  let { tray, rng } = state;
+  let { tray, rng, sinceSmall } = state;
   if (tray.length !== GENERATOR.traySize || tray.every((p) => p === null)) {
     const r = createRng(rng);
-    tray = dealTray(state.board, r);
+    const deal = dealTray(state.board, r, { score: state.score, sinceSmall });
+    tray = deal.pieces;
+    sinceSmall = deal.sinceSmall;
     rng = r.state;
   }
-  return { ...state, tray, rng, over: isGameOver(state.board, tray) };
+  return { ...state, tray, rng, sinceSmall, over: isGameOver(state.board, tray) };
 }

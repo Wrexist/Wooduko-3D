@@ -34,10 +34,10 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [ ] **[should]** Error tracking (Sentry) wired before TestFlight
 
 ## Phase 3 — Core gameplay & design
-- [ ] **[must]** Piece generator fairness: guarantee at least one placeable piece per tray, tune the weights, avoid long droughts of small pieces
-- [ ] **[must]** Decide combo rule (current: resets on any non-clearing move; Woodoku-style allows a short grace) and document it
-- [ ] **[must]** Playtest 10+ people unseen; record where they hesitate or misplace
-- [ ] **[should]** Difficulty curve: piece mix gets slightly harder as the score climbs
+- [x] **[must]** Piece generator fairness: guarantee at least one placeable piece per tray, tune the weights, avoid long droughts of small pieces
+- [x] **[must]** Decide combo rule (current: resets on any non-clearing move; Woodoku-style allows a short grace) and document it _(decided: grace 1, see `LEARNINGS.md`)_
+- [ ] **[must]** Playtest 10+ people unseen; record where they hesitate or misplace _(script: `PLAYTEST.md`; bot playtest done, see `LEARNINGS.md`)_
+- [x] **[should]** Difficulty curve: piece mix gets slightly harder as the score climbs
 - [ ] **[should]** "Almost there" hint: subtle highlight of a row/column that needs one more cell (optional setting)
 - [ ] **[nice]** Second mode (Daily puzzle) only after Classic is release quality
 

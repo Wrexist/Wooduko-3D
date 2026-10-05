@@ -327,6 +327,52 @@ for (const [name, viewport] of Object.entries({
   await page.close();
 }
 
+// ---------------------------------------------------------------- combo grace: pill dims after a forgiven miss
+{
+  const seed = { a: 1, s: 1, jx: 0, jy: 0, t: 0.9 };
+  const save = {
+    version: 2,
+    score: 300,
+    streak: 3,
+    misses: 0,
+    sinceSmall: 0,
+    rng: 5,
+    groups: [],
+    tray: [
+      { shapeIndex: 0, seed },
+      { shapeIndex: 0, seed },
+      { shapeIndex: 0, seed },
+    ],
+  };
+  const page = await open(
+    { width: 390, height: 844 },
+    { grain_tutorial_v1: '1', grain_save_v1: JSON.stringify(save) },
+  );
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await wait(page, 0.6);
+  const pill = () => page.evaluate(() => document.querySelector('.combo').className);
+  check(
+    'combo pill shows a live streak',
+    (await pill()).includes('show') && !(await pill()).includes('risk'),
+  );
+  await drag(page, await slotScreen(page, 0), await worldScreen(page, 0, 0));
+  await wait(page, 0.6);
+  const s1 = await page.evaluate(() => window.__grain.store.getState().game);
+  check(
+    'a miss is forgiven once: streak kept, pill at risk',
+    s1.streak === 3 && s1.misses === 1 && (await pill()).includes('risk'),
+  );
+  await page.screenshot({ path: `${out}/flow-combo-risk.png` });
+  await drag(page, await slotScreen(page, 1), await worldScreen(page, 2, 2));
+  await wait(page, 0.6);
+  const s2 = await page.evaluate(() => window.__grain.store.getState().game);
+  check(
+    'the second miss ends the streak and hides the pill',
+    s2.streak === 0 && !(await pill()).includes('show'),
+  );
+  await page.close();
+}
+
 // ---------------------------------------------------------------- reset race: drop lands after a restart
 {
   const page = await open({ width: 390, height: 844 }, { grain_tutorial_v1: '1' });

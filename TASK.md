@@ -1,9 +1,21 @@
 # TASK.md
 
 ## Active phase
-**Phase 2 — Hardening** — **complete, waiting for sign-off.** Next: Phase 3 — Gameplay tuning.
+**Phase 3 — Gameplay tuning** — **complete, waiting for sign-off.** Next: Phase 4 — Economy / progression / balance.
+Open for you: run `PLAYTEST.md` with 10+ people (bots can't tell us what confuses humans).
 
-## Phase 2 plan
+## Phase 3 plan
+1. [x] **Bot playtest simulator** (`npm run sim`): skilled + casual bots play hundreds of games on the pure core; report game length, scores, unplayable trays, small-piece droughts, combo frequency, piece mix by score. Baseline first.
+2. [x] **Fair generator:** guaranteed fit (fallback picks a fitting shape when re-rolls fail), drought guard (a small piece at least every N pieces), mild difficulty ramp (big pieces slightly more likely as score climbs). All numbers in `GENERATOR`.
+3. [x] **Combo rule:** compare strict (current) vs a grace of 1–2 misses with the sim; pick, put it in `config.ts`, document why. If grace wins: HUD pill shows "at risk" after a miss.
+4. [x] **Save v2:** generator drought counter + combo misses persist; v1 → v2 migration + tests.
+5. [x] **Playtest notes** in `LEARNINGS.md` (bot numbers before/after). Human playtest of 10+ people is yours to run — I'll write a short script for it.
+- Not in this phase: "almost there" hint, daily puzzle (later / IDEAS).
+
+Files: `src/core/generator.ts`, `src/core/rules.ts`, `src/core/types.ts`, `src/core/save.ts`, `src/config.ts`, `src/ui/combo.ts`, new `tests/sim/`, `vitest.sim.config.ts`
+Risks: bots are not people — use them for relative comparisons (before/after), not absolute difficulty.
+
+## Phase 2 (done)
 1. [x] **Reset races:** a drop, game-over card or tutorial step that finishes *after* a restart must not touch the new game (generation guard on delayed callbacks; commit checks the tray piece is still current)
 2. [x] **Rotate/resize mid-drag:** re-aim the dragged piece from the last pointer position on resize (not only on the next move)
 3. [x] **Backgrounding mid-animation:** finish all tweens on background so a pending drop commits and saves; resume audio from iOS "interrupted"

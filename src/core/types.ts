@@ -79,6 +79,10 @@ export interface GameState {
   readonly tray: Tray;
   readonly score: number;
   readonly streak: number;
+  /** Placements in a row that cleared nothing while a streak was alive (combo grace). */
+  readonly misses: number;
+  /** Pieces dealt since the last small piece (drought guard). */
+  readonly sinceSmall: number;
   /** Seeded RNG state (xorshift32). */
   readonly rng: number;
   readonly over: boolean;
@@ -88,6 +92,8 @@ export interface SaveData {
   readonly version: number;
   readonly score: number;
   readonly streak: number;
+  readonly misses: number;
+  readonly sinceSmall: number;
   readonly rng: number;
   readonly groups: readonly {
     readonly cells: readonly Cell[];
