@@ -6,6 +6,7 @@ import {
   components,
   emptyBoard,
   findBoardClears,
+  lastGaps,
   place,
   previewClears,
 } from '../src/core/board';
@@ -205,5 +206,17 @@ describe('applyClear', () => {
     const z = board.groups.find((g) => g.cells[0]?.[0] === 4);
     const res = applyClear(board, findBoardClears(board));
     expect(res.board.groups).toContain(z);
+  });
+});
+
+describe('lastGaps', () => {
+  it('finds the single missing cell of a row, column or box, once each', () => {
+    const b = boardFrom(['aaaaaaaa.', '', '', 'b', 'b', 'b', 'b', 'b', 'b']);
+    // row 0 misses (0,8); column 0 misses rows 1–2 → not a single gap
+    expect(lastGaps(b)).toEqual([[0, 8]]);
+  });
+
+  it('is empty on an empty board', () => {
+    expect(lastGaps(emptyBoard())).toEqual([]);
   });
 });

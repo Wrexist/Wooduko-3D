@@ -74,6 +74,7 @@ export interface Settings {
   readonly music: boolean;
   readonly haptics: boolean;
   readonly reduceMotion: boolean;
+  readonly hints: boolean;
 }
 
 /** Everything needed to resume a game. */

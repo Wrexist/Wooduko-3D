@@ -142,6 +142,7 @@ export function parseSettings(raw: string | null, legacyMute: string | null): Se
       music: pick('music'),
       haptics: pick('haptics'),
       reduceMotion: pick('reduceMotion'),
+      hints: pick('hints'),
     };
   } catch {
     return base;

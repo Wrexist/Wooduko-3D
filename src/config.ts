@@ -122,6 +122,8 @@ export const DEFAULT_SETTINGS = {
   music: true,
   haptics: true,
   reduceMotion: false,
+  /** Faint glow on the last empty cell of a nearly full row/column/square. */
+  hints: false,
   theme: 'maple',
 } as const;
 
@@ -494,6 +496,8 @@ export const COLORS = {
   noFit: 0.42,
   /** Per-channel tint ratios (warm the light maple; grey the no-fit pieces). */
   tintRatio: [1, 0.992, 0.975] as const,
+  /** Per-block warmth: green/blue channels shift by up to these amounts (warmer ↔ cooler wood). */
+  toneSpread: [0.022, 0.05] as const,
   noFitRatio: [1, 0.97, 0.93] as const,
   sparks: [
     [1, 0.86, 0.5],
@@ -555,6 +559,12 @@ export const PREVIEW = {
   cellFlashOpacity: 0.75,
   cellFlashDuration: 0.6,
   overlaySize: 0.94,
+  /** "Almost there" hints: honey glow on the floor of a unit's last empty cell. */
+  hintColor: 0xf0b94a,
+  hintOpacity: 0.5,
+  hintPulse: 0.35,
+  hintPulseSpeed: 2.2,
+  hintRate: 6,
   /** Below this opacity an object is hidden (and a ghost jumps instead of gliding). */
   hiddenOpacity: 0.01,
   ghostJumpOpacity: 0.04,

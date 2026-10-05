@@ -162,3 +162,16 @@ export function applyClear(board: BoardState, clear: ClearResult): ClearApplied 
 }
 
 export const isBoardEmpty = (board: BoardState): boolean => board.groups.length === 0;
+
+/** Empty cells that are the last gap of a row, column or 3×3 box ("almost there" hints). */
+export function lastGaps(board: BoardState): Cell[] {
+  const out = new Set<number>();
+  for (const kind of ['row', 'col', 'box'] as const) {
+    for (let i = 0; i < N; i++) {
+      const empty = unitCells(kind, i).filter(([r, c]) => cellAt(board, r, c) === 0);
+      const gap = empty[0];
+      if (empty.length === 1 && gap) out.add(gap[0] * N + gap[1]);
+    }
+  }
+  return [...out].sort((a, b) => a - b).map((k): Cell => [Math.floor(k / N), k % N]);
+}

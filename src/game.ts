@@ -15,6 +15,7 @@ import {
 } from './config';
 import type { AchievementId } from './core/progress';
 import type { ThemeId } from './config';
+import { lastGaps } from './core/board';
 import { getShape } from './core/shapes';
 import type { MoveResult } from './core/rules';
 import { tutorialSteps } from './core/tutorial';
@@ -694,6 +695,18 @@ export class Game {
     this.toast.show(word, sub, a.y, tier);
   }
 
+  private hintKey = '';
+
+  /** "Almost there" hints: recomputed only when the board or the conditions change. */
+  private updateHints(): void {
+    const s = this.store.getState();
+    const on = s.settings.hints && !s.tutorial && s.phase === 'playing' && !this.drag.dragging;
+    const key = on ? `${s.moveSeq}:${s.resetSeq}:${s.reviveSeq}` : 'off';
+    if (key === this.hintKey) return;
+    this.hintKey = key;
+    this.preview.setHints(on ? lastGaps(s.game.board) : []);
+  }
+
   private float(text: string, x: number, y: number, z: number, gold: boolean): void {
     const p = this.world.toScreen(x, y, z, this.width, this.height);
     floatText(this.floatLayer, text, p.x, p.y, gold);
@@ -945,6 +958,7 @@ export class Game {
     this.comboGlow.update(dt, this.time);
     this.drag.update(dt);
     this.chips.update(fxDt);
+    this.updateHints();
     this.preview.update(dt, this.time);
     this.hud.update(dt);
     this.banner.update(dt);

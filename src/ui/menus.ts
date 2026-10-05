@@ -98,6 +98,7 @@ const LABELS: Record<ToggleKey, Key> = {
   music: 'settings.music',
   haptics: 'settings.haptics',
   reduceMotion: 'settings.reduceMotion',
+  hints: 'settings.hints',
 };
 
 export class SettingsPanel extends Overlay {

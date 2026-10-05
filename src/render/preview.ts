@@ -20,6 +20,8 @@ export class Preview {
   private readonly glows: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
   private readonly overlays: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
   private readonly glowTarget = new Float32Array(N * N);
+  private readonly hints: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
+  private readonly hintTarget = new Float32Array(N * N);
   private readonly ghostColor = linearColor(COLORS.ghost);
   // Signal colours use true sRGB so the clear preview reads clearly over light maple.
   private readonly ghostGold = new THREE.Color(COLORS.ghostGold);
@@ -66,6 +68,23 @@ export class Preview {
         o.renderOrder = 2;
         scene.add(o);
         this.overlays.push(o);
+
+        const hm = new THREE.MeshBasicMaterial({
+          map: tex.overlay,
+          color: new THREE.Color(PREVIEW.hintColor),
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          // additive: reads as warm light on the dark floor instead of a muddy tint
+          blending: THREE.AdditiveBlending,
+          toneMapped: false,
+        });
+        const hint = new THREE.Mesh(this.overlayGeo, hm);
+        hint.position.set(WORLD.x0 + c + 0.5, WORLD.ghostY, WORLD.z0 + r + 0.5);
+        hint.visible = false;
+        hint.renderOrder = 2;
+        scene.add(hint);
+        this.hints.push(hint);
       }
     }
   }
@@ -157,7 +176,22 @@ export class Preview {
     }
   }
 
+  /** Cells to softly highlight as the last gap of a nearly full unit (empty array = none). */
+  setHints(cells: readonly Cell[]): void {
+    this.hintTarget.fill(0);
+    for (const [r, c] of cells) this.hintTarget[r * N + c] = 1;
+  }
+
   update(dt: number, time: number): void {
+    const ah = damp(PREVIEW.hintRate, dt);
+    const hp = 1 - PREVIEW.hintPulse + PREVIEW.hintPulse * Math.sin(time * PREVIEW.hintPulseSpeed);
+    for (let i = 0; i < this.hints.length; i++) {
+      const h = this.hints[i];
+      if (!h) continue;
+      const tgt = (this.hintTarget[i] ?? 0) * PREVIEW.hintOpacity * hp;
+      h.material.opacity += (tgt - h.material.opacity) * ah;
+      h.visible = h.material.opacity > PREVIEW.hiddenOpacity;
+    }
     const a = damp(PREVIEW.glowRate, dt);
     const pulse = PREVIEW.pulseBase + PREVIEW.pulseAmp * Math.sin(time * PREVIEW.pulseSpeed);
     for (let i = 0; i < this.glows.length; i++) {
@@ -190,7 +224,7 @@ export class Preview {
 
   dispose(): void {
     this.disposeGhost();
-    for (const m of [...this.glows, ...this.overlays]) {
+    for (const m of [...this.glows, ...this.overlays, ...this.hints]) {
       m.removeFromParent();
       m.material.dispose();
     }
