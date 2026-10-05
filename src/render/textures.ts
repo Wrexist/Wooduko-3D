@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BOARD, TABLE, WOOD } from '../config';
+import type { ThemeSpec } from '../config';
 import { createRng, nextFloat } from '../core/generator';
 
 const TAU = Math.PI * 2;
@@ -12,8 +13,8 @@ function seeded(seed: number): R {
   return () => nextFloat(rng);
 }
 
-function canvas(w: number, h: number): { cv: HTMLCanvasElement; g: Ctx } {
-  const cv = document.createElement('canvas');
+function canvas(w: number, h: number, reuse?: HTMLCanvasElement): { cv: HTMLCanvasElement; g: Ctx } {
+  const cv = reuse ?? document.createElement('canvas');
   cv.width = w;
   cv.height = h;
   const g = cv.getContext('2d');
@@ -101,10 +102,10 @@ function toTexture(cv: HTMLCanvasElement, anisotropy: number, wrap?: THREE.Wrapp
 }
 
 /** End grain: cream radial base, ~60 wobbly concentric rings, radial checks, fine noise. */
-function ringCanvas(): HTMLCanvasElement {
-  const o = WOOD.ring;
+function ringCanvas(theme: ThemeSpec, reuse?: HTMLCanvasElement): HTMLCanvasElement {
+  const o = { ...WOOD.ring, ...theme.ring };
   const N = o.size;
-  const { cv, g } = canvas(N, N);
+  const { cv, g } = canvas(N, N, reuse);
   const R = seeded(o.seed);
   const grd = g.createRadialGradient(N / 2, N / 2, 0, N / 2, N / 2, N * o.gradientRadius);
   grd.addColorStop(0, o.gradient[0]);
@@ -156,21 +157,21 @@ function ringCanvas(): HTMLCanvasElement {
   return cv;
 }
 
-function grainCanvas(size: number, o: GrainRecipe): HTMLCanvasElement {
-  const { cv, g } = canvas(size, size);
+function grainCanvas(size: number, o: GrainRecipe, reuse?: HTMLCanvasElement): HTMLCanvasElement {
+  const { cv, g } = canvas(size, size, reuse);
   drawGrain(g, size, size, o);
   return cv;
 }
 
 /** Dark wenge board floor with 3×3 box tints, carved cell edges and grid lines baked in. */
-function boardCanvas(): HTMLCanvasElement {
-  const o = WOOD.board;
+function boardCanvas(theme: ThemeSpec, reuse?: HTMLCanvasElement): HTMLCanvasElement {
+  const o = { ...WOOD.board, ...theme.board };
   const N = o.size;
   const n = BOARD.size;
   const b = BOARD.box;
   const ppu = N / TABLE.boardTexSpan;
   const m = ((TABLE.boardTexSpan - n) / 2) * ppu;
-  const cv = grainCanvas(N, o);
+  const cv = grainCanvas(N, o, reuse);
   const g = cv.getContext('2d');
   if (!g) throw new Error('2D canvas unavailable');
   g.fillStyle = o.margin;
@@ -241,16 +242,25 @@ export interface Textures {
   readonly bar: THREE.Texture;
   readonly halo: THREE.Texture;
   readonly boxGlow: THREE.Texture;
+  /** Redraw the wood textures for another theme, in place (same textures, same materials). */
+  setTheme(theme: ThemeSpec): void;
   dispose(): void;
 }
 
-export function createTextures(maxAnisotropy: number): Textures {
-  const ring = toTexture(ringCanvas(), maxAnisotropy, THREE.MirroredRepeatWrapping);
-  const side = toTexture(grainCanvas(WOOD.side.size, WOOD.side), maxAnisotropy, THREE.RepeatWrapping);
+const sideRecipe = (t: ThemeSpec): GrainRecipe => ({ ...WOOD.side, ...t.side });
+const tableRecipe = (t: ThemeSpec): GrainRecipe => ({ ...WOOD.table, ...t.table });
+
+export function createTextures(maxAnisotropy: number, theme: ThemeSpec): Textures {
+  const ring = toTexture(ringCanvas(theme), maxAnisotropy, THREE.MirroredRepeatWrapping);
+  const side = toTexture(grainCanvas(WOOD.side.size, sideRecipe(theme)), maxAnisotropy, THREE.RepeatWrapping);
   side.repeat.set(WOOD.side.repeat, WOOD.side.repeat);
-  const table = toTexture(grainCanvas(WOOD.table.size, WOOD.table), maxAnisotropy, THREE.RepeatWrapping);
+  const table = toTexture(
+    grainCanvas(WOOD.table.size, tableRecipe(theme)),
+    maxAnisotropy,
+    THREE.RepeatWrapping,
+  );
   table.repeat.set(WOOD.table.repeat, WOOD.table.repeat);
-  const board = toTexture(boardCanvas(), maxAnisotropy);
+  const board = toTexture(boardCanvas(theme), maxAnisotropy);
 
   const overlay = toTexture(
     gradCanvas(128, 128, (g) => {
@@ -316,6 +326,14 @@ export function createTextures(maxAnisotropy: number): Textures {
     bar,
     halo,
     boxGlow,
+    setTheme: (t) => {
+      const cv = (x: THREE.Texture): HTMLCanvasElement => x.image as HTMLCanvasElement;
+      ringCanvas(t, cv(ring));
+      grainCanvas(WOOD.side.size, sideRecipe(t), cv(side));
+      grainCanvas(WOOD.table.size, tableRecipe(t), cv(table));
+      boardCanvas(t, cv(board));
+      for (const x of [ring, side, table, board]) x.needsUpdate = true;
+    },
     dispose: () => all.forEach((t) => t.dispose()),
   };
 }

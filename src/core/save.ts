@@ -1,4 +1,4 @@
-import { BOARD, DEFAULT_SETTINGS, GENERATOR, SAVE } from '../config';
+import { BOARD, DEFAULT_SETTINGS, GENERATOR, SAVE, THEMES } from '../config';
 import { emptyBoard, inBounds, place } from './board';
 import { getShape } from './shapes';
 import type { BoardState, Cell, GameState, Piece, SaveData, Settings, UvCenter, WoodSeed } from './types';
@@ -130,8 +130,11 @@ export function parseSettings(raw: string | null, legacyMute: string | null): Se
   try {
     const v: unknown = JSON.parse(raw);
     if (!isObj(v)) return base;
-    const pick = (k: keyof Settings): boolean => (typeof v[k] === 'boolean' ? (v[k] as boolean) : base[k]);
+    const pick = (k: Exclude<keyof Settings, 'theme'>): boolean =>
+      typeof v[k] === 'boolean' ? (v[k] as boolean) : base[k];
+    const theme = THEMES.find((x) => x.id === v.theme)?.id ?? base.theme;
     return {
+      theme,
       sound: pick('sound'),
       music: pick('music'),
       haptics: pick('haptics'),

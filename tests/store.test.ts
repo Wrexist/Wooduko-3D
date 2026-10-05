@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, SAVE, TUTORIAL_KEY } from '../src/config';
+import { DEFAULT_SETTINGS, PROGRESS, SAVE, TUTORIAL_KEY } from '../src/config';
 import { tutorialSteps } from '../src/core/tutorial';
 import { newGame } from '../src/core/rules';
 import { serializeSave } from '../src/core/save';
@@ -152,5 +152,73 @@ describe('store loading edge cases', () => {
     const game = { ...newGame(5), score: 900 };
     const { store } = await setup({ [SAVE.gameKey]: serializeSave(game), [SAVE.bestKey]: '10' });
     expect(store.getState().best).toBe(900);
+  });
+});
+
+describe('store progression', () => {
+  it('awards achievements from real moves and persists stats', async () => {
+    const seed = { a: 0, s: 1, jx: 0, jy: 0, t: 0.9 };
+    const groups = [{ cells: Array.from({ length: 8 }, (_, c) => [0, c]), center: [4, 0.5], seed }];
+    const save = JSON.stringify({
+      version: 2,
+      score: 0,
+      streak: 0,
+      misses: 0,
+      sinceSmall: 0,
+      rng: 3,
+      groups,
+      tray: [
+        { shapeIndex: 0, seed },
+        { shapeIndex: 0, seed },
+        { shapeIndex: 0, seed },
+      ],
+    });
+    const { store, storage } = await setup({ [SAVE.gameKey]: save });
+    store.getState().continueGame();
+    store.getState().place(0, 0, 8);
+    await flush();
+    const s = store.getState();
+    expect(s.stats.linesCleared).toBe(1);
+    expect(s.unlocked['first-clear']).toBeDefined();
+    expect(s.recentUnlocks).toContain('first-clear');
+    expect(s.unlockSeq).toBe(1);
+    expect(JSON.parse(storage.data.get(PROGRESS.statsKey) ?? '{}').linesCleared).toBe(1);
+  });
+
+  it('a restarted game with a score counts as played', async () => {
+    const { store } = await setup();
+    store.getState().startNew();
+    firstLegal(store);
+    store.getState().startNew();
+    expect(store.getState().stats.gamesPlayed).toBe(1);
+  });
+
+  it('locked themes cannot be selected; unlocked ones can', async () => {
+    const { store } = await setup({ [PROGRESS.achievementsKey]: JSON.stringify({ 'score-1k': 1 }) });
+    store.getState().setSetting('theme', 'ebony');
+    expect(store.getState().settings.theme).toBe('maple');
+    store.getState().setSetting('theme', 'walnut');
+    expect(store.getState().settings.theme).toBe('walnut');
+  });
+
+  it('back-fills score achievements for players who already have a best', async () => {
+    const { store } = await setup({ [SAVE.bestKey]: '6000' });
+    expect(store.getState().unlocked['score-5k']).toBeDefined();
+    expect(store.getState().recentUnlocks).toEqual([]);
+  });
+
+  it('reset progress wipes stats, achievements and the theme', async () => {
+    const { store, storage } = await setup({
+      [PROGRESS.achievementsKey]: JSON.stringify({ 'score-1k': 1 }),
+      [PROGRESS.statsKey]: JSON.stringify({ gamesPlayed: 4 }),
+    });
+    store.getState().setSetting('theme', 'walnut');
+    store.getState().resetProgress();
+    await flush();
+    const s = store.getState();
+    expect(s.stats.gamesPlayed).toBe(0);
+    expect(s.unlocked).toEqual({});
+    expect(s.settings.theme).toBe('maple');
+    expect(storage.data.has(PROGRESS.statsKey)).toBe(false);
   });
 });

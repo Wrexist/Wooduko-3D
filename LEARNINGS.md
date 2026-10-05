@@ -22,6 +22,8 @@
 - Overlays: `display: flex` + `overflow-y: auto` + `margin: auto` on the card centres when it fits and scrolls from the top when it doesn't (`place-items: center` cuts off the top instead). Needs `touch-action: pan-y` because the body disables touch scrolling.
 - Never run a long soak against the dev server: editing a .ts file reloads the page. Use the test build.
 - Never stop the dev server with `taskkill /IM node.exe`: it kills every Node process on the machine. Stop the specific PID.
+- Wood themes redraw the existing canvas textures in place (`Textures.setTheme`) and flag `needsUpdate`: no new GPU objects, no material rewiring, nothing to dispose.
+- Dark woods need a light board (ebony): block/board contrast matters more than "realistic" pairings. Ridges need a per-theme tint or they stay orange on grey woods.
 
 ## Playtests
 

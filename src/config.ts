@@ -1,3 +1,5 @@
+import type { AchievementId } from './core/progress';
+
 // Every tunable number in the game lives here. Rendering and logic code import from this file only.
 // Render/feel values are added in step 3.
 
@@ -120,7 +122,141 @@ export const DEFAULT_SETTINGS = {
   music: true,
   haptics: true,
   reduceMotion: false,
+  theme: 'maple',
 } as const;
+
+export const PROGRESS = {
+  statsKey: 'grain_stats_v1',
+  achievementsKey: 'grain_achievements_v1',
+  /** Seconds an achievement banner stays up. */
+  bannerSeconds: 2.6,
+} as const;
+
+/** Colours that change per wood theme. Everything else in `WOOD` (sizes, counts) is shared. */
+export interface ThemeSpec {
+  readonly id: ThemeId;
+  readonly name: string;
+  /** Achievement that unlocks it (null = always available). */
+  readonly unlock: AchievementId | null;
+  /** Scene + page background. */
+  readonly background: string;
+  /** Ridge tint between cells (linear multiplier on the side grain, like `COLORS`). */
+  readonly ridge: number;
+  /** Blocks: end-grain cap gradient (centre → edge), ring band + line colours (rgba prefixes). */
+  readonly ring: {
+    readonly gradient: readonly [string, string, string];
+    readonly band: string;
+    readonly line: string;
+    readonly check: string;
+  };
+  readonly side: { readonly base: string; readonly dark: string; readonly light: string };
+  readonly table: { readonly base: string; readonly dark: string; readonly light: string };
+  readonly board: { readonly base: string; readonly dark: string; readonly light: string };
+}
+
+export type ThemeId = 'maple' | 'walnut' | 'cherry' | 'birch' | 'driftwood' | 'ebony';
+
+export const THEMES: readonly ThemeSpec[] = [
+  {
+    id: 'maple',
+    ridge: 0x3e1c0f,
+    name: 'Maple',
+    unlock: null,
+    background: '#3a2415',
+    ring: {
+      gradient: ['#f1d9a8', '#e9cc95', '#ddb980'],
+      band: 'rgba(200,150,90,',
+      line: 'rgba(150,92,42,',
+      check: 'rgba(140,90,45,',
+    },
+    side: { base: '#e4c38d', dark: 'rgba(150,100,52,', light: 'rgba(250,228,186,' },
+    table: { base: '#8e5330', dark: 'rgba(70,34,14,', light: 'rgba(196,128,76,' },
+    board: { base: '#4f2416', dark: 'rgba(22,8,3,', light: 'rgba(132,64,38,' },
+  },
+  {
+    id: 'walnut',
+    ridge: 0x2a1c12,
+    name: 'Walnut',
+    unlock: 'score-1k',
+    background: '#2b2a24',
+    ring: {
+      gradient: ['#9a6a45', '#8a5b39', '#774c2e'],
+      band: 'rgba(70,40,20,',
+      line: 'rgba(48,26,12,',
+      check: 'rgba(40,22,10,',
+    },
+    side: { base: '#86593a', dark: 'rgba(52,28,14,', light: 'rgba(170,120,82,' },
+    table: { base: '#b8946a', dark: 'rgba(110,80,48,', light: 'rgba(230,200,160,' },
+    board: { base: '#3a2a1e', dark: 'rgba(18,10,5,', light: 'rgba(110,80,56,' },
+  },
+  {
+    id: 'cherry',
+    ridge: 0x3a160c,
+    name: 'Cherry',
+    unlock: 'combo-5',
+    background: '#2e1a14',
+    ring: {
+      gradient: ['#e2a27a', '#d48e66', '#c27854'],
+      band: 'rgba(170,90,52,',
+      line: 'rgba(122,56,30,',
+      check: 'rgba(110,52,28,',
+    },
+    side: { base: '#d08a62', dark: 'rgba(130,64,36,', light: 'rgba(245,190,152,' },
+    table: { base: '#5e3a2a', dark: 'rgba(32,16,9,', light: 'rgba(140,90,64,' },
+    board: { base: '#3a1a12', dark: 'rgba(16,5,2,', light: 'rgba(120,50,34,' },
+  },
+  {
+    id: 'birch',
+    ridge: 0x3a2c1c,
+    name: 'Birch',
+    unlock: 'games-10',
+    background: '#3a2a18',
+    ring: {
+      gradient: ['#fbf1de', '#f3e4c8', '#e8d4b2'],
+      band: 'rgba(214,186,140,',
+      line: 'rgba(176,140,92,',
+      check: 'rgba(160,128,84,',
+    },
+    side: { base: '#efdcb8', dark: 'rgba(176,146,100,', light: 'rgba(255,246,226,' },
+    table: { base: '#b98d52', dark: 'rgba(110,74,34,', light: 'rgba(232,196,140,' },
+    board: { base: '#4a3222', dark: 'rgba(20,12,6,', light: 'rgba(130,92,62,' },
+  },
+  {
+    id: 'driftwood',
+    ridge: 0x22282a,
+    name: 'Driftwood',
+    unlock: 'board-clear',
+    background: '#1d2427',
+    ring: {
+      gradient: ['#d9dcd8', '#c6cac6', '#b1b6b2'],
+      band: 'rgba(150,140,124,',
+      line: 'rgba(108,100,88,',
+      check: 'rgba(96,90,80,',
+    },
+    side: { base: '#bfc3bf', dark: 'rgba(92,98,96,', light: 'rgba(232,236,232,' },
+    table: { base: '#4c5659', dark: 'rgba(24,30,32,', light: 'rgba(120,134,138,' },
+    board: { base: '#262c2e', dark: 'rgba(8,10,11,', light: 'rgba(80,92,96,' },
+  },
+  {
+    id: 'ebony',
+    ridge: 0x4a3220,
+    name: 'Ebony',
+    unlock: 'score-10k',
+    background: '#1c1a19',
+    ring: {
+      gradient: ['#6b5a4e', '#594a40', '#47392f'],
+      band: 'rgba(34,24,18,',
+      line: 'rgba(18,12,8,',
+      check: 'rgba(16,11,8,',
+    },
+    side: { base: '#55463b', dark: 'rgba(22,15,10,', light: 'rgba(120,100,86,' },
+    table: { base: '#c9a77c', dark: 'rgba(120,88,52,', light: 'rgba(240,214,176,' },
+    board: { base: '#a87d50', dark: 'rgba(96,64,36,', light: 'rgba(214,172,124,' },
+  },
+];
+
+export const themeById = (id: string): ThemeSpec =>
+  THEMES.find((t) => t.id === id) ?? (THEMES[0] as ThemeSpec);
 
 export const TUTORIAL_KEY = 'grain_tutorial_v1';
 
@@ -285,12 +421,11 @@ export const LIGHTS = {
   fillPosition: [7, 8, 11] as const,
 } as const;
 
-/** Procedural wood recipes. Colours are CSS strings; `dark`/`light` are rgba prefixes. */
+/** Procedural wood recipes: sizes, counts and baked board details. Wood colours come from `THEMES`. */
 export const WOOD = {
   ring: {
     size: 1024,
     seed: 11,
-    gradient: ['#f1d9a8', '#e9cc95', '#ddb980'] as const,
     gradientRadius: 0.72,
     maxRadius: 0.76,
     ringStepMin: 7,
@@ -299,18 +434,12 @@ export const WOOD = {
     bandWidthMax: 14,
     lineWidthMin: 0.9,
     lineWidthMax: 2.9,
-    band: 'rgba(200,150,90,',
-    line: 'rgba(150,92,42,',
     checks: 26,
-    check: 'rgba(140,90,45,',
     noise: 13,
   },
   side: {
     size: 512,
     seed: 21,
-    base: '#e4c38d',
-    dark: 'rgba(150,100,52,',
-    light: 'rgba(250,228,186,',
     lines: 140,
     bands: 8,
     noise: 10,
@@ -319,9 +448,6 @@ export const WOOD = {
   table: {
     size: 1024,
     seed: 33,
-    base: '#8e5330',
-    dark: 'rgba(70,34,14,',
-    light: 'rgba(196,128,76,',
     lines: 170,
     bands: 18,
     noise: 7,
@@ -330,9 +456,6 @@ export const WOOD = {
   board: {
     size: 1024,
     seed: 5,
-    base: '#4f2416',
-    dark: 'rgba(22,8,3,',
-    light: 'rgba(132,64,38,',
     lines: 260,
     bands: 18,
     noise: 10,
@@ -514,6 +637,8 @@ export const FX = {
   overCardDelay: 0.9,
   floatLift: 0.3,
   floatLiftClear: 0.4,
+  /** Space (px) between the HUD and the achievement banner. */
+  bannerGap: 8,
   /** World point the toast is anchored to. */
   toastAnchor: [0, 0.5, -0.6] as const,
 } as const;

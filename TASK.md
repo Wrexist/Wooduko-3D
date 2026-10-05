@@ -1,8 +1,18 @@
 # TASK.md
 
 ## Active phase
-**Phase 3 — Gameplay tuning** — **complete, waiting for sign-off.** Next: Phase 4 — Economy / progression / balance.
-Open for you: run `PLAYTEST.md` with 10+ people (bots can't tell us what confuses humans).
+**Phase 4 — Economy / progression / balance** — complete. Rules reference: `DESIGN.md`.
+
+## Phase 4 plan
+1. [x] **Scoring table final:** document the table, confirm with the bot sim that scores stay meaningful into the thousands (no change unless the numbers say so)
+2. [x] **Stats** (pure `core/progress.ts`, persisted): games played, best, average, lines cleared, best combo, board clears, biggest clear, pieces placed. Tutorial never counts.
+3. [x] **Achievements** (local now, Game Center ids in phase 5): first clear, combo ×3, combo ×5, triple clear, 4+ clear, board clear, 1k / 5k / 10k points, 10 games, 500 lines. Unlock banner + chime that never blocks play.
+4. [x] **Wood themes** (cosmetic, unlocked by achievements): maple (default), walnut, cherry, birch, driftwood, ebony. Textures are redrawn in place, so no GPU churn. Picker with locked hints.
+5. [x] **Awards screen** (home + pause): stats grid, wood themes, achievement list
+- Not now: daily streak reward [nice]; Game Center (phase 5, native).
+
+Files: new `src/core/progress.ts`, `src/ui/awards.ts`, `src/render/themes.ts`; `config.ts`, `state/store.ts`, `render/textures.ts`, `game.ts`, `ui/menus.ts`, tests.
+Risks: theme palettes need screenshot review (dark woods vs. the dark board); retexturing must not leak (soak).
 
 ## Phase 3 plan
 1. [x] **Bot playtest simulator** (`npm run sim`): skilled + casual bots play hundreds of games on the pure core; report game length, scores, unplayable trays, small-piece droughts, combo frequency, piece mix by score. Baseline first.

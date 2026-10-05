@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Sound } from './audio/sound';
-import { COLORS, FX, HAPTICS, RENDER, TRAY, WORDS, WORLD } from './config';
+import { COLORS, FX, HAPTICS, PROGRESS, RENDER, themeById, TRAY, WORDS, WORLD } from './config';
+import type { ThemeId } from './config';
 import { getShape } from './core/shapes';
 import type { MoveResult } from './core/rules';
 import { tutorialSteps } from './core/tutorial';
@@ -22,11 +23,13 @@ import type { Textures } from './render/textures';
 import { World } from './render/world';
 import type { TrayPiece } from './render/world';
 import type { GameStore, StoreState } from './state/store';
+import { AchievementBanner, AwardsPanel } from './ui/awards';
 import { ConfirmDialog, ResultsCard } from './ui/dialogs';
 import { el, replay } from './ui/dom';
 import { floatText } from './ui/floatText';
 import { Hud } from './ui/hud';
 import { HomeMenu, PauseMenu, SettingsPanel } from './ui/menus';
+import type { ToggleKey } from './ui/menus';
 import { Toast } from './ui/toast';
 import { TutorialOverlay } from './ui/tutorial';
 
@@ -64,6 +67,10 @@ export class Game {
   private readonly confirm = new ConfirmDialog();
   private readonly results: ResultsCard;
   private readonly tutorialUi: TutorialOverlay;
+  private readonly awards: AwardsPanel;
+  private readonly banner = new AchievementBanner(PROGRESS.bannerSeconds);
+  /** Wood theme currently drawn into the textures. */
+  private theme: ThemeId;
 
   private readonly mql = window.matchMedia('(prefers-reduced-motion: reduce)');
   private steps: TutorialStep[] = [];
@@ -90,7 +97,8 @@ export class Game {
     this.haptics = d.haptics;
     this.canvas = d.canvas;
     this.renderer = createRenderer(d.canvas);
-    this.tex = createTextures(this.renderer.gl.capabilities.getMaxAnisotropy());
+    this.theme = d.store.getState().settings.theme;
+    this.tex = createTextures(this.renderer.gl.capabilities.getMaxAnisotropy(), themeById(this.theme));
     this.world = new World(this.tex);
     const { scene, camera } = this.world;
     this.preview = new Preview(scene, this.tex);
@@ -118,12 +126,21 @@ export class Game {
       onPlay: () => void this.onPlay(),
       onContinue: () => this.store.getState().continueGame(),
       onSettings: () => this.settingsPanel.show(),
+      onAwards: () => this.showAwards(),
     });
     this.pauseMenu = new PauseMenu({
       onResume: () => this.store.getState().resume(),
       onRestart: () => void this.onRestart(),
       onSettings: () => this.settingsPanel.show(),
       onHome: () => this.onHome(),
+      onAwards: () => this.showAwards(),
+    });
+    this.awards = new AwardsPanel({
+      onTheme: (id) => {
+        this.store.getState().setSetting('theme', id);
+        this.sound.tick();
+      },
+      onClose: () => this.awards.hide(),
     });
     this.settingsPanel = new SettingsPanel({
       onToggle: (k) => this.toggleSetting(k),
@@ -147,10 +164,12 @@ export class Game {
       this.floatLayer,
       this.flashEl,
       this.toast.node,
+      this.banner.node,
       this.home.node,
       this.pauseMenu.node,
       this.results.node,
       this.settingsPanel.node,
+      this.awards.node,
       this.confirm.node,
       this.safeProbe,
     );
@@ -216,6 +235,17 @@ export class Game {
     if (s.resetSeq !== prev.resetSeq) this.syncFromStore(s.phase === 'playing');
     if (s.phase !== prev.phase) this.onPhase(s);
     if (s.settings !== prev.settings) this.applySettings(s.settings);
+    if (s.unlockSeq !== prev.unlockSeq && s.recentUnlocks.length) {
+      // just under the HUD so the score stays visible
+      this.banner.node.style.top = `${this.hud.bottom + FX.bannerGap}px`;
+      this.banner.push(s.recentUnlocks);
+      this.sound.achievement();
+    }
+    if (
+      this.awards.open &&
+      (s.stats !== prev.stats || s.unlocked !== prev.unlocked || s.settings !== prev.settings)
+    )
+      this.refreshAwards();
     if (s.best !== prev.best) this.hud.setBest(s.best);
     if (s.hasSave !== prev.hasSave || s.best !== prev.best) this.home.update(s.best, s.hasSave);
   }
@@ -264,11 +294,40 @@ export class Game {
     this.hud.setSound(st.sound || st.music);
     this.settingsPanel.update(st);
     document.documentElement.classList.toggle('reduced', this.reduced);
+    this.applyTheme(st.theme);
+  }
+
+  /** Redraw the wood for a theme (same textures, so nothing to rebuild) and match the page colour. */
+  private applyTheme(id: ThemeId): void {
+    const t = themeById(id);
+    if (id !== this.theme) {
+      this.tex.setTheme(t);
+      this.theme = id;
+    }
+    this.world.setThemeColors(t.background, t.ridge);
+    document.documentElement.style.setProperty('--bg', t.background);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.background);
+  }
+
+  private showAwards(): void {
+    this.refreshAwards();
+    this.awards.show();
+  }
+
+  private refreshAwards(): void {
+    const s = this.store.getState();
+    this.awards.update(s.stats, s.best, s.unlocked, s.settings.theme);
   }
 
   private canInteract(): boolean {
     const s = this.store.getState();
-    return s.phase === 'playing' && !this.ending && !this.confirm.open && !this.settingsPanel.open;
+    return (
+      s.phase === 'playing' &&
+      !this.ending &&
+      !this.confirm.open &&
+      !this.settingsPanel.open &&
+      !this.awards.open
+    );
   }
 
   // =====================================================================================
@@ -525,7 +584,7 @@ export class Game {
   private async onResetProgress(): Promise<void> {
     const ok = await this.confirm.ask({
       title: 'Reset progress?',
-      body: 'This deletes your best score and saved game. Settings are kept.',
+      body: 'This deletes your best score, saved game, stats and awards. Settings are kept.',
       confirm: 'Reset',
       danger: true,
     });
@@ -542,7 +601,7 @@ export class Game {
     this.sound.tick();
   }
 
-  private toggleSetting(key: keyof Settings): void {
+  private toggleSetting(key: ToggleKey): void {
     const s = this.store.getState();
     s.setSetting(key, !s.settings[key]);
     this.sound.tick();
@@ -553,6 +612,7 @@ export class Game {
     const s = this.store.getState();
     if (this.confirm.open) this.confirm.cancel();
     else if (this.settingsPanel.open) this.settingsPanel.hide();
+    else if (this.awards.open) this.awards.hide();
     else if (s.phase === 'playing') s.pause();
     else if (s.phase === 'paused') s.resume();
   }
@@ -594,6 +654,7 @@ export class Game {
     this.chips.update(dt);
     this.preview.update(dt, this.time);
     this.hud.update(dt);
+    this.banner.update(dt);
     this.updateTutorialHand(dt);
 
     const shake = this.fx.updateShake(dt);

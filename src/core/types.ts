@@ -1,3 +1,5 @@
+import type { ThemeId } from '../config';
+
 // Core data types. Pure data: everything here is JSON-serializable.
 
 /** A board coordinate `[row, col]`. Row 0 is the top of the screen (far side of the board). */
@@ -67,6 +69,7 @@ export interface ClearResult {
 }
 
 export interface Settings {
+  readonly theme: ThemeId;
   readonly sound: boolean;
   readonly music: boolean;
   readonly haptics: boolean;

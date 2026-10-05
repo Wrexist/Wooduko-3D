@@ -10,6 +10,7 @@ import type { BlockMesh } from './blocks';
 import { createCamera, fitCamera, layoutFor } from './camera';
 import { addLights } from './lights';
 import { buildTable } from './table';
+import type { Table } from './table';
 import type { Textures } from './textures';
 
 export interface TrayPiece {
@@ -37,16 +38,22 @@ export class World {
   layout: LayoutSpec;
   readonly groups = new Map<number, BlockMesh>();
   readonly tray: (TrayPiece | null)[] = [null, null, null];
-  private readonly disposeTable: () => void;
+  private readonly table: Table;
   private readonly disposeLights: () => void;
   private readonly tmp = new THREE.Vector3();
 
   constructor(tex: Textures) {
     this.scene.background = new THREE.Color(RENDER.background);
     this.blocks = new Blocks(tex);
-    this.disposeTable = buildTable(this.scene, tex);
+    this.table = buildTable(this.scene, tex);
     this.disposeLights = addLights(this.scene);
     this.layout = layoutFor(1);
+  }
+
+  /** Theme colours that are not in textures: scene background and ridge tint. */
+  setThemeColors(background: string, ridge: number): void {
+    (this.scene.background as THREE.Color).set(background);
+    this.table.setRidge(ridge);
   }
 
   /** Recompute layout + camera for a new viewport. Idle tray pieces snap to their slots. */
@@ -188,7 +195,7 @@ export class World {
     for (const id of [...this.groups.keys()]) this.removeGroup(id);
     for (let i = 0; i < this.tray.length; i++) this.removeTrayPiece(i);
     this.blocks.dispose();
-    this.disposeTable();
+    this.table.dispose();
     this.disposeLights();
   }
 }

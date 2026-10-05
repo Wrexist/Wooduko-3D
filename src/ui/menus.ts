@@ -8,12 +8,14 @@ export class HomeMenu extends Overlay {
   private readonly cont = el('button', { class: 'cta' }, ['Continue']);
   private readonly play = el('button', { class: 'cta' }, ['Play']);
 
-  constructor(h: { onPlay(): void; onContinue(): void; onSettings(): void }) {
+  constructor(h: { onPlay(): void; onContinue(): void; onSettings(): void; onAwards(): void }) {
     super('home', 'homeTitle');
     const best = el('div', { class: 'best' });
     best.innerHTML = ICONS.crown;
     best.append(this.bestVal);
     const settings = el('button', { class: 'ghost-btn' }, ['Settings']);
+    const awards = el('button', { class: 'ghost-btn' }, ['Awards']);
+    awards.addEventListener('click', h.onAwards);
     this.cont.addEventListener('click', h.onContinue);
     this.play.addEventListener('click', h.onPlay);
     settings.addEventListener('click', h.onSettings);
@@ -21,7 +23,7 @@ export class HomeMenu extends Overlay {
       el('div', { class: 'title', id: 'homeTitle' }, ['Grain']),
       el('div', { class: 'subtitle' }, ['Wood block puzzle']),
       best,
-      el('div', { class: 'stack' }, [this.cont, this.play, settings]),
+      el('div', { class: 'stack' }, [this.cont, this.play, el('div', { class: 'pair' }, [awards, settings])]),
     );
   }
 
@@ -34,24 +36,40 @@ export class HomeMenu extends Overlay {
 }
 
 export class PauseMenu extends Overlay {
-  constructor(h: { onResume(): void; onRestart(): void; onSettings(): void; onHome(): void }) {
+  constructor(h: {
+    onResume(): void;
+    onRestart(): void;
+    onSettings(): void;
+    onHome(): void;
+    onAwards(): void;
+  }) {
     super('pause', 'pauseTitle');
     const resume = el('button', { class: 'cta' }, ['Resume']);
     const restart = el('button', { class: 'ghost-btn' }, ['Restart']);
     const settings = el('button', { class: 'ghost-btn' }, ['Settings']);
     const home = el('button', { class: 'ghost-btn' }, ['Home']);
+    const awards = el('button', { class: 'ghost-btn' }, ['Awards']);
+    awards.addEventListener('click', h.onAwards);
     resume.addEventListener('click', h.onResume);
     restart.addEventListener('click', h.onRestart);
     settings.addEventListener('click', h.onSettings);
     home.addEventListener('click', h.onHome);
     this.card.append(
       el('h2', { id: 'pauseTitle' }, ['Paused']),
-      el('div', { class: 'stack' }, [resume, restart, settings, home]),
+      el('div', { class: 'stack' }, [
+        resume,
+        restart,
+        el('div', { class: 'pair' }, [awards, settings]),
+        home,
+      ]),
     );
   }
 }
 
-const LABELS: Record<keyof Settings, string> = {
+/** On/off settings (the wood theme is picked on the Awards screen). */
+export type ToggleKey = Exclude<keyof Settings, 'theme'>;
+
+const LABELS: Record<ToggleKey, string> = {
   sound: 'Sound effects',
   music: 'Music',
   haptics: 'Haptics',
@@ -59,12 +77,12 @@ const LABELS: Record<keyof Settings, string> = {
 };
 
 export class SettingsPanel extends Overlay {
-  private readonly toggles = new Map<keyof Settings, HTMLButtonElement>();
+  private readonly toggles = new Map<ToggleKey, HTMLButtonElement>();
 
-  constructor(h: { onToggle(key: keyof Settings): void; onReset(): void; onClose(): void }) {
+  constructor(h: { onToggle(key: ToggleKey): void; onReset(): void; onClose(): void }) {
     super('settings dialog-layer', 'settingsTitle');
     const list = el('div', { class: 'settings-list' });
-    for (const key of Object.keys(LABELS) as (keyof Settings)[]) {
+    for (const key of Object.keys(LABELS) as ToggleKey[]) {
       const id = `set-${key}`;
       const t = el('button', {
         class: 'toggle',

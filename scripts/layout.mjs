@@ -145,13 +145,18 @@ for (const [name, [width, height]] of Object.entries(VIEWPORTS)) {
         }),
     ],
     ['results', () => window.__grain.game.results.present(98765, 123456, true, window.__grain.game.tweens)],
+    ['awards', () => window.__grain.game.showAwards()],
   ]) {
     await page.evaluate(open);
     await page.waitForTimeout(500);
     const fits = await page.evaluate((l) => {
-      const sel = { pause: '.pause', settings: '.settings', confirm: '.confirm-layer', results: '.results' }[
-        l
-      ];
+      const sel = {
+        pause: '.pause',
+        settings: '.settings',
+        confirm: '.confirm-layer',
+        results: '.results',
+        awards: '.awards',
+      }[l];
       const ov = document.querySelector(sel);
       const r = ov.querySelector('.card').getBoundingClientRect();
       // either it fits, or the overlay scrolls so every part can be reached
@@ -169,6 +174,7 @@ for (const [name, [width, height]] of Object.entries(VIEWPORTS)) {
       g.confirm.cancel();
       g.settingsPanel.hide();
       g.results.hide();
+      g.awards.hide();
       window.__grain.store.getState().resume();
     });
   }

@@ -17,7 +17,7 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [x] **[must]** Settings: sound, music, haptics, reduce motion, reset progress (with confirm)
 - [x] **[must]** First-time tutorial: 2–3 guided placements with a pointing hand, skippable
 - [x] **[must]** Game-over screen v2: score, best, "new best" celebration, play again, (later) revive _(revive comes with ads)_
-- [ ] **[should]** Stats screen: games played, best, average, lines cleared, best combo
+- [x] **[should]** Stats screen: games played, best, average, lines cleared, best combo
 - [ ] **[should]** Music: 2–3 calm loops, separate volume from sound effects _(one quiet generative WebAudio loop with its own toggle for now)_
 - [x] **[should]** Self-host fonts (Fraunces, DM Sans) so the app works fully offline
 - [ ] **[nice]** Undo last move (limited uses — could be a rewarded-ad reward)
@@ -42,9 +42,9 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [ ] **[nice]** Second mode (Daily puzzle) only after Classic is release quality
 
 ## Phase 4 — Economy / progression / balance
-- [ ] **[must]** Final scoring table (placement, per-line, multi-clear, combo multiplier, board-clear bonus) and check scores stay meaningful into the thousands
-- [ ] **[should]** Progression hooks: achievements (first combo ×3, 4-line clear, board clear, 1 000/5 000/10 000 points)
-- [ ] **[should]** Unlockable wood themes tied to milestones (cosmetic only)
+- [x] **[must]** Final scoring table (placement, per-line, multi-clear, combo multiplier, board-clear bonus) and check scores stay meaningful into the thousands
+- [x] **[should]** Progression hooks: achievements (first combo ×3, 4-line clear, board clear, 1 000/5 000/10 000 points)
+- [x] **[should]** Unlockable wood themes tied to milestones (cosmetic only)
 - [ ] **[nice]** Daily streak reward
 
 ## Phase 5 — Retention & live ops

@@ -1,5 +1,15 @@
 import { createStore } from 'zustand/vanilla';
-import { SAVE, TUTORIAL_KEY } from '../config';
+import { PROGRESS, SAVE, themeById, TUTORIAL_KEY } from '../config';
+import {
+  emptyStats,
+  newlyEarned,
+  parseStats,
+  parseUnlocked,
+  statsAfterGame,
+  statsAfterMove,
+  themeUnlocked,
+} from '../core/progress';
+import type { AchievementId, Stats, Unlocked } from '../core/progress';
 import { newGame, normalizeLoaded, playMove, trayFits } from '../core/rules';
 import type { MoveResult } from '../core/rules';
 import { parseBest, parseSave, parseSettings, serializeSave } from '../core/save';
@@ -27,6 +37,11 @@ export interface StoreState {
   readonly moveSeq: number;
   /** Increments whenever the whole board/tray is replaced (new game, continue, tutorial step). */
   readonly resetSeq: number;
+  readonly stats: Stats;
+  readonly unlocked: Unlocked;
+  /** Achievements earned by the latest event; `unlockSeq` increments each time some are earned. */
+  readonly recentUnlocks: readonly AchievementId[];
+  readonly unlockSeq: number;
 }
 
 export interface StoreActions {
@@ -46,7 +61,7 @@ export interface StoreActions {
   resume(): void;
   goHome(): void;
   setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void;
-  /** Wipe best score and the saved game. Settings are kept. */
+  /** Wipe best score, saved game, stats and achievements. Settings are kept (theme back to default). */
   resetProgress(): void;
 }
 
@@ -63,17 +78,21 @@ export interface Persisted {
   settings: Settings;
   saved: GameState | null;
   tutorialDone: boolean;
+  stats: Stats;
+  unlocked: Unlocked;
 }
 
 /** Read best, settings and any saved game from storage. */
 export async function loadPersisted(deps: StoreDeps): Promise<Persisted> {
   const { storage } = deps;
-  const [bestRaw, settingsRaw, legacyMute, saveRaw, tutorialRaw] = await Promise.all([
+  const [bestRaw, settingsRaw, legacyMute, saveRaw, tutorialRaw, statsRaw, unlockedRaw] = await Promise.all([
     storage.get(SAVE.bestKey),
     storage.get(SAVE.settingsKey),
     storage.get(SAVE.legacyMuteKey),
     storage.get(SAVE.gameKey),
     storage.get(TUTORIAL_KEY),
+    storage.get(PROGRESS.statsKey),
+    storage.get(PROGRESS.achievementsKey),
   ]);
   const parsed = parseSave(saveRaw, deps.randomSeed());
   const saved = parsed ? normalizeLoaded(parsed) : null;
@@ -86,6 +105,8 @@ export async function loadPersisted(deps: StoreDeps): Promise<Persisted> {
     saved: usable,
     // anyone who already played the prototype has seen the game
     tutorialDone: tutorialRaw === '1' || best > 0 || usable !== null,
+    stats: parseStats(statsRaw),
+    unlocked: parseUnlocked(unlockedRaw),
   };
 }
 
@@ -98,6 +119,15 @@ export function createGameStore(deps: StoreDeps, initial: Persisted) {
   let realGame: GameState | null = initial.saved;
 
   const firstGame = initial.saved ?? newGame(deps.randomSeed());
+  // older players: seed the stats' best and back-fill achievements it already earns (silently)
+  const initStats: Stats = { ...initial.stats, bestScore: Math.max(initial.stats.bestScore, initial.best) };
+  const initUnlocked: Unlocked = { ...initial.unlocked };
+  for (const id of newlyEarned(initial.unlocked, initStats, 0))
+    (initUnlocked as Record<string, number>)[id] = Date.now();
+  // a theme that is somehow locked (e.g. after a reset) falls back to the default
+  const initSettings = themeUnlocked(themeById(initial.settings.theme), initUnlocked)
+    ? initial.settings
+    : { ...initial.settings, theme: 'maple' as const };
 
   return createStore<StoreState & StoreActions>()((set, get) => {
     const show = (game: GameState, tutorial: boolean): void => {
@@ -110,6 +140,27 @@ export function createGameStore(deps: StoreDeps, initial: Persisted) {
         lastMove: null,
         resetSeq: s.resetSeq + 1,
       }));
+    };
+    const saveProgress = (stats: Stats, unlocked: Unlocked): void => {
+      persist(async () => {
+        await storage.set(PROGRESS.statsKey, JSON.stringify(stats));
+        await storage.set(PROGRESS.achievementsKey, JSON.stringify(unlocked));
+      });
+    };
+    /** Update stats and award anything newly earned. */
+    const progress = (stats: Stats, gameScore: number): void => {
+      const s = get();
+      const fresh = newlyEarned(s.unlocked, stats, gameScore);
+      const unlocked: Unlocked = fresh.length
+        ? { ...s.unlocked, ...Object.fromEntries(fresh.map((id) => [id, Date.now()])) }
+        : s.unlocked;
+      set(fresh.length ? { stats, unlocked, recentUnlocks: fresh, unlockSeq: s.unlockSeq + 1 } : { stats });
+      saveProgress(stats, unlocked);
+    };
+    /** Leaving a real game that has a score (restart / new game) still counts as a game played. */
+    const abandonCurrent = (): void => {
+      if (realGame && !realGame.over && realGame.score > 0)
+        progress(statsAfterGame(get().stats, realGame.score), realGame.score);
     };
     const enterGame = (game: GameState): void => {
       realGame = game;
@@ -124,19 +175,29 @@ export function createGameStore(deps: StoreDeps, initial: Persisted) {
       fits: trayFits(firstGame.board, firstGame.tray),
       best: initial.best,
       newBest: false,
-      settings: initial.settings,
+      settings: initSettings,
       hasSave: initial.saved !== null,
       tutorial: false,
       tutorialDone: initial.tutorialDone,
       lastMove: null,
       moveSeq: 0,
       resetSeq: 0,
+      stats: initStats,
+      unlocked: initUnlocked,
+      recentUnlocks: [],
+      unlockSeq: 0,
 
-      startNew: () => enterGame(newGame(deps.randomSeed())),
+      startNew: () => {
+        abandonCurrent();
+        enterGame(newGame(deps.randomSeed()));
+      },
 
       continueGame: () => {
         if (get().hasSave && realGame && !realGame.over) enterGame(realGame);
-        else enterGame(newGame(deps.randomSeed()));
+        else {
+          abandonCurrent();
+          enterGame(newGame(deps.randomSeed()));
+        }
       },
 
       loadTutorial: (game) => show(game, true),
@@ -190,6 +251,9 @@ export function createGameStore(deps: StoreDeps, initial: Persisted) {
         persist(() =>
           game.over ? storage.remove(SAVE.gameKey) : storage.set(SAVE.gameKey, serializeSave(game)),
         );
+        let stats = statsAfterMove(s.stats, move);
+        if (game.over) stats = statsAfterGame(stats, game.score);
+        progress(stats, game.score);
         return move;
       },
 
@@ -202,6 +266,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted) {
       goHome: () => set({ phase: 'home' }),
 
       setSetting: (key, value) => {
+        if (key === 'theme' && !themeUnlocked(themeById(String(value)), get().unlocked)) return;
         const settings = { ...get().settings, [key]: value };
         set({ settings });
         persist(() => storage.set(SAVE.settingsKey, JSON.stringify(settings)));
@@ -209,10 +274,22 @@ export function createGameStore(deps: StoreDeps, initial: Persisted) {
 
       resetProgress: () => {
         realGame = null;
-        set({ best: 0, newBest: false, hasSave: false, phase: 'home' });
+        const settings = { ...get().settings, theme: 'maple' as const };
+        set({
+          best: 0,
+          newBest: false,
+          hasSave: false,
+          phase: 'home',
+          stats: emptyStats(),
+          unlocked: {},
+          settings,
+        });
         persist(async () => {
           await storage.remove(SAVE.bestKey);
           await storage.remove(SAVE.gameKey);
+          await storage.remove(PROGRESS.statsKey);
+          await storage.remove(PROGRESS.achievementsKey);
+          await storage.set(SAVE.settingsKey, JSON.stringify(settings));
         });
       },
     };

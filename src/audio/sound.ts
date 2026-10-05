@@ -220,6 +220,13 @@ export class Sound {
     [392, 330, 262, 196].forEach((f, i) => this.marimba(f, t + i * 0.16, 0.2));
   }
 
+  /** Achievement unlocked: two bright notes. */
+  achievement(): void {
+    const t = this.now;
+    if (t === null) return;
+    [784, 1175].forEach((f, i) => this.marimba(f, t + i * 0.09, 0.14));
+  }
+
   /** Soft UI tick for buttons. */
   tick(): void {
     const t = this.now;

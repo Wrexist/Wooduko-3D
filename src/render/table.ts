@@ -19,7 +19,13 @@ function roundedRect(p: THREE.Path, x: number, y: number, w: number, h: number, 
  * Table slab (top at y = 0) with a rounded carved hole, the board floor deep inside it, a dark
  * plane under the margin, and raised ridges between cells. Returns a dispose function.
  */
-export function buildTable(scene: THREE.Scene, tex: Textures): () => void {
+export interface Table {
+  /** Ridge tint (linear hex) for the current wood theme. */
+  setRidge(hex: number): void;
+  dispose(): void;
+}
+
+export function buildTable(scene: THREE.Scene, tex: Textures): Table {
   const group = new THREE.Group();
   const geos: THREE.BufferGeometry[] = [];
   const mats: THREE.Material[] = [];
@@ -94,9 +100,12 @@ export function buildTable(scene: THREE.Scene, tex: Textures): () => void {
   }
 
   scene.add(group);
-  return () => {
-    scene.remove(group);
-    geos.forEach((g) => g.dispose());
-    mats.forEach((m) => m.dispose());
+  return {
+    setRidge: (hex) => ridgeMat.color.setHex(hex, THREE.LinearSRGBColorSpace),
+    dispose: () => {
+      scene.remove(group);
+      geos.forEach((g) => g.dispose());
+      mats.forEach((m) => m.dispose());
+    },
   };
 }
