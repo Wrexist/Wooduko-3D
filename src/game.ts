@@ -8,6 +8,7 @@ import {
   LADDER,
   MODES,
   PROGRESS,
+  UPSELL,
   RENDER,
   RETENTION,
   themeById,
@@ -108,12 +109,14 @@ export class Game {
     onBuy: () => this.buyRemoveAds(),
     onRestore: async () => {
       const owned = await this.money.purchases.restore();
-      if (owned) this.store.getState().setRemoveAds(true);
+      if (owned) this.gotRemoveAds();
       return owned;
     },
   });
   /** Ads have been started this run (consent / ATT done): the offer makes sense now. */
   private adsStarted = false;
+  /** An offer is being prepared or shown (one at a time). */
+  private presenting = false;
   private readonly pauseMenu: PauseMenu;
   private readonly settingsPanel: SettingsPanel;
   private readonly confirm = new ConfirmDialog();
@@ -334,7 +337,7 @@ export class Game {
       this.gameOver();
     if (s.timeLeft !== prev.timeLeft && s.mode === 'blitz' && s.phase === 'playing') {
       if (s.timeLeft > 0 && s.timeLeft <= MODES.blitzUrgent) {
-        this.sound.tick();
+        this.sound.clockTick(s.timeLeft);
         this.hud.kickChip();
       }
     }
@@ -348,8 +351,6 @@ export class Game {
       if (s.removeAds) {
         this.results.setRemoveAds(false);
         this.results.setRevive(this.reviveOffer());
-        this.sound.newBest();
-        this.showBanner(() => this.banner.pushText(t('offer.thanks'), t('offer.thanksDetail')));
       }
     }
     if (s.phase !== prev.phase) this.onPhase(s);
@@ -518,8 +519,9 @@ export class Game {
       this.refreshHome(s);
       if (this.offerDue('home'))
         window.setTimeout(() => {
-          if (this.store.getState().phase === 'home' && !this.anyDialogOpen()) void this.presentOffer();
-        }, 450);
+          if (this.store.getState().phase === 'home' && !this.anyDialogOpen() && this.offerDue('home'))
+            void this.presentOffer();
+        }, UPSELL.homeDelayMs);
       this.home.show();
     } else this.home.hide();
     if (p === 'paused') {
@@ -620,13 +622,23 @@ export class Game {
 
   /** Show the Remove-ads popup (counted for pacing). Resolves when bought or dismissed. */
   private async presentOffer(counted = true): Promise<void> {
-    if (this.offer.open || this.store.getState().removeAds) return;
-    this.drag.cancel();
-    // the player asked for it (results link): doesn't use up the day's offers
-    if (counted) this.store.getState().noteOffer();
-    if (this.price === null && this.money.purchases.available())
-      this.price = await this.money.purchases.price().catch(() => null);
-    await this.offer.ask(this.price);
+    if (this.presenting || this.offer.open || this.store.getState().removeAds) return;
+    this.presenting = true;
+    try {
+      this.drag.cancel();
+      // the store may be slow or offline: never hold the game up for the price
+      if (this.price === null && this.money.purchases.available()) {
+        const timeout = new Promise<null>((res) => window.setTimeout(() => res(null), UPSELL.priceTimeoutMs));
+        this.price = await Promise.race([this.money.purchases.price().catch(() => null), timeout]);
+      }
+      if (this.store.getState().removeAds) return;
+      const shown = this.offer.ask(this.price);
+      // the player asked for it (results link): doesn't use up the day's offers
+      if (counted) this.store.getState().noteOffer();
+      await shown;
+    } finally {
+      this.presenting = false;
+    }
   }
 
   private syncStoreUi(): void {
@@ -655,13 +667,22 @@ export class Game {
   private async buyRemoveAds(): Promise<boolean> {
     this.sound.tick();
     const owned = await this.money.purchases.buy();
-    if (owned) this.store.getState().setRemoveAds(true);
+    if (owned) this.gotRemoveAds();
     return owned;
+  }
+
+  /** The player bought or restored Remove ads just now: thank them (launch-time ownership checks stay quiet). */
+  private gotRemoveAds(): void {
+    const had = this.store.getState().removeAds;
+    this.store.getState().setRemoveAds(true);
+    if (had) return;
+    this.sound.newBest();
+    this.showBanner(() => this.banner.pushText(t('offer.thanks'), t('offer.thanksDetail')));
   }
 
   private async restorePurchases(): Promise<void> {
     const owned = await this.money.purchases.restore();
-    if (owned) this.store.getState().setRemoveAds(true);
+    if (owned) this.gotRemoveAds();
     this.settingsPanel.setNote(owned ? t('settings.restored') : t('settings.nothingToRestore'));
   }
 
@@ -966,7 +987,8 @@ export class Game {
     for (const [id, mesh] of this.world.groups) this.dimGroup(id, mesh);
     this.later(FX.overCardDelay, () => {
       const s = this.store.getState();
-      this.sound.gameOver();
+      if (s.mode === 'blitz' && s.timeLeft <= 0) this.sound.timeUp();
+      else this.sound.gameOver();
       this.results.setRevive(this.reviveOffer());
       this.results.setRemoveAds(this.adsStarted && !s.removeAds && this.money.purchases.available());
       this.results.present(s.game.score, modeBest(s), s.newBest, this.tweens, this.resultsInfo(s));

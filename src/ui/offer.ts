@@ -38,8 +38,12 @@ export class RemoveAdsOffer extends Overlay {
       this.restore,
       this.note,
     );
-    this.buy.addEventListener('click', () => void this.purchase(() => this.h.onBuy(), false));
-    this.restore.addEventListener('click', () => void this.purchase(() => this.h.onRestore(), true));
+    this.buy.addEventListener('click', () => {
+      if (this.lock <= 0) void this.purchase(() => this.h.onBuy(), false);
+    });
+    this.restore.addEventListener('click', () => {
+      if (this.lock <= 0) void this.purchase(() => this.h.onRestore(), true);
+    });
     this.notNow.addEventListener('click', () => this.dismiss());
     this.node.addEventListener('pointerdown', (e) => {
       if (e.target === this.node) this.dismiss();
@@ -56,7 +60,8 @@ export class RemoveAdsOffer extends Overlay {
     // the menu underneath steps out of the way (nothing shows through the card on any GPU)
     document.documentElement.classList.add('offer-open');
     this.show();
-    this.buy.focus({ preventScroll: true });
+    // focus the way out, never the purchase (Enter must not buy)
+    this.notNow.focus({ preventScroll: true });
     return new Promise((res) => {
       this.resolve = res;
     });

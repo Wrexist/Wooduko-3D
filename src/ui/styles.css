@@ -1503,3 +1503,12 @@ button {
 .offer-open .overlay.results .card {
   visibility: hidden;
 }
+/* the offer's buttons wake up as they become tappable (UPSELL.dismissDelay) */
+.offer-layer:not(.hidden) .offer-card button {
+  animation: offerReady 0.8s ease-out;
+}
+@keyframes offerReady {
+  from {
+    opacity: 0.45;
+  }
+}

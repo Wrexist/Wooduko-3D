@@ -875,16 +875,20 @@ export const PURCHASES = {
 export const UPSELL = {
   /** At most this many full offers a day. */
   maxPerDay: 4,
-  /** After every interstitial, unless an offer was shown this recently. */
-  afterAdGapMs: 60 * 1000,
+  /** After an interstitial, unless an offer was shown this recently. */
+  afterAdGapMs: 3 * 60 * 1000,
   /** After a rewarded ad (the player chose an ad: lighter touch). */
   afterRewardedGapMs: 15 * 60 * 1000,
   /** On the home screen: from this session and game count, at most this often. */
   homeFromSession: 2,
   homeFromGames: 3,
   homeGapMs: 30 * 60 * 1000,
-  /** Seconds before the offer's "Not now" button reacts (stops accidental taps dismissing it). */
+  /** Seconds before any of the offer's buttons react (the tap that closed an ad lands on nothing). */
   dismissDelay: 0.8,
+  /** Give up waiting for the store price after this long (show the offer without it). */
+  priceTimeoutMs: 1500,
+  /** Pause after arriving on the home screen before the offer slides in. */
+  homeDelayMs: 450,
 } as const;
 
 export type Mode = 'classic' | 'daily' | 'zen' | 'blitz';

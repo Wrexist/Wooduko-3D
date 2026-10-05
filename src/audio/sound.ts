@@ -282,6 +282,22 @@ export class Sound {
     [784, 1175].forEach((f, i) => this.marimba(f, t + i * 0.09, 0.14));
   }
 
+  /** Blitz: a wooden clock tick for each of the last seconds (higher as time runs out). */
+  clockTick(secondsLeft: number): void {
+    const t = this.now;
+    if (t === null) return;
+    this.marimba(880 + (10 - Math.max(0, secondsLeft)) * 40, t, 0.06);
+  }
+
+  /** Blitz: time's up, a double wood-block knock and a falling chime. */
+  timeUp(): void {
+    const t = this.now;
+    if (t === null) return;
+    this.noise('bandpass', 1400, 4, t, 0.05, 0.25);
+    this.noise('bandpass', 1100, 4, t + 0.12, 0.05, 0.25);
+    [784, 523, 392].forEach((f, i) => this.marimba(f, t + 0.3 + i * 0.13, 0.18));
+  }
+
   /** Soft UI tick for buttons. */
   tick(): void {
     const t = this.now;
