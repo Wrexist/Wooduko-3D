@@ -234,6 +234,7 @@ export class Game {
       },
       onDropped: (tp, r0, c0) => this.commit(tp, r0, c0),
       onReturn: () => this.sound.returnPiece(),
+      onSnap: () => this.haptics.pulse(HAPTICS.snap),
       onNope: () => {
         this.sound.nope();
         this.haptics.pulse(HAPTICS.nope);

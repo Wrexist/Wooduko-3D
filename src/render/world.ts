@@ -159,6 +159,8 @@ export class World {
           // the layout may change mid-deal (rotation): always aim at the current slot
           this.slotPos(i, to);
           t.pivot.position.lerpVectors(from, to, easeOutCubic(k));
+          // a short hop on the way in, like a piece being set down on the table
+          t.pivot.position.y += Math.sin(Math.min(1, k) * Math.PI) * TRAY.dealArc;
           t.pivot.scale.setScalar(
             Math.max(0.01, TRAY.scale * easeOutBack(Math.min(1, k * TRAY.dealScaleSpeed))),
           );

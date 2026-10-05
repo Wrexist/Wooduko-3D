@@ -517,6 +517,8 @@ export const TRAY = {
   dealDuration: 0.55,
   dealScaleSpeed: 1.15,
   dealSoundDelay: 0.06,
+  /** Height of the hop as dealt pieces slide in. */
+  dealArc: 0.9,
 } as const;
 
 export const DRAG = {
@@ -711,6 +713,8 @@ export const AUDIO = {
 
 export const HAPTICS = {
   pickup: 8,
+  /** Tiny tick when a dragged piece snaps to a new cell. */
+  snap: 3,
   newBest: [10, 50, 10, 50, 30] as const,
   nope: [6, 30, 6] as const,
   place: 14,
@@ -798,6 +802,8 @@ export const NATIVE = {
   /** Set once localStorage has been copied into Preferences. */
   migratedKey: 'grain_native_migrated_v1',
   /** Vibration pulses up to these lengths (ms) map to light / medium Taptic impacts; longer = heavy. */
+  /** Pulses this short (ms) are snap ticks → selection feedback. */
+  hapticSelectionMs: 4,
   hapticLightMs: 10,
   hapticMediumMs: 16,
   splashFadeMs: 250,

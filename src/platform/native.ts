@@ -52,6 +52,13 @@ export function nativeHaptics(): Haptics {
         ? ImpactStyle.Medium
         : ImpactStyle.Heavy;
   const impact = (ms: number): void => {
+    // the shortest pulses are snap ticks: the picker-wheel "selection" click, not an impact
+    if (ms <= NATIVE.hapticSelectionMs) {
+      void CapHaptics.selectionStart()
+        .then(() => CapHaptics.selectionChanged())
+        .catch(() => undefined);
+      return;
+    }
     void CapHaptics.impact({ style: style(ms) }).catch(() => undefined);
   };
   return {
