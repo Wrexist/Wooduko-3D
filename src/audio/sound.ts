@@ -17,6 +17,12 @@ export class Sound {
   private musicTimer: number | null = null;
   private musicStep = 0;
 
+  /** Suspended by us, or "interrupted" by iOS (calls, Siri, other audio). */
+  private get needsResume(): boolean {
+    const st = this.ac?.state as string | undefined;
+    return st === 'suspended' || st === 'interrupted';
+  }
+
   /** Call from a user gesture. Safe to call often. */
   unlock(): void {
     if (!this.ac) {
@@ -43,7 +49,7 @@ export class Sound {
         this.ac = null;
       }
     }
-    if (this.ac?.state === 'suspended') void this.ac.resume().catch(() => undefined);
+    if (this.needsResume) void this.ac?.resume().catch(() => undefined);
   }
 
   setSfx(on: boolean): void {
@@ -66,7 +72,7 @@ export class Sound {
   }
 
   resume(): void {
-    if (this.ac?.state === 'suspended') void this.ac.resume().catch(() => undefined);
+    if (this.needsResume) void this.ac?.resume().catch(() => undefined);
     this.syncMusic();
   }
 

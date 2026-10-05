@@ -28,6 +28,13 @@ interface DragState {
   r0: number;
   c0: number;
   key: string;
+  /** Last pointer position, to re-aim after a resize. */
+  last: ScreenPoint;
+}
+
+interface ScreenPoint {
+  clientX: number;
+  clientY: number;
 }
 
 /**
@@ -96,7 +103,7 @@ export class DragController {
   }
 
   /** Point under the pointer on the horizontal plane at height y. */
-  private onPlane(e: PointerEvent, y: number, out: THREE.Vector3): THREE.Vector3 | null {
+  private onPlane(e: ScreenPoint, y: number, out: THREE.Vector3): THREE.Vector3 | null {
     const rect = this.canvas.getBoundingClientRect();
     this.ndc.set(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -146,6 +153,7 @@ export class DragController {
       r0: 0,
       c0: 0,
       key: '',
+      last: { clientX: e.clientX, clientY: e.clientY },
     };
     tp.prev.copy(tp.pivot.position);
     this.preview.makeGhost(tp.mesh.geometry, tp.shape.w, tp.shape.h);
@@ -171,9 +179,11 @@ export class DragController {
     return canPlace(this.hooks.board(), tp.shape.cells, r0, c0);
   }
 
-  private updateTarget(e: PointerEvent): void {
+  private updateTarget(e: ScreenPoint): void {
     const d = this.drag;
     if (!d) return;
+    d.last.clientX = e.clientX;
+    d.last.clientY = e.clientY;
     // 1. where the finger points on the board floor (on touch the piece floats above the finger)
     const land = this.onPlane(e, WORLD.baseY, this.land);
     if (!land) return;
@@ -231,6 +241,14 @@ export class DragController {
         this.hooks.onSnap?.();
       } else this.preview.hide();
     }
+  }
+
+  /** The view changed (resize / rotate): re-aim the dragged piece from the last pointer position. */
+  refresh(): void {
+    const d = this.drag;
+    if (!d) return;
+    d.key = '';
+    this.updateTarget(d.last);
   }
 
   /** Abort any drag (pause, background, reset): the piece flies home. */

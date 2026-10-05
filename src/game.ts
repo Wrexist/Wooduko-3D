@@ -70,6 +70,10 @@ export class Game {
   private stepIndex = -1;
   /** Game-over sequence running: input is locked until the next reset. */
   private ending = false;
+  /** Bumped on every board reset; delayed callbacks from an older board are dropped. */
+  private gen = 0;
+  /** True while a reset is finishing old tweens: a drop landing now belongs to the old board. */
+  private resetting = false;
   private width = 1;
   private height = 1;
   private last = performance.now();
@@ -219,8 +223,11 @@ export class Game {
   /** Rebuild the scene from the store (new game, continue, tutorial step). */
   private syncFromStore(deal: boolean): void {
     const s = this.store.getState();
+    this.gen++;
+    this.resetting = true;
     this.drag.cancel();
     this.tweens.finishAll();
+    this.resetting = false;
     this.preview.hide();
     this.preview.disposeGhost();
     this.ending = false;
@@ -229,7 +236,7 @@ export class Game {
     this.world.syncAll(s.game.board, s.game.tray, s.fits);
     if (deal) {
       this.world.dealIn(this.tweens);
-      this.tweens.after(TRAY.dealSoundDelay, () => this.sound.deal());
+      this.later(TRAY.dealSoundDelay, () => this.sound.deal());
     }
     this.hud.setScore(s.game.score, true);
     this.hud.combo.set(s.game.streak);
@@ -268,8 +275,19 @@ export class Game {
   // moves
   // =====================================================================================
 
+  /** Run `fn` after `delay` seconds of game time, unless the board was reset meanwhile. */
+  private later(delay: number, fn: () => void): void {
+    const g = this.gen;
+    this.tweens.after(delay, () => {
+      if (g === this.gen) fn();
+    });
+  }
+
   private commit(tp: TrayPiece, r0: number, c0: number): void {
+    // a drop that lands during a reset, or for a piece no longer in the tray, belongs to an old board
+    if (this.resetting || this.world.tray[tp.slot] !== tp) return;
     const before = this.store.getState();
+    if (before.game.tray[tp.slot] !== tp.piece) return;
     const move = before.place(tp.slot, r0, c0);
     if (!move) {
       // the state changed under us (should not happen): put the piece back
@@ -302,13 +320,13 @@ export class Game {
     this.hud.combo.set(s.game.streak);
 
     if (tutorial) {
-      if (move.clear.units > 0) this.tweens.after(FX.overCardDelay, () => this.nextTutorialStep());
+      if (move.clear.units > 0) this.later(FX.overCardDelay, () => this.nextTutorialStep());
       return;
     }
     if (move.dealt) {
       move.dealt.forEach((p, i) => this.world.addTrayPiece(i, p));
       this.world.dealIn(this.tweens);
-      this.tweens.after(TRAY.dealSoundDelay, () => this.sound.deal());
+      this.later(TRAY.dealSoundDelay, () => this.sound.deal());
     }
     this.world.setFits(s.fits);
     if (s.game.over) this.gameOver();
@@ -376,7 +394,7 @@ export class Game {
     this.drag.cancel();
     this.hud.combo.set(0);
     for (const [id, mesh] of this.world.groups) this.dimGroup(id, mesh);
-    this.tweens.after(FX.overCardDelay, () => {
+    this.later(FX.overCardDelay, () => {
       const s = this.store.getState();
       this.sound.gameOver();
       this.results.present(s.game.score, s.best, s.newBest, this.tweens);
@@ -541,6 +559,9 @@ export class Game {
 
   private onBackground(): void {
     this.drag.cancel();
+    // finish everything in flight now: a drop that is mid-air commits (and saves) before iOS
+    // may kill the app, and nothing is left half-animated on return
+    this.tweens.finishAll();
     this.store.getState().pause();
     this.sound.suspend();
   }
@@ -556,6 +577,7 @@ export class Game {
     const safeBottom = Number.parseFloat(getComputedStyle(this.safeProbe).paddingBottom) || 0;
     const top = Math.max(this.hud.bottom, this.tutorialUi.open ? this.tutorialUi.bottom : 0);
     this.world.resize(this.width, this.height, top, safeBottom);
+    this.drag.refresh();
   }
 
   private frame(now: number): void {

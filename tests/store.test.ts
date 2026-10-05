@@ -126,3 +126,31 @@ describe('store tutorial mode', () => {
     expect(storage.data.get(TUTORIAL_KEY)).toBe('1');
   });
 });
+
+describe('store loading edge cases', () => {
+  it('drops a save whose board is already game over (no piece fits)', async () => {
+    const seed = { a: 0, s: 1, jx: 0, jy: 0, t: 0.9 };
+    const groups = [];
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if ((r + c) % 2 === 1) groups.push({ cells: [[r, c]], center: [c, r], seed });
+    const save = JSON.stringify({
+      version: 1,
+      score: 640,
+      streak: 0,
+      rng: 3,
+      groups,
+      tray: [{ shapeIndex: 13, seed }, null, null], // a 2×2 square cannot fit a checkerboard
+    });
+    const { store, storage } = await setup({ [SAVE.gameKey]: save, [SAVE.bestKey]: '100' });
+    expect(store.getState().hasSave).toBe(false);
+    expect(storage.data.has(SAVE.gameKey)).toBe(false);
+    expect(store.getState().best).toBe(100);
+  });
+
+  it('a stored best lower than the saved score is lifted to the score', async () => {
+    const game = { ...newGame(5), score: 900 };
+    const { store } = await setup({ [SAVE.gameKey]: serializeSave(game), [SAVE.bestKey]: '10' });
+    expect(store.getState().best).toBe(900);
+  });
+});

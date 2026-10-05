@@ -327,6 +327,129 @@ for (const [name, viewport] of Object.entries({
   await page.close();
 }
 
+// ---------------------------------------------------------------- reset race: drop lands after a restart
+{
+  const page = await open({ width: 390, height: 844 }, { grain_tutorial_v1: '1' });
+  await page.getByRole('button', { name: 'Play' }).click();
+  await wait(page, 1.0);
+  const fire = await drag(page, await slotScreen(page, 0), await worldScreen(page, 0, 0), { hold: true });
+  await wait(page, 0.3);
+  // release (the 0.2 s drop starts) and restart in the same tick, before the drop lands
+  await page.evaluate(() => {
+    const c = document.getElementById('c');
+    c.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, pointerType: 'mouse', bubbles: true }));
+    window.__grain.store.getState().startNew();
+  });
+  void fire;
+  await wait(page, 1.0);
+  const s = await state(page);
+  const groups = await page.evaluate(() => window.__grain.store.getState().game.board.groups.length);
+  check(
+    'a drop landing after a restart does not touch the new game',
+    s.score === 0 && groups === 0 && s.tray.every((t) => t !== null),
+    JSON.stringify(s),
+  );
+  await page.close();
+}
+
+// ---------------------------------------------------------------- background mid-drop commits and saves
+{
+  const page = await open({ width: 390, height: 844 }, { grain_tutorial_v1: '1' });
+  await page.getByRole('button', { name: 'Play' }).click();
+  await wait(page, 1.0);
+  await drag(page, await slotScreen(page, 0), await worldScreen(page, 0, 0), { hold: true });
+  await wait(page, 0.3);
+  await page.evaluate(() => {
+    const c = document.getElementById('c');
+    c.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, pointerType: 'mouse', bubbles: true }));
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  const s = await state(page);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('grain_save_v1') ?? 'null'));
+  const tweens = await page.evaluate(() => window.__grain.game.debug.tweens);
+  check(
+    'backgrounding mid-drop commits the move, saves it and leaves nothing animating',
+    s.moveSeq === 1 && saved?.score === s.score && s.score > 0 && tweens === 0 && s.phase === 'paused',
+    JSON.stringify({ ...s, tweens }),
+  );
+  await page.close();
+}
+
+// ---------------------------------------------------------------- corrupted saves
+for (const [label, raw] of [
+  ['bad JSON', '{"score": 12, "groups": ['],
+  [
+    'unknown shape',
+    JSON.stringify({
+      version: 1,
+      score: 5,
+      streak: 0,
+      rng: 1,
+      groups: [],
+      tray: [{ shapeIndex: 999, seed: {} }, null, null],
+    }),
+  ],
+  [
+    'overlapping blocks',
+    JSON.stringify({
+      version: 1,
+      score: 5,
+      streak: 0,
+      rng: 1,
+      groups: [
+        { cells: [[0, 0]], center: [0, 0], seed: { a: 0, s: 1, jx: 0, jy: 0, t: 0.9 } },
+        { cells: [[0, 0]], center: [0, 0], seed: { a: 0, s: 1, jx: 0, jy: 0, t: 0.9 } },
+      ],
+      tray: [null, null, null],
+    }),
+  ],
+  ['wrong type', '"hello"'],
+]) {
+  const page = await open({ width: 390, height: 844 }, { grain_tutorial_v1: '1', grain_save_v1: raw });
+  await wait(page, 0.3);
+  const cont = await page.getByRole('button', { name: 'Continue' }).isVisible();
+  const gone = (await page.evaluate(() => localStorage.getItem('grain_save_v1'))) === null;
+  await page.getByRole('button', { name: 'Play' }).click();
+  await wait(page, 0.6);
+  const s = await state(page);
+  check(
+    `corrupted save (${label}) → clean new game`,
+    !cont && gone && s.phase === 'playing' && s.score === 0 && s.tray.every((t) => t !== null),
+  );
+  await page.close();
+}
+
+// ---------------------------------------------------------------- WebGL context loss (iOS does this in the background)
+{
+  const page = await open({ width: 390, height: 844 }, { grain_tutorial_v1: '1' });
+  await page.getByRole('button', { name: 'Play' }).click();
+  await wait(page, 1.0);
+  const before = await page.screenshot();
+  await page.evaluate(() => {
+    const gl = document.getElementById('c').getContext('webgl2');
+    window.__lose = gl.getExtension('WEBGL_lose_context');
+    window.__lose.loseContext();
+  });
+  await page.waitForTimeout(500);
+  const lost = await page.evaluate(() => document.getElementById('c').getContext('webgl2').isContextLost());
+  const during = await page.screenshot();
+  check('context really was lost (frame changed)', lost && during.length !== before.length, `lost=${lost}`);
+  await page.evaluate(() => window.__lose.restoreContext());
+  await page.waitForTimeout(1500);
+  await wait(page, 0.5);
+  const after = await page.screenshot({ path: `${out}/flow-context-restored.png` });
+  // the restored frame should match the pre-loss frame (same board, nothing animating)
+  const same = Math.abs(before.length - after.length) / before.length < 0.03;
+  check('scene renders again after WebGL context loss', same, `png bytes ${before.length} → ${after.length}`);
+  // and the game still plays
+  const seq = (await state(page)).moveSeq;
+  await drag(page, await slotScreen(page, 0), await worldScreen(page, 0, 0));
+  await wait(page, 0.6);
+  check('game still playable after context restore', (await state(page)).moveSeq > seq);
+  await page.close();
+}
+
 await browser.close();
 console.log(errors ? `${errors} console error(s)` : 'no console errors');
 console.log(failed ? `${failed} check(s) FAILED` : 'all checks passed');
