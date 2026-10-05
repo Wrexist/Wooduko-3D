@@ -3,7 +3,7 @@
 import { chromium } from 'playwright';
 
 const [url = 'http://localhost:5173/', out = 'shots'] = process.argv.slice(2);
-const THEMES = ['maple', 'walnut', 'cherry', 'birch', 'driftwood', 'ebony'];
+const THEMES = ['maple', 'walnut', 'cherry', 'birch', 'driftwood', 'ebony', 'oak', 'mahogany'];
 const ALL = Object.fromEntries(
   [
     'first-clear',
@@ -17,6 +17,8 @@ const ALL = Object.fromEntries(
     'score-10k',
     'games-10',
     'lines-500',
+    'quests-3',
+    'quests-7',
   ].map((id) => [id, 1]),
 );
 const seed = (i) => ({

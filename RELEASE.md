@@ -8,7 +8,7 @@ Everything below the line "you" needs your accounts, a Mac or real phones. The r
 3. `npm run prod-check` — production build: no errors, no network, accessibility
 
 ## One-time account setup (you) — `STORE.md`
-1. App Store Connect app + Game Center (leaderboard + 11 achievements) + `grain_remove_ads` IAP
+1. App Store Connect app + Game Center (leaderboard + 13 achievements) + `grain_remove_ads` IAP
 2. RevenueCat project → key into `PURCHASES.revenueCatKey`
 3. AdMob app + 2 ad units + consent messages → ids into `ADS`, `testMode: false`
 4. Fill in and publish `PRIVACY.md`; support page

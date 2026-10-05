@@ -6,9 +6,11 @@
 ### Plan
 1. [x] **Pure core:** modes (classic, daily, zen, blitz), date keys + daily seed + streaks, daily quests (3 per day, deterministic from the date, progress from any mode) — fully tested
 2. [x] **Store:** current mode, one save per resumable mode (classic, zen, daily-of-today), Blitz clock, daily result + streak, quest progress + quest streak, two quest-streak woods (Oak 3 days, Mahogany 7)
-3. [ ] **Game/view:** Zen auto-clears the fullest square when stuck; Blitz timer in the HUD (urgent < 10 s) and "Time's up"; Daily goal in the HUD, "Goal reached!" moment, share text; revive offer Classic only; tutorial Classic only
-4. [ ] **UI:** home with Daily challenge card, Zen / Blitz, today's quests with progress; quest-complete banner; results card per mode; en + sv
-5. [ ] **Checks:** unit tests, flows for every mode, layout, soak, screenshots
+3. [x] **Game/view:** Zen auto-clears the fullest square when stuck; Blitz timer in the HUD (urgent < 10 s) and "Time's up"; Daily goal in the HUD, "Goal reached!" moment, share text; revive offer Classic only; tutorial Classic only
+4. [x] **UI:** home with Daily challenge card, Zen / Blitz, today's quests with progress; quest-complete banner; results card per mode; en + sv
+5. [x] **Checks:** unit tests (174), `npm run modes` (every mode + a long Zen run with flat GPU memory), flows, layout (13 viewports), soak, prod-check, theme shots for Oak + Mahogany
+- Home became a compact layout (mode tiles, quests panel, icon buttons; two columns on short landscape screens) because the layout check caught it overflowing on small phones.
+- **You:** add `grain.quests_3` and `grain.quests_7` as Game Center achievements in App Store Connect (DESIGN.md).
 
 **Phase 11 — Release candidate** — code side complete (v1.0.0). Remaining steps need your accounts, a Mac and devices: `RELEASE.md`.
 

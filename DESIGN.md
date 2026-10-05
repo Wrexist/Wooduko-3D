@@ -45,12 +45,28 @@ rarest). Dealing a tray of 3:
 | Master carpenter | 10,000 in one game | Ebony |
 | Regular | Finish 10 games | Birch |
 | Sawdust | Clear 500 lines in total | |
+| Habit | Finish every daily quest 3 days in a row | Oak |
+| Devoted | Finish every daily quest 7 days in a row | Mahogany |
 
 Woods are cosmetic only. Stats: games, best, average, lines, best combo, board clears.
 A restarted game with a score counts as played. The tutorial never counts.
 
+## Modes (update 1.1)
+| Mode | Rules | Saved | Best |
+|---|---|---|---|
+| Classic | as above; one revive per game | yes | Game Center leaderboard |
+| Daily challenge | pieces seeded from the date (same for everyone); goal 1,000–1,800 from the date; reaching it extends the daily streak | today's game only | today's best |
+| Zen | when stuck, the fullest 3×3 square clears instead of game over; adds no finished games or score to stats/achievements | yes | none |
+| Blitz | 2-minute clock (runs only while playing; urgent under 10 s); time up ends the game | no | Blitz best (local) |
+
+**Daily quests:** 3 a day, picked from the date (everyone gets the same): clear lines, clear 3×3 squares,
+reach a combo, score in one game, place blocks, 3+ line clears, reach the daily goal, score in Blitz.
+Every mode counts (Zen can't progress score/combo quests). All three done = one quest-streak day.
+Numbers: `MODES` and `QUESTS` in `src/config.ts`.
+
 ## Game Center ids (App Store Connect)
 Leaderboard: `grain.best` (high score, sorted high → low).
 Achievements: `grain.first_clear`, `grain.combo_3`, `grain.combo_5`, `grain.triple`, `grain.quad`,
-`grain.board_clear`, `grain.score_1k`, `grain.score_5k`, `grain.score_10k`, `grain.games_10`, `grain.lines_500`
+`grain.board_clear`, `grain.score_1k`, `grain.score_5k`, `grain.score_10k`, `grain.games_10`, `grain.lines_500`,
+`grain.quests_3`, `grain.quests_7`
 (the game's achievement id with `-` → `_`, prefixed `grain.`). Titles/descriptions: `src/i18n.ts`.

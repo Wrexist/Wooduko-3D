@@ -7,7 +7,7 @@ Everything in code is done; these steps need your accounts. Do them once, in thi
 2. Capabilities (Certificates, IDs & Profiles → Identifiers → `com.wrexist.grain`): enable **Game Center** and **In-App Purchase**.
 3. Game Center (App Store Connect → your app → Services → Game Center):
    - Leaderboard **`grain.best`** — Classic, "High score is best", integer.
-   - 11 achievements, ids and texts in `DESIGN.md` (titles/descriptions in `src/i18n.ts`, en + sv).
+   - 13 achievements, ids and texts in `DESIGN.md` (titles/descriptions in `src/i18n.ts`, en + sv).
 4. In-App Purchase: **Non-Consumable**, product id **`grain_remove_ads`**, reference name "Remove ads". Suggested price tier: $2.99. Add en + sv display name and description.
 5. Agreements, tax and banking must be active before purchases work (also in TestFlight sandbox).
 
