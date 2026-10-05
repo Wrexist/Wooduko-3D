@@ -156,3 +156,12 @@ export function parseUnlocked(raw: string | null): Unlocked {
     return {};
   }
 }
+
+/** A finished game was revived: it isn't finished after all (it will be counted when it really ends). */
+export function statsRevived(s: Stats, score: number): Stats {
+  return {
+    ...s,
+    gamesPlayed: Math.max(0, s.gamesPlayed - 1),
+    totalScore: Math.max(0, s.totalScore - score),
+  };
+}

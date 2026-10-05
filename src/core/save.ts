@@ -10,6 +10,7 @@ export function toSave(state: GameState): SaveData {
     streak: state.streak,
     misses: state.misses,
     sinceSmall: state.sinceSmall,
+    revives: state.revives,
     rng: state.rng,
     groups: state.board.groups.map((g) => ({ cells: g.cells, center: g.center, seed: g.seed })),
     tray: state.tray.map((p) => (p ? { shapeIndex: p.shapeIndex, seed: p.seed } : null)),
@@ -60,6 +61,7 @@ function readPiece(v: unknown, shapeKey: string): Piece | null | undefined {
  * Upgrade older save formats step by step to the current shape.
  * v0 = the single-file prototype: no `version`, tray items use `shape`, no RNG state.
  * v1 = Phase 1 rebuild: no combo misses, no generator drought counter.
+ * v2 = Phase 3: no revive counter.
  */
 function migrate(input: Obj, fallbackRng: number): Obj | null {
   let raw = input;
@@ -70,6 +72,7 @@ function migrate(input: Obj, fallbackRng: number): Obj | null {
     raw = { ...raw, version: 1, rng: fallbackRng, tray };
   }
   if (raw.version === 1) raw = { ...raw, version: 2, misses: 0, sinceSmall: 0 };
+  if (raw.version === 2) raw = { ...raw, version: 3, revives: 0 };
   return raw.version === SAVE.version ? raw : null;
 }
 
@@ -88,9 +91,9 @@ export function parseSave(json: string | null, fallbackRng: number): GameState |
   if (!isObj(parsed)) return null;
   const raw = migrate(parsed, fallbackRng);
   if (!raw) return null;
-  const { score, streak, misses, sinceSmall, rng, groups, tray } = raw;
+  const { score, streak, misses, sinceSmall, revives, rng, groups, tray } = raw;
   if (!isNonNegInt(score) || !isNonNegInt(streak) || !isNonNegInt(rng)) return null;
-  if (!isNonNegInt(misses) || !isNonNegInt(sinceSmall)) return null;
+  if (!isNonNegInt(misses) || !isNonNegInt(sinceSmall) || !isNonNegInt(revives)) return null;
   if (!Array.isArray(groups) || !Array.isArray(tray) || tray.length !== GENERATOR.traySize) return null;
 
   let board: BoardState = emptyBoard();
@@ -116,7 +119,7 @@ export function parseSave(json: string | null, fallbackRng: number): GameState |
     pieces.push(p);
   }
 
-  return { board, tray: pieces, score, streak, misses, sinceSmall, rng, over: false };
+  return { board, tray: pieces, score, streak, misses, sinceSmall, revives, rng, over: false };
 }
 
 export function parseBest(raw: string | null): number {

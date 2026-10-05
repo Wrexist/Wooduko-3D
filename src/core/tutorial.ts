@@ -59,6 +59,7 @@ function step(
       streak: 0,
       misses: 0,
       sinceSmall: 0,
+      revives: 0,
       rng: rng.state,
       over: false,
     },

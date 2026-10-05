@@ -158,3 +158,13 @@ describe('save v2', () => {
     expect(parse({ ...valid(), sinceSmall: 'x' })).toBeNull();
   });
 });
+
+describe('save v3', () => {
+  it('round-trips the revive counter and migrates v2 saves with 0', () => {
+    const s = { ...newGame(3), revives: 1 };
+    expect(parseSave(serializeSave(s), 1)?.revives).toBe(1);
+    const v2 = { ...valid(), version: 2 };
+    delete (v2 as Record<string, unknown>).revives;
+    expect(parse(v2)?.revives).toBe(0);
+  });
+});

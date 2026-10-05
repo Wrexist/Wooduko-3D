@@ -1,7 +1,15 @@
 # TASK.md
 
 ## Active phase
-**Phase 7 — Performance / mobile (native iOS)** (`RELEASE_CHECKLIST.md` phase 7)
+**Phase 8 — Monetization** — code complete (decided: free + ads + one-time "Remove ads"; no analytics; no Sentry for now). Your account steps: `STORE.md`.
+
+## Phase 8 plan
+1. [x] **Revive (pure, tested):** once per game, clears the fullest 3×3 square and deals a fresh tray that fits. Offered on the results card: watch a rewarded ad, or free with Remove ads. Save v3 remembers it.
+2. [x] **Interstitial policy (pure, tested):** only between games (on "Play again"), never in the first 2 sessions or first 4 games, at most every 3rd game and 4+ minutes apart, never for Remove ads owners.
+3. [x] **Consent + tracking before any ad SDK:** Google UMP consent (required in the EU), then Apple ATT, then AdMob init — from the 2nd session on, never for Remove ads owners. "Privacy choices" in Settings when UMP requires it.
+4. [x] **Remove ads (RevenueCat):** non-consumable `grain_remove_ads`, entitlement `no_ads`, buy + Restore purchases in Settings, cached so it works offline.
+5. [x] **iOS:** AdMob app id + SKAdNetwork ids + ATT text in Info.plist, `PrivacyInfo.xcprivacy`; test ad ids until you add real ones.
+6. [x] **Docs:** what you need to create (AdMob app + 2 ad units, RevenueCat project, App Store product) and what to put in the App Store privacy label.
 
 ## Phase 7 plan
 1. [x] **Capacitor 8 iOS project** (Swift Package Manager, no CocoaPods): bundle id `com.wrexist.grain`, `contentInset: never`, light status bar, launch screen hidden on the first frame

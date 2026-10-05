@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Sound } from './audio/sound';
-import { COLORS, FX, HAPTICS, LADDER, PROGRESS, RENDER, themeById, TRAY, WORLD } from './config';
+import { ADS, COLORS, FX, HAPTICS, LADDER, PROGRESS, RENDER, themeById, TRAY, WORLD } from './config';
 import type { ThemeId } from './config';
 import { getShape } from './core/shapes';
 import type { MoveResult } from './core/rules';
@@ -16,6 +16,8 @@ import { DragController } from './input/drag';
 import type { Haptics } from './platform/haptics';
 import { onLifecycle } from './platform/lifecycle';
 import type { Services } from './platform/services';
+import type { Monetization } from './platform/monetization';
+import { canRevive, shouldShowInterstitial } from './core/revive';
 import { nextReminder, reminderIndex, shouldAskReview, shouldOfferReminder } from './core/retention';
 import { t } from './i18n';
 import type { Key } from './i18n';
@@ -45,6 +47,7 @@ export interface GameDeps {
   readonly store: GameStore;
   readonly haptics: Haptics;
   readonly services: Services;
+  readonly monetization: Monetization;
 }
 
 /** Wires the store (rules + state) to the scene, effects, audio, UI and input. */
@@ -52,6 +55,9 @@ export class Game {
   private readonly store: GameStore;
   private readonly haptics: Haptics;
   private readonly services: Services;
+  private readonly money: Monetization;
+  /** Localised Remove-ads price, once the store has answered. */
+  private price: string | null = null;
   private readonly canvas: HTMLCanvasElement;
   private readonly renderer: Renderer;
   private readonly tex: Textures;
@@ -109,6 +115,7 @@ export class Game {
     this.store = d.store;
     this.haptics = d.haptics;
     this.services = d.services;
+    this.money = d.monetization;
     this.canvas = d.canvas;
     this.renderer = createRenderer(d.canvas);
     this.theme = d.store.getState().settings.theme;
@@ -143,14 +150,14 @@ export class Game {
     this.home = new HomeMenu({
       onPlay: () => void this.onPlay(),
       onContinue: () => this.store.getState().continueGame(),
-      onSettings: () => this.settingsPanel.show(),
+      onSettings: () => this.showSettings(),
       onAwards: () => this.showAwards(),
       onReminder: (yes) => void this.answerReminder(yes),
     });
     this.pauseMenu = new PauseMenu({
       onResume: () => this.store.getState().resume(),
       onRestart: () => void this.onRestart(),
-      onSettings: () => this.settingsPanel.show(),
+      onSettings: () => this.showSettings(),
       onHome: () => this.onHome(),
       onAwards: () => this.showAwards(),
     });
@@ -166,10 +173,14 @@ export class Game {
       onToggle: (k) => this.toggleSetting(k),
       onReminder: () => void this.answerReminder(this.store.getState().meta.reminder !== 'on'),
       onReset: () => void this.onResetProgress(),
+      onBuy: () => void this.buyRemoveAds(),
+      onRestore: () => void this.restorePurchases(),
+      onPrivacy: () => void this.money.ads.showPrivacyOptions(),
       onClose: () => this.settingsPanel.hide(),
     });
     this.results = new ResultsCard({
-      onAgain: () => this.store.getState().startNew(),
+      onAgain: () => void this.newGameAfterAd(),
+      onRevive: () => void this.tryRevive(),
       onHome: () => this.store.getState().goHome(),
     });
     this.tutorialUi = new TutorialOverlay(() => this.endTutorial());
@@ -260,6 +271,8 @@ export class Game {
 
   private onStore(s: StoreState, prev: StoreState): void {
     if (s.resetSeq !== prev.resetSeq) this.syncFromStore(s.phase === 'playing');
+    if (s.reviveSeq !== prev.reviveSeq) this.onRevived();
+    if (s.removeAds !== prev.removeAds) this.syncStoreUi();
     if (s.phase !== prev.phase) this.onPhase(s);
     if (s.settings !== prev.settings) this.applySettings(s.settings);
     if (s.unlockSeq !== prev.unlockSeq && s.recentUnlocks.length) {
@@ -348,6 +361,104 @@ export class Game {
     const { gameCenter } = this.services;
     if (gameCenter.available()) void gameCenter.signIn();
     if (this.store.getState().meta.reminder === 'on') await this.scheduleReminder();
+    await this.bootMonetization();
+  }
+
+  /**
+   * Purchases first (Remove ads owners never see consent, tracking or ad prompts), then — from
+   * the 2nd session on — consent → ATT → ads.
+   */
+  private async bootMonetization(): Promise<void> {
+    const { purchases, ads } = this.money;
+    if (purchases.available()) {
+      if (await purchases.owned()) this.store.getState().setRemoveAds(true);
+      this.price = await purchases.price();
+      this.syncStoreUi();
+    }
+    const s = this.store.getState();
+    if (!s.removeAds && s.meta.sessions >= ADS.initFromSession) {
+      await ads.start();
+      this.syncStoreUi();
+    }
+  }
+
+  private syncStoreUi(): void {
+    const s = this.store.getState();
+    this.settingsPanel.setStore(
+      this.money.purchases.available(),
+      s.removeAds,
+      this.price,
+      this.money.ads.privacyOptionsRequired(),
+    );
+  }
+
+  private showSettings(): void {
+    this.settingsPanel.setNote('');
+    this.syncStoreUi();
+    this.settingsPanel.show();
+  }
+
+  private async buyRemoveAds(): Promise<void> {
+    this.sound.tick();
+    if (await this.money.purchases.buy()) this.store.getState().setRemoveAds(true);
+  }
+
+  private async restorePurchases(): Promise<void> {
+    const owned = await this.money.purchases.restore();
+    if (owned) this.store.getState().setRemoveAds(true);
+    this.settingsPanel.setNote(owned ? t('settings.restored') : t('settings.nothingToRestore'));
+  }
+
+  /** What the results card can offer: a free revive (Remove ads), one for a rewarded ad, or none. */
+  private reviveOffer(): 'ad' | 'free' | null {
+    const s = this.store.getState();
+    if (s.tutorial || !canRevive(s.game)) return null;
+    if (s.removeAds) return 'free';
+    return this.money.ads.rewardedReady() ? 'ad' : null;
+  }
+
+  private async tryRevive(): Promise<void> {
+    const offer = this.reviveOffer();
+    if (!offer) return;
+    if (offer === 'ad') {
+      this.results.setReviveBusy(true);
+      this.sound.suspend();
+      const earned = await this.money.ads.showRewarded();
+      this.sound.resume();
+      this.results.setReviveBusy(false);
+      if (!earned) return;
+    }
+    this.store.getState().revive();
+  }
+
+  /** Board rebuilt after a revive: show the cleared square as a sweep and celebrate a little. */
+  private onRevived(): void {
+    const s = this.store.getState();
+    this.syncFromStore(true);
+    const cleared = s.lastRevive;
+    if (cleared) for (const u of cleared.list) this.fx.sweep(u, 0, LADDER.sparkScale[2]);
+    this.sound.clear(1, 1, true);
+    const a = this.world.toScreen(...FX.toastAnchor, this.width, this.height);
+    this.toast.show(t('word.revive'), '', a.y, 3);
+  }
+
+  /** Between games only: maybe an interstitial (paced by core/revive.shouldShowInterstitial), then a new game. */
+  private async newGameAfterAd(): Promise<void> {
+    const s = this.store.getState();
+    const show = shouldShowInterstitial({
+      sessions: s.meta.sessions,
+      gamesPlayed: s.stats.gamesPlayed,
+      gamesSinceAd: s.meta.gamesSinceAd + (s.phase === 'over' ? 1 : 0),
+      msSinceAd: Date.now() - s.meta.lastAdAt,
+      removeAds: s.removeAds,
+    });
+    if (show && this.money.ads.interstitialReady()) {
+      this.sound.suspend();
+      await this.money.ads.showInterstitial();
+      this.sound.resume();
+      s.noteInterstitial();
+    }
+    this.store.getState().startNew();
   }
 
   private async scheduleReminder(): Promise<void> {
@@ -540,6 +651,7 @@ export class Game {
     this.later(FX.overCardDelay, () => {
       const s = this.store.getState();
       this.sound.gameOver();
+      this.results.setRevive(this.reviveOffer());
       this.results.present(s.game.score, s.best, s.newBest, this.tweens);
       void this.services.gameCenter.submitBest(s.best);
       // a new best is a high: the only moment we ever ask for a review
@@ -658,7 +770,7 @@ export class Game {
       });
       if (!ok) return;
     }
-    this.store.getState().startNew();
+    await this.newGameAfterAd();
   }
 
   private onHome(): void {

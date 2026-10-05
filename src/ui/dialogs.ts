@@ -101,19 +101,35 @@ export class ConfirmDialog extends Overlay {
 export class ResultsCard extends Overlay {
   private readonly finalEl = el('div', { class: 'final' }, ['0']);
   private readonly bestEl = el('div', { class: 'bestline' });
+  private readonly revive = el('button', { class: 'cta revive', hidden: '' });
 
-  constructor(handlers: { onAgain(): void; onHome(): void }) {
+  constructor(handlers: { onAgain(): void; onHome(): void; onRevive(): void }) {
     super('results', 'overTitle');
     const again = el('button', { class: 'cta' }, [t('results.again')]);
     const home = el('button', { class: 'ghost-btn' }, [t('results.home')]);
     again.addEventListener('click', handlers.onAgain);
     home.addEventListener('click', handlers.onHome);
+    this.revive.addEventListener('click', handlers.onRevive);
     this.card.append(
       el('h2', { id: 'overTitle' }, [t('results.title')]),
       this.finalEl,
       this.bestEl,
-      el('div', { class: 'stack' }, [again, home]),
+      el('div', { class: 'stack' }, [this.revive, again, home]),
     );
+  }
+
+  /** Second-chance button: 'ad' = watch a rewarded ad, 'free' = owns Remove ads, null = hidden. */
+  setRevive(offer: 'ad' | 'free' | null): void {
+    this.revive.hidden = offer === null;
+    this.revive.disabled = false;
+    this.revive.textContent = offer === 'free' ? t('results.reviveFree') : t('results.reviveAd');
+    // the revive button is the hero action when offered; Play again steps back
+    const again = this.revive.nextElementSibling;
+    if (again) again.className = offer ? 'ghost-btn' : 'cta';
+  }
+
+  setReviveBusy(busy: boolean): void {
+    this.revive.disabled = busy;
   }
 
   present(score: number, best: number, newBest: boolean, tweens: Tweens): void {

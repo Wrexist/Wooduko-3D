@@ -105,8 +105,21 @@ export class SettingsPanel extends Overlay {
 
   private readonly reminderRow: HTMLDivElement;
   private readonly reminderToggle: HTMLButtonElement;
+  private readonly buy = el('button', { class: 'ghost-btn buy', hidden: '' });
+  private readonly restore = el('button', { class: 'ghost-btn', hidden: '' });
+  private readonly owned = el('p', { class: 'owned', hidden: '' });
+  private readonly privacy = el('button', { class: 'ghost-btn', hidden: '' });
+  private readonly note = el('p', { class: 'note', 'aria-live': 'polite' });
 
-  constructor(h: { onToggle(key: ToggleKey): void; onReminder(): void; onReset(): void; onClose(): void }) {
+  constructor(h: {
+    onToggle(key: ToggleKey): void;
+    onReminder(): void;
+    onReset(): void;
+    onClose(): void;
+    onBuy(): void;
+    onRestore(): void;
+    onPrivacy(): void;
+  }) {
     super('settings dialog-layer', 'settingsTitle');
     const list = el('div', { class: 'settings-list' });
     for (const key of Object.keys(LABELS) as ToggleKey[]) {
@@ -133,6 +146,12 @@ export class SettingsPanel extends Overlay {
       this.reminderToggle,
     ]);
     list.append(this.reminderRow);
+    this.buy.addEventListener('click', h.onBuy);
+    this.restore.addEventListener('click', h.onRestore);
+    this.privacy.addEventListener('click', h.onPrivacy);
+    this.restore.textContent = t('settings.restore');
+    this.privacy.textContent = t('settings.privacy');
+    this.owned.textContent = t('settings.adsRemoved');
     const reset = el('button', { class: 'ghost-btn danger' }, [t('settings.reset')]);
     const done = el('button', { class: 'cta' }, [t('common.done')]);
     reset.addEventListener('click', h.onReset);
@@ -143,8 +162,26 @@ export class SettingsPanel extends Overlay {
     this.card.append(
       el('h2', { id: 'settingsTitle' }, [t('settings.title')]),
       list,
-      el('div', { class: 'stack' }, [done, reset]),
+      el('div', { class: 'stack' }, [done, this.owned, this.buy, this.restore, this.privacy, reset]),
+      this.note,
     );
+  }
+
+  /**
+   * Remove ads: buy button (with price) and Restore where purchases exist; a thank-you once owned.
+   * Privacy choices only where Google's consent rules require it.
+   */
+  setStore(available: boolean, owned: boolean, price: string | null, privacy: boolean): void {
+    this.buy.hidden = !available || owned;
+    this.restore.hidden = !available || owned;
+    this.owned.hidden = !owned;
+    this.buy.textContent = price ? t('settings.removeAdsPrice', { price }) : t('settings.removeAds');
+    this.privacy.hidden = !privacy;
+  }
+
+  /** A short status line (e.g. after Restore). */
+  setNote(text: string): void {
+    this.note.textContent = text;
   }
 
   /** The reminder row only exists where the OS can deliver notifications. */

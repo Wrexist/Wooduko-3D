@@ -62,6 +62,7 @@ export function newGame(rngState: number, rules: RuleSet = RULES): GameState {
     streak: 0,
     misses: 0,
     sinceSmall: deal.sinceSmall,
+    revives: 0,
     rng: rng.state,
     over: false,
   };
@@ -142,6 +143,7 @@ export function playMove(
       streak: over ? 0 : streak,
       misses: over ? 0 : combo.misses,
       sinceSmall,
+      revives: state.revives,
       rng: rng.state,
       over,
     },

@@ -24,6 +24,7 @@ const state = (p: Partial<GameState>): GameState => ({
   streak: 0,
   misses: 0,
   sinceSmall: 0,
+  revives: 0,
   rng: 1,
   over: false,
   ...p,

@@ -109,7 +109,7 @@ export const WOOD_SEED = {
 } as const;
 
 export const SAVE = {
-  version: 2,
+  version: 3,
   gameKey: 'grain_save_v1',
   bestKey: 'grain_best_v1',
   settingsKey: 'grain_settings_v1',
@@ -789,4 +789,33 @@ export const NATIVE = {
   hapticLightMs: 10,
   hapticMediumMs: 16,
   splashFadeMs: 250,
+} as const;
+
+/**
+ * Monetization. Ad unit / app ids below are Google's public TEST ids — replace with your own
+ * before release (see STORE.md). RevenueCat key comes from your RevenueCat project.
+ */
+export const ADS = {
+  /** Interstitials only between games, and never before these thresholds. */
+  firstAdSession: 3,
+  firstAdGames: 4,
+  everyGames: 3,
+  minGapMs: 4 * 60 * 1000,
+  /** Consent + ATT + AdMob start from this session on (never on first launch). */
+  initFromSession: 2,
+  maxRevives: 1,
+  /** Set false once the real ids are in. */
+  testMode: true,
+  iosAppId: 'ca-app-pub-3940256099942544~1458002511',
+  rewardedId: 'ca-app-pub-3940256099942544/1712485313',
+  interstitialId: 'ca-app-pub-3940256099942544/4411468910',
+} as const;
+
+export const PURCHASES = {
+  /** RevenueCat public iOS SDK key (appl_…). Empty = purchases unavailable. */
+  revenueCatKey: '',
+  entitlement: 'no_ads',
+  productId: 'grain_remove_ads',
+  /** Cached ownership, so Remove ads works offline. */
+  cacheKey: 'grain_no_ads_v1',
 } as const;

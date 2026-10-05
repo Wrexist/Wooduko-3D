@@ -29,6 +29,9 @@
 - Headless Chromium inherits the machine's locale (Swedish here): test scripts pin `locale: 'en-US'` so role/name lookups stay stable.
 - DOM that is rebuilt per event (toast subtitle, banner) makes soak DOM counts wobble; build once and swap text.
 - A one-off thin vertical line across a block top showed up in one close-up and never again in identical re-renders; watch for it on device.
+- `[hidden]` loses to any component rule that sets `display` (e.g. `.setting { display: flex }`): a global `[hidden] { display: none !important }` is needed.
+- `xcode`'s `addResourceFile` requires a group literally named "Resources"; Capacitor projects don't have one, so add the file reference + build-phase entries by hand.
+- Never edit a file by slicing between two search anchors after Prettier ran: a reformatted anchor silently truncates the file. Use exact-match replacements that fail loudly.
 
 ## Playtests
 

@@ -1,5 +1,7 @@
 import { createStore } from 'zustand/vanilla';
-import { PROGRESS, RETENTION, SAVE, themeById, TUTORIAL_KEY } from '../config';
+import { PROGRESS, PURCHASES, RETENTION, SAVE, themeById, TUTORIAL_KEY } from '../config';
+import { canRevive, revive as reviveGame } from '../core/revive';
+import type { ClearResult } from '../core/types';
 import { parseMeta, recordSession, reviewAsked } from '../core/retention';
 import type { Meta, ReminderChoice } from '../core/retention';
 import {
@@ -9,6 +11,7 @@ import {
   parseUnlocked,
   statsAfterGame,
   statsAfterMove,
+  statsRevived,
   themeUnlocked,
 } from '../core/progress';
 import type { AchievementId, Stats, Unlocked } from '../core/progress';
@@ -44,8 +47,13 @@ export interface StoreState {
   /** Achievements earned by the latest event; `unlockSeq` increments each time some are earned. */
   readonly recentUnlocks: readonly AchievementId[];
   readonly unlockSeq: number;
-  /** Sessions, review prompt history, reminder choice. */
+  /** Sessions, review prompt history, reminder choice, ad pacing. */
   readonly meta: Meta;
+  /** Owns "Remove ads" (cached locally so it works offline). */
+  readonly removeAds: boolean;
+  /** Increments on each revive; `lastRevive` holds the cells it cleared. */
+  readonly reviveSeq: number;
+  readonly lastRevive: ClearResult | null;
 }
 
 export interface StoreActions {
@@ -66,6 +74,11 @@ export interface StoreActions {
   goHome(): void;
   setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void;
   setReminder(choice: ReminderChoice): void;
+  setRemoveAds(on: boolean): void;
+  /** Second chance after game over (once per game). Returns false if not allowed. */
+  revive(): boolean;
+  /** An interstitial was shown: reset the pacing. */
+  noteInterstitial(): void;
   /** Remember that the review prompt was shown. */
   noteReviewAsked(): void;
   /** Wipe best score, saved game, stats and achievements. Settings are kept (theme back to default). */
@@ -88,12 +101,13 @@ export interface Persisted {
   stats: Stats;
   unlocked: Unlocked;
   meta: Meta;
+  removeAds: boolean;
 }
 
 /** Read best, settings and any saved game from storage. */
 export async function loadPersisted(deps: StoreDeps): Promise<Persisted> {
   const { storage } = deps;
-  const [bestRaw, settingsRaw, legacyMute, saveRaw, tutorialRaw, statsRaw, unlockedRaw, metaRaw] =
+  const [bestRaw, settingsRaw, legacyMute, saveRaw, tutorialRaw, statsRaw, unlockedRaw, metaRaw, noAdsRaw] =
     await Promise.all([
       storage.get(SAVE.bestKey),
       storage.get(SAVE.settingsKey),
@@ -103,6 +117,7 @@ export async function loadPersisted(deps: StoreDeps): Promise<Persisted> {
       storage.get(PROGRESS.statsKey),
       storage.get(PROGRESS.achievementsKey),
       storage.get(RETENTION.metaKey),
+      storage.get(PURCHASES.cacheKey),
     ]);
   const parsed = parseSave(saveRaw, deps.randomSeed());
   const saved = parsed ? normalizeLoaded(parsed) : null;
@@ -118,6 +133,7 @@ export async function loadPersisted(deps: StoreDeps): Promise<Persisted> {
     stats: parseStats(statsRaw),
     unlocked: parseUnlocked(unlockedRaw),
     meta: parseMeta(metaRaw),
+    removeAds: noAdsRaw === '1',
   };
 }
 
@@ -176,6 +192,12 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
     const abandonCurrent = (): void => {
       if (realGame && !realGame.over && realGame.score > 0)
         progress(statsAfterGame(get().stats, realGame.score), realGame.score);
+      // ad pacing counts games that ended (finished or abandoned with a score)
+      if (realGame && (realGame.over || realGame.score > 0)) {
+        const meta = { ...get().meta, gamesSinceAd: get().meta.gamesSinceAd + 1 };
+        set({ meta });
+        saveMeta(meta);
+      }
     };
     const enterGame = (game: GameState): void => {
       realGame = game;
@@ -202,6 +224,42 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
       recentUnlocks: [],
       unlockSeq: 0,
       meta: initMeta,
+      removeAds: initial.removeAds,
+      reviveSeq: 0,
+      lastRevive: null,
+
+      setRemoveAds: (on) => {
+        set({ removeAds: on });
+        persist(() => (on ? storage.set(PURCHASES.cacheKey, '1') : storage.remove(PURCHASES.cacheKey)));
+      },
+
+      revive: () => {
+        const s = get();
+        if (s.tutorial || s.phase !== 'over' || !canRevive(s.game)) return false;
+        const { state: game, cleared } = reviveGame(s.game);
+        realGame = game;
+        // the game didn't end after all: it is counted again when it really ends
+        const stats = statsRevived(s.stats, s.game.score);
+        set((x) => ({
+          game,
+          phase: 'playing',
+          hasSave: true,
+          fits: trayFits(game.board, game.tray),
+          stats,
+          lastMove: null,
+          lastRevive: cleared,
+          reviveSeq: x.reviveSeq + 1,
+        }));
+        saveProgress(stats, get().unlocked);
+        persist(() => storage.set(SAVE.gameKey, serializeSave(game)));
+        return true;
+      },
+
+      noteInterstitial: () => {
+        const meta = { ...get().meta, gamesSinceAd: 0, lastAdAt: now().getTime() };
+        set({ meta });
+        saveMeta(meta);
+      },
 
       setReminder: (choice) => {
         const meta = { ...get().meta, reminder: choice };

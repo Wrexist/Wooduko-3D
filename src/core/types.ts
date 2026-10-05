@@ -86,6 +86,8 @@ export interface GameState {
   readonly misses: number;
   /** Pieces dealt since the last small piece (drought guard). */
   readonly sinceSmall: number;
+  /** Revives used this game (at most one). */
+  readonly revives: number;
   /** Seeded RNG state (xorshift32). */
   readonly rng: number;
   readonly over: boolean;
@@ -97,6 +99,7 @@ export interface SaveData {
   readonly streak: number;
   readonly misses: number;
   readonly sinceSmall: number;
+  readonly revives: number;
   readonly rng: number;
   readonly groups: readonly {
     readonly cells: readonly Cell[];

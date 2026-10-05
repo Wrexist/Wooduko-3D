@@ -20,7 +20,8 @@ export function pngToRgb(buf) {
       height = data.readUInt32BE(4);
       const depth = data[8];
       colorType = data[9];
-      if (depth !== 8 || data[12] !== 0 || (colorType !== 6 && colorType !== 2)) throw new Error('unsupported PNG');
+      if (depth !== 8 || data[12] !== 0 || (colorType !== 6 && colorType !== 2))
+        throw new Error('unsupported PNG');
     } else if (type === 'IDAT') idat.push(data);
     off += 12 + len;
   }
@@ -81,7 +82,12 @@ export function pngToRgb(buf) {
   ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8;
   ihdr[9] = 2; // RGB
-  return Buffer.concat([SIG, chunk('IHDR', ihdr), chunk('IDAT', deflateSync(out, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
+  return Buffer.concat([
+    SIG,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(out, { level: 9 })),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
 }
 
 if (process.argv[2] && process.argv[3]) {

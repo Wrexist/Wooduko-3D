@@ -72,15 +72,15 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [ ] **[should]** Android build tested on a mid-range device (if shipping Android)
 
 ## Phase 8 — Monetization
-- [ ] **[must]** Decide the model. Suggested: free + ads, with a one-time "Remove ads" IAP
-- [ ] **[must]** ATT prompt **before** initializing any ad/attribution SDK
-- [ ] **[must]** AdMob (or AppLovin MAX): rewarded "Revive" (clear a 3×3 area or swap tray) and capped interstitials (never mid-game, never in the first sessions)
-- [ ] **[must]** RevenueCat: Remove ads product, entitlement, Restore Purchases button in Settings
+- [x] **[must]** Decide the model. Suggested: free + ads, with a one-time "Remove ads" IAP
+- [x] **[must]** ATT prompt **before** initializing any ad/attribution SDK
+- [x] **[must]** AdMob (or AppLovin MAX): rewarded "Revive" (clear a 3×3 area or swap tray) and capped interstitials (never mid-game, never in the first sessions)
+- [x] **[must]** RevenueCat: Remove ads product, entitlement, Restore Purchases button in Settings
 - [ ] **[should]** Theme packs as IAP (cosmetic)
-- [ ] **[must]** Privacy manifest (`PrivacyInfo.xcprivacy`) covering every SDK
+- [x] **[must]** Privacy manifest (`PrivacyInfo.xcprivacy`) covering every SDK
 
 ## Phase 9 — Analytics / A/B testing
-- [ ] **[must]** Mixpanel events: app_open, game_start, piece_placed (sampled), line_clear, combo, game_over (score, duration), revive_offered/used, ad_shown, purchase
+- [ ] **[must]** Mixpanel events: _(decided: no analytics SDK in v1 — App Store Connect metrics only)_ app_open, game_start, piece_placed (sampled), line_clear, combo, game_over (score, duration), revive_offered/used, ad_shown, purchase
 - [ ] **[should]** Funnels: tutorial completion, D1/D7 retention, games per session
 - [ ] **[nice]** A/B test: camera tilt, combo rule, interstitial frequency
 

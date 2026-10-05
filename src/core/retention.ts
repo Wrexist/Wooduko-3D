@@ -13,6 +13,9 @@ export interface Meta {
   readonly reminder: ReminderChoice;
   /** Local hours of day of recent sessions (newest last). */
   readonly playHours: readonly number[];
+  /** Finished games since the last interstitial, and when it was shown (ms since epoch). */
+  readonly gamesSinceAd: number;
+  readonly lastAdAt: number;
 }
 
 export const emptyMeta = (): Meta => ({
@@ -22,6 +25,8 @@ export const emptyMeta = (): Meta => ({
   reviewAsks: 0,
   reminder: 'unasked',
   playHours: [],
+  gamesSinceAd: 0,
+  lastAdAt: 0,
 });
 
 export function recordSession(m: Meta, now: Date): Meta {
@@ -111,6 +116,8 @@ export function parseMeta(raw: string | null): Meta {
       reviewAsks: n('reviewAsks'),
       reminder,
       playHours,
+      gamesSinceAd: n('gamesSinceAd'),
+      lastAdAt: n('lastAdAt'),
     };
   } catch {
     return base;

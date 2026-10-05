@@ -483,6 +483,162 @@ for (const [name, viewport] of Object.entries({
   await page.close();
 }
 
+// ---------------------------------------------------------------- monetization (fake ads + purchases)
+{
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 390, height: 844 } });
+  page.on('pageerror', (e) => (errors++, console.log('pageerror:', e.message)));
+  const seed = { a: 1, s: 1, jx: 0, jy: 0, t: 0.9 };
+  const groups = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if ((r + c) % 2 === 1) groups.push({ cells: [[r, c]], center: [c + 0.5, r + 0.5], seed });
+  const save = {
+    version: 3,
+    score: 700,
+    streak: 0,
+    misses: 0,
+    sinceSmall: 0,
+    revives: 0,
+    rng: 9,
+    groups,
+    tray: [{ shapeIndex: 0, seed }, { shapeIndex: 13, seed }, null],
+  };
+  await page.addInitScript((sv) => {
+    window.__ads = [];
+    const log = (n, v) => async () => {
+      window.__ads.push(n);
+      return v;
+    };
+    window.__fakeMonetization = {
+      ads: {
+        start: log('start'),
+        rewardedReady: () => true,
+        showRewarded: log('rewarded', true),
+        interstitialReady: () => true,
+        showInterstitial: log('interstitial'),
+        privacyOptionsRequired: () => true,
+        showPrivacyOptions: log('privacy'),
+      },
+      purchases: {
+        available: () => true,
+        price: async () => '$2.99',
+        owned: async () => false,
+        buy: log('buy', true),
+        restore: log('restore', false),
+      },
+    };
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.clear();
+    localStorage.setItem('grain_tutorial_v1', '1');
+    localStorage.setItem('grain_save_v1', sv);
+    localStorage.setItem(
+      'grain_meta_v1',
+      JSON.stringify({ sessions: 6, reminder: 'off', gamesSinceAd: 5, lastAdAt: 0 }),
+    );
+    localStorage.setItem('grain_stats_v1', JSON.stringify({ gamesPlayed: 12 }));
+  }, JSON.stringify(save));
+  await page.goto(url);
+  await page.waitForFunction(() => window.__grain);
+  await page.waitForTimeout(300);
+  const ads = () => page.evaluate(() => window.__ads);
+  // one legal move through the real view path (commit), so the results card appears like in play
+  const playOne = () =>
+    page.evaluate(() => {
+      const { store, game } = window.__grain;
+      const s = store.getState();
+      for (const tp of game.world.tray) {
+        if (!tp || tp.anim) continue;
+        for (let r = 0; r < 9; r++)
+          for (let c = 0; c < 9; c++) {
+            const ok = tp.shape.cells.every(
+              ([a, b]) => r + a < 9 && c + b < 9 && s.game.board.grid[r + a][c + b] === 0,
+            );
+            if (ok) {
+              tp.anim = true;
+              game.commit(tp, r, c);
+              return;
+            }
+          }
+      }
+    });
+  check('ads start (consent → ATT → SDK) from the 2nd session', (await ads()).includes('start'));
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await wait(page, 0.6);
+  await drag(page, await slotScreen(page, 0), await worldScreen(page, -4, -4));
+  await page.waitForFunction(() => window.__grain.store.getState().phase === 'over', null, {
+    timeout: 60000,
+  });
+  await wait(page, 2.2);
+  await page.screenshot({ path: `${out}/flow-revive-offer.png` });
+  check(
+    'results offer a revive for a rewarded ad',
+    await page.getByRole('button', { name: 'Keep playing · watch an ad' }).isVisible(),
+  );
+  await page.getByRole('button', { name: 'Keep playing · watch an ad' }).click();
+  await wait(page, 0.8);
+  let st = await page.evaluate(() => window.__grain.store.getState());
+  check(
+    'watching the ad revives the game (fullest square cleared, playing again)',
+    st.phase === 'playing' &&
+      st.game.revives === 1 &&
+      st.game.score === 701 &&
+      (await ads()).includes('rewarded'),
+  );
+  await page.screenshot({ path: `${out}/flow-revived.png` });
+  for (
+    let i = 0;
+    i < 60 && (await page.evaluate(() => window.__grain.store.getState().phase)) === 'playing';
+    i++
+  ) {
+    await playOne();
+    await wait(page, 0.1);
+  }
+  await page.waitForFunction(() => window.__grain.store.getState().phase === 'over', null, {
+    timeout: 60000,
+  });
+  await wait(page, 2.2);
+  check(
+    'no second revive in the same game',
+    !(await page.getByRole('button', { name: /Keep playing/ }).isVisible()),
+  );
+  await page.getByRole('button', { name: 'Play again' }).click();
+  await page.waitForTimeout(500);
+  st = await page.evaluate(() => window.__grain.store.getState());
+  check(
+    'Play again shows a paced interstitial, then a fresh game',
+    (await ads()).includes('interstitial') &&
+      st.phase === 'playing' &&
+      st.game.score === 0 &&
+      st.meta.gamesSinceAd <= 1,
+  );
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.locator('.pause').getByRole('button', { name: 'Settings' }).click();
+  check(
+    'settings offer Remove ads with the store price',
+    await page.getByRole('button', { name: 'Remove ads · $2.99' }).isVisible(),
+  );
+  check(
+    'settings offer Privacy choices when consent requires it',
+    await page.getByRole('button', { name: 'Privacy choices' }).isVisible(),
+  );
+  await page.waitForTimeout(600);
+  check(
+    'no reminder switch on the web (no notifications there)',
+    !(await page.getByRole('switch', { name: 'Daily reminder' }).isVisible()),
+  );
+  await page.screenshot({ path: `${out}/flow-settings-store.png` });
+  await page.getByRole('button', { name: 'Remove ads · $2.99' }).click();
+  await page.waitForTimeout(300);
+  check(
+    'buying Remove ads sticks (cached for offline)',
+    (await page.evaluate(
+      () => window.__grain.store.getState().removeAds && localStorage.getItem('grain_no_ads_v1') === '1',
+    )) && (await page.getByText('Ads removed. Thank you!').isVisible()),
+  );
+  await page.close();
+}
+
 // ---------------------------------------------------------------- reset race: drop lands after a restart
 {
   const page = await open({ width: 390, height: 844 }, { grain_tutorial_v1: '1' });

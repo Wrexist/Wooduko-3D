@@ -5,6 +5,8 @@ import { Game } from './game';
 import { pickLanguage, setLanguage, t } from './i18n';
 import { webHaptics } from './platform/haptics';
 import type { Haptics } from './platform/haptics';
+import { webMonetization } from './platform/monetization';
+import type { Monetization } from './platform/monetization';
 import { webServices } from './platform/services';
 import type { Services } from './platform/services';
 import { webStorage } from './platform/storage';
@@ -43,10 +45,14 @@ async function boot(): Promise<void> {
   // test builds can inject fake native services to exercise Game Center / review / reminder paths
   const fake = debug ? (window as { __fakeServices?: Services }).__fakeServices : undefined;
   const services: Services = nat ? nat.nativeServices() : (fake ?? webServices());
+  const fakeMoney = debug ? (window as { __fakeMonetization?: Monetization }).__fakeMonetization : undefined;
+  const monetization: Monetization = native
+    ? (await import('./platform/nativeMonetization')).nativeMonetization()
+    : (fakeMoney ?? webMonetization());
 
   const deps = { storage, randomSeed };
   const store = createGameStore(deps, await loadPersisted(deps));
-  const game = new Game({ canvas, uiRoot, store, haptics, services });
+  const game = new Game({ canvas, uiRoot, store, haptics, services, monetization });
   // hide the launch screen once the first frame is on screen
   if (nat) requestAnimationFrame(() => requestAnimationFrame(() => void nat.nativeChrome()));
   if (debug) {

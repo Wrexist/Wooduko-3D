@@ -85,6 +85,10 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
 }
+/* the hidden attribute must win over component display rules (e.g. .setting is flex) */
+[hidden] {
+  display: none !important;
+}
 button {
   font: inherit;
   color: inherit;
@@ -708,6 +712,25 @@ button {
   100% {
     transform: scale(1);
   }
+}
+
+.ghost-btn.buy {
+  color: var(--honey);
+  border-color: var(--honey);
+}
+.card .owned {
+  margin: 4px 0 0;
+  color: var(--honey);
+  font-weight: 700;
+}
+.card .note {
+  min-height: 18px;
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.cta:disabled {
+  opacity: 0.6;
 }
 
 /* ---------- awards ---------- */

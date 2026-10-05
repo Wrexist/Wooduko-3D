@@ -18,6 +18,7 @@
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		6B4A1530C7EB4B8FBEC0790F /* GrainGameCenterPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B3EB9DD44446CBBDA5BC36 /* GrainGameCenterPlugin.swift */; };
 		9033C39B7D74461182EA7542 /* GrainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C566B46B0F544919705F2D0 /* GrainViewController.swift */; };
+		D86CEA038A054CBA859225A7 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 53C6F5D32FF14EFA8E8215BE /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,7 @@
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A3B3EB9DD44446CBBDA5BC36 /* GrainGameCenterPlugin.swift */ = {isa = PBXFileReference; name = "GrainGameCenterPlugin.swift"; path = "GrainGameCenterPlugin.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
 		5C566B46B0F544919705F2D0 /* GrainViewController.swift */ = {isa = PBXFileReference; name = "GrainViewController.swift"; path = "GrainViewController.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
+		53C6F5D32FF14EFA8E8215BE /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; name = "PrivacyInfo.xcprivacy"; path = "PrivacyInfo.xcprivacy"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +81,7 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				A3B3EB9DD44446CBBDA5BC36 /* GrainGameCenterPlugin.swift */,
 				5C566B46B0F544919705F2D0 /* GrainViewController.swift */,
+				53C6F5D32FF14EFA8E8215BE /* PrivacyInfo.xcprivacy */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -154,6 +157,7 @@
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
+				D86CEA038A054CBA859225A7 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
