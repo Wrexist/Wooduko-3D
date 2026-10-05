@@ -563,6 +563,20 @@ for (const [name, viewport] of Object.entries({
       }
     });
   check('ads start (consent → ATT → SDK) from the 2nd session', (await ads()).includes('start'));
+  await page.waitForSelector('.offer-layer:not(.hidden)', { timeout: 10000 }).catch(() => null);
+  await page.waitForTimeout(500);
+  check(
+    'launch: once ads are running, the home shows the Remove-ads offer with the price',
+    await page.locator('.offer-layer').getByRole('button', { name: 'Remove ads · $2.99' }).isVisible(),
+  );
+  await page.screenshot({ path: `${out}/flow-offer.png` });
+  await page.locator('.offer-layer').getByRole('button', { name: 'Not now' }).click();
+  await page.waitForTimeout(500);
+  check(
+    'Not now closes the offer and it counts for pacing',
+    !(await page.locator('.offer-layer .card').isVisible()) &&
+      (await page.evaluate(() => window.__grain.store.getState().meta.offersToday)) === 1,
+  );
   await page.getByRole('button', { name: 'Continue' }).click();
   await wait(page, 0.6);
   await drag(page, await slotScreen(page, 0), await worldScreen(page, -4, -4));
@@ -575,8 +589,16 @@ for (const [name, viewport] of Object.entries({
     'results offer a revive for a rewarded ad',
     await page.getByRole('button', { name: 'Keep playing · watch an ad' }).isVisible(),
   );
+  check(
+    'results offer Remove ads while ads are running',
+    await page.getByRole('button', { name: 'Tired of ads? Remove them' }).isVisible(),
+  );
   await page.getByRole('button', { name: 'Keep playing · watch an ad' }).click();
   await wait(page, 0.8);
+  check(
+    'no second offer right after the rewarded ad (paced)',
+    !(await page.locator('.offer-layer .card').isVisible()),
+  );
   let st = await page.evaluate(() => window.__grain.store.getState());
   check(
     'watching the ad revives the game (fullest square cleared, playing again)',

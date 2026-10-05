@@ -16,6 +16,11 @@ export interface Meta {
   /** Finished games since the last interstitial, and when it was shown (ms since epoch). */
   readonly gamesSinceAd: number;
   readonly lastAdAt: number;
+  /** Remove-ads offer pacing: last shown (ms), local day number + count that day, total shown. */
+  readonly lastOfferAt: number;
+  readonly offerDay: number;
+  readonly offersToday: number;
+  readonly offersShown: number;
 }
 
 export const emptyMeta = (): Meta => ({
@@ -27,6 +32,10 @@ export const emptyMeta = (): Meta => ({
   playHours: [],
   gamesSinceAd: 0,
   lastAdAt: 0,
+  lastOfferAt: 0,
+  offerDay: 0,
+  offersToday: 0,
+  offersShown: 0,
 });
 
 export function recordSession(m: Meta, now: Date): Meta {
@@ -118,6 +127,10 @@ export function parseMeta(raw: string | null): Meta {
       playHours,
       gamesSinceAd: n('gamesSinceAd'),
       lastAdAt: n('lastAdAt'),
+      lastOfferAt: n('lastOfferAt'),
+      offerDay: n('offerDay'),
+      offersToday: n('offersToday'),
+      offersShown: n('offersShown'),
     };
   } catch {
     return base;

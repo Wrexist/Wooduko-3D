@@ -871,6 +871,22 @@ export const PURCHASES = {
   cacheKey: 'grain_no_ads_v1',
 } as const;
 
+/** The Remove-ads offer (core/upsell.ts). Shown while ads are being seen; always dismissible. */
+export const UPSELL = {
+  /** At most this many full offers a day. */
+  maxPerDay: 4,
+  /** After every interstitial, unless an offer was shown this recently. */
+  afterAdGapMs: 60 * 1000,
+  /** After a rewarded ad (the player chose an ad: lighter touch). */
+  afterRewardedGapMs: 15 * 60 * 1000,
+  /** On the home screen: from this session and game count, at most this often. */
+  homeFromSession: 2,
+  homeFromGames: 3,
+  homeGapMs: 30 * 60 * 1000,
+  /** Seconds before the offer's "Not now" button reacts (stops accidental taps dismissing it). */
+  dismissDelay: 0.8,
+} as const;
+
 export type Mode = 'classic' | 'daily' | 'zen' | 'blitz';
 
 /** Game modes. Classic is the original. */

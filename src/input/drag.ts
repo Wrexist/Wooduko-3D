@@ -50,6 +50,7 @@ export class DragController {
   /** Optional restriction (tutorial): only these spots are valid. */
   private allowed: ((r0: number, c0: number) => boolean) | undefined;
   private hoverSlot = -1;
+  private inFlight = 0;
   private readonly raycaster = new THREE.Raycaster();
   private readonly ndc = new THREE.Vector2();
   private readonly land = new THREE.Vector3();
@@ -96,6 +97,11 @@ export class DragController {
 
   setAllowed(fn: ((r0: number, c0: number) => boolean) | undefined): void {
     this.allowed = fn;
+  }
+
+  /** Pieces released onto the board and still flying to their spot. */
+  get dropping(): boolean {
+    return this.inFlight > 0;
   }
 
   get dragging(): boolean {
@@ -332,6 +338,7 @@ export class DragController {
     const frx = pv.rotation.x;
     const frz = pv.rotation.z;
     const to = this.world.dropPoint(tp.shape, r0, c0, new THREE.Vector3());
+    this.inFlight++;
     this.tweens.add({
       dur: DRAG.dropDuration,
       update: (_e, k) => {
@@ -343,7 +350,10 @@ export class DragController {
         pv.rotation.x = frx * (1 - kx);
         pv.rotation.z = frz * (1 - kx);
       },
-      done: () => this.hooks.onDropped(tp, r0, c0),
+      done: () => {
+        this.inFlight--;
+        this.hooks.onDropped(tp, r0, c0);
+      },
     });
   }
 

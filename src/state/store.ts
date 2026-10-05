@@ -16,6 +16,7 @@ import type { QuestDay, QuestEvent } from '../core/quests';
 import { canRevive, revive as reviveGame, zenRescue } from '../core/revive';
 import type { ClearResult } from '../core/types';
 import { parseMeta, recordSession, reviewAsked } from '../core/retention';
+import { offerShown } from '../core/upsell';
 import type { Meta, ReminderChoice } from '../core/retention';
 import {
   emptyStats,
@@ -127,6 +128,8 @@ export interface StoreActions {
   revive(): boolean;
   /** An interstitial was shown: reset the pacing. */
   noteInterstitial(): void;
+  /** The Remove-ads offer was shown (for its pacing). */
+  noteOffer(): void;
   /** Remember that the review prompt was shown. */
   noteReviewAsked(): void;
   /** Wipe bests, saved games, stats, achievements, dailies and quests. Settings are kept (theme back to default). */
@@ -376,8 +379,8 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
       const s = get();
       if (!g || s.tutorial) return;
       if (!g.over && g.score > 0 && mode !== 'zen') progress(statsFor(s.stats, mode, null, g.score), g.score);
-      // ad pacing counts games that ended (finished or abandoned with a score)
-      if (g.over || g.score > 0) {
+      // ad pacing: a finished game was counted when it ended; an abandoned one counts now
+      if (!g.over && g.score > 0) {
         const meta = { ...get().meta, gamesSinceAd: get().meta.gamesSinceAd + 1 };
         set({ meta });
         saveMeta(meta);
@@ -394,11 +397,15 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
       show(game, false);
       storeGame(mode, game);
     };
-    /** Roll daily state over to `today` if the calendar day changed. */
-    const rollDay = (): void => {
+    /**
+     * Roll daily state over to `today` if the calendar day changed. A Daily game on screen keeps
+     * its day (goal, results, share) until the player leaves it; `force` = they are leaving.
+     */
+    const rollDay = (force = false): void => {
       const today = dateKey(now());
       const s = get();
       if (today === s.today) return;
+      if (!force && s.mode === 'daily' && s.phase !== 'home') return;
       if (saved.daily) storeGame('daily', null);
       const daily = emptyDaily(today);
       set({ today, daily, dailyGoal: dailyGoal(today), quests: questDayFor(s.quests, today) });
@@ -406,6 +413,9 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
     /** A game ended (no room, or time's up). */
     const finish = (mode: Mode, game: GameState, stats: Stats): Stats => {
       storeGame(mode, null);
+      const meta = { ...get().meta, gamesSinceAd: get().meta.gamesSinceAd + 1 };
+      set({ meta });
+      saveMeta(meta);
       return statsFor(stats, mode, null, game.score);
     };
 
@@ -473,7 +483,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
       applyZenRescue: () => {
         const r = pendingRescue;
         const s = get();
-        if (!r || s.mode !== 'zen' || !s.zenStuck) return;
+        if (!r || s.mode !== 'zen' || !s.zenStuck || s.phase === 'home') return;
         pendingRescue = null;
         current = r.state;
         set((x) => ({
@@ -508,6 +518,12 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
         saveMeta(meta);
       },
 
+      noteOffer: () => {
+        const meta = offerShown(get().meta, now().getTime());
+        set({ meta });
+        saveMeta(meta);
+      },
+
       noteSession: () => {
         const meta = recordSession(get().meta, now());
         set({ meta });
@@ -528,7 +544,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
       },
 
       play: (mode) => {
-        rollDay();
+        rollDay(true);
         const s = get();
         // leaving an unfinished Blitz run ends it
         if (s.mode === 'blitz' && current && !current.over) abandon(current, 'blitz');
@@ -542,7 +558,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
       },
 
       startNew: (mode = get().mode) => {
-        rollDay();
+        rollDay(true);
         const s = get();
         if (s.mode === 'blitz' && mode !== 'blitz' && current && !current.over) abandon(current, 'blitz');
         abandon(s.mode === mode ? current : isSaveMode(mode) ? saved[mode] : null, mode);
@@ -594,7 +610,10 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
         current = game;
         // Zen never ends: when stuck, the view plays a rescue (the save already holds the rescued board)
         const stuck = mode === 'zen' && game.over;
-        if (stuck) pendingRescue = zenRescue(game);
+        if (stuck) {
+          pendingRescue = zenRescue(game);
+          current = pendingRescue.state;
+        }
         const over = game.over && !stuck;
         const patch: { -readonly [K in keyof StoreState]?: StoreState[K] } = {
           game,
@@ -646,7 +665,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
         if (get().phase === 'paused') set({ phase: 'playing' });
       },
       goHome: () => {
-        rollDay();
+        rollDay(true);
         set({ phase: 'home' });
       },
       refreshDay: () => rollDay(),

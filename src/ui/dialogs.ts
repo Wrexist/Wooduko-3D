@@ -114,9 +114,16 @@ export class ResultsCard extends Overlay {
   private readonly revive = el('button', { class: 'cta revive', hidden: '' });
   private readonly title = el('h2', { id: 'overTitle' }, [t('results.title')]);
   private readonly share = el('button', { class: 'ghost-btn share', hidden: '' });
+  private readonly noAds = el('button', { class: 'link-btn no-ads', hidden: '' });
   private readonly note = el('p', { class: 'note', 'aria-live': 'polite' });
 
-  constructor(handlers: { onAgain(): void; onHome(): void; onRevive(): void; onShare(): void }) {
+  constructor(handlers: {
+    onAgain(): void;
+    onHome(): void;
+    onRevive(): void;
+    onShare(): void;
+    onRemoveAds(): void;
+  }) {
     super('results', 'overTitle');
     const again = el('button', { class: 'cta' }, [t('results.again')]);
     const home = el('button', { class: 'ghost-btn' }, [t('results.home')]);
@@ -126,13 +133,22 @@ export class ResultsCard extends Overlay {
     this.share.innerHTML = ICONS.share;
     this.share.append(t('results.share'));
     this.share.addEventListener('click', handlers.onShare);
+    this.noAds.innerHTML = ICONS.noAds;
+    this.noAds.append(t('results.removeAds'));
+    this.noAds.addEventListener('click', handlers.onRemoveAds);
     this.card.append(
       this.title,
       this.finalEl,
       this.bestEl,
       el('div', { class: 'stack' }, [this.revive, again, this.share, home]),
+      this.noAds,
       this.note,
     );
+  }
+
+  /** "Remove ads" link under the buttons, while ads are part of the game. */
+  setRemoveAds(visible: boolean): void {
+    this.noAds.hidden = !visible;
   }
 
   /** A short status line under the buttons (e.g. "Copied"). */

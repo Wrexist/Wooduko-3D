@@ -34,6 +34,9 @@ import { onLifecycle } from './platform/lifecycle';
 import type { Services } from './platform/services';
 import type { Monetization } from './platform/monetization';
 import { canRevive, shouldShowInterstitial } from './core/revive';
+import { shouldOfferRemoveAds } from './core/upsell';
+import type { OfferTrigger } from './core/upsell';
+import { RemoveAdsOffer } from './ui/offer';
 import { nextReminder, reminderIndex, shouldAskReview, shouldOfferReminder } from './core/retention';
 import { num, t } from './i18n';
 import type { Key } from './i18n';
@@ -101,6 +104,16 @@ export class Game {
   private readonly safeProbe = el('div', { 'aria-hidden': 'true' });
   private readonly home: HomeMenu;
   private readonly questsPanel = new QuestsPanel(() => this.questsPanel.hide());
+  private readonly offer = new RemoveAdsOffer({
+    onBuy: () => this.buyRemoveAds(),
+    onRestore: async () => {
+      const owned = await this.money.purchases.restore();
+      if (owned) this.store.getState().setRemoveAds(true);
+      return owned;
+    },
+  });
+  /** Ads have been started this run (consent / ATT done): the offer makes sense now. */
+  private adsStarted = false;
   private readonly pauseMenu: PauseMenu;
   private readonly settingsPanel: SettingsPanel;
   private readonly confirm = new ConfirmDialog();
@@ -216,6 +229,7 @@ export class Game {
       onRevive: () => void this.tryRevive(),
       onHome: () => this.store.getState().goHome(),
       onShare: () => void this.shareDaily(),
+      onRemoveAds: () => void this.presentOffer(false),
     });
     this.tutorialUi = new TutorialOverlay(() => this.endTutorial());
     Object.assign(this.safeProbe.style, {
@@ -237,6 +251,7 @@ export class Game {
       this.settingsPanel.node,
       this.awards.node,
       this.questsPanel.node,
+      this.offer.node,
       this.confirm.node,
       this.safeProbe,
     );
@@ -328,7 +343,15 @@ export class Game {
       this.showBanner(() =>
         this.banner.pushText(t('quests.complete'), t('quests.completeDetail', { n: s.questStreak.count })),
       );
-    if (s.removeAds !== prev.removeAds) this.syncStoreUi();
+    if (s.removeAds !== prev.removeAds) {
+      this.syncStoreUi();
+      if (s.removeAds) {
+        this.results.setRemoveAds(false);
+        this.results.setRevive(this.reviveOffer());
+        this.sound.newBest();
+        this.showBanner(() => this.banner.pushText(t('offer.thanks'), t('offer.thanksDetail')));
+      }
+    }
     if (s.phase !== prev.phase) this.onPhase(s);
     if (s.settings !== prev.settings) this.applySettings(s.settings);
     if (s.unlockSeq !== prev.unlockSeq && s.recentUnlocks.length) {
@@ -493,6 +516,10 @@ export class Game {
     const p = s.phase;
     if (p === 'home') {
       this.refreshHome(s);
+      if (this.offerDue('home'))
+        window.setTimeout(() => {
+          if (this.store.getState().phase === 'home' && !this.anyDialogOpen()) void this.presentOffer();
+        }, 450);
       this.home.show();
     } else this.home.hide();
     if (p === 'paused') {
@@ -566,7 +593,40 @@ export class Game {
     if (s.removeAds || s.tutorial) return;
     if (s.meta.sessions < ADS.initFromSession && s.stats.gamesPlayed < 1) return;
     await this.money.ads.start();
+    const first = !this.adsStarted;
+    this.adsStarted = true;
     this.syncStoreUi();
+    // launch: the home screen is up and ads are now part of the game
+    if (first && this.store.getState().phase === 'home' && !this.anyDialogOpen() && this.offerDue('home'))
+      void this.presentOffer();
+  }
+
+  /** Would the Remove-ads offer be shown for this trigger right now? */
+  private offerDue(trigger: OfferTrigger): boolean {
+    const s = this.store.getState();
+    return (
+      this.adsStarted &&
+      !s.tutorial &&
+      shouldOfferRemoveAds({
+        trigger,
+        removeAds: s.removeAds,
+        available: this.money.purchases.available(),
+        gamesPlayed: s.stats.gamesPlayed,
+        meta: s.meta,
+        now: Date.now(),
+      })
+    );
+  }
+
+  /** Show the Remove-ads popup (counted for pacing). Resolves when bought or dismissed. */
+  private async presentOffer(counted = true): Promise<void> {
+    if (this.offer.open || this.store.getState().removeAds) return;
+    this.drag.cancel();
+    // the player asked for it (results link): doesn't use up the day's offers
+    if (counted) this.store.getState().noteOffer();
+    if (this.price === null && this.money.purchases.available())
+      this.price = await this.money.purchases.price().catch(() => null);
+    await this.offer.ask(this.price);
   }
 
   private syncStoreUi(): void {
@@ -592,9 +652,11 @@ export class Game {
     this.settingsPanel.show();
   }
 
-  private async buyRemoveAds(): Promise<void> {
+  private async buyRemoveAds(): Promise<boolean> {
     this.sound.tick();
-    if (await this.money.purchases.buy()) this.store.getState().setRemoveAds(true);
+    const owned = await this.money.purchases.buy();
+    if (owned) this.store.getState().setRemoveAds(true);
+    return owned;
   }
 
   private async restorePurchases(): Promise<void> {
@@ -627,6 +689,11 @@ export class Game {
         this.results.setRevive(this.reviveOffer());
         return;
       }
+      if (this.offerDue('afterRewarded')) {
+        this.results.setBusy(true);
+        await this.presentOffer();
+        this.results.setBusy(false);
+      }
     }
     this.store.getState().revive();
   }
@@ -649,7 +716,7 @@ export class Game {
     const show = shouldShowInterstitial({
       sessions: s.meta.sessions,
       gamesPlayed: s.stats.gamesPlayed,
-      gamesSinceAd: s.meta.gamesSinceAd + (s.phase === 'over' ? 1 : 0),
+      gamesSinceAd: s.meta.gamesSinceAd,
       msSinceAd: Date.now() - s.meta.lastAdAt,
       removeAds: s.removeAds,
     });
@@ -663,6 +730,12 @@ export class Game {
       this.results.setBusy(false);
       this.adBusy = false;
       shown = true;
+    }
+    // the ad just ended: the best moment to offer a way out of ads (before the next board)
+    if (shown && this.offerDue('afterAd')) {
+      this.results.setBusy(true);
+      await this.presentOffer();
+      this.results.setBusy(false);
     }
     this.store.getState().startNew();
     // after startNew (which counts the game that just ended), so pacing restarts from zero
@@ -717,7 +790,18 @@ export class Game {
       !this.confirm.open &&
       !this.settingsPanel.open &&
       !this.awards.open &&
-      !this.questsPanel.open
+      !this.questsPanel.open &&
+      !this.offer.open
+    );
+  }
+
+  private anyDialogOpen(): boolean {
+    return (
+      this.confirm.open ||
+      this.settingsPanel.open ||
+      this.awards.open ||
+      this.questsPanel.open ||
+      this.offer.open
     );
   }
 
@@ -884,6 +968,7 @@ export class Game {
       const s = this.store.getState();
       this.sound.gameOver();
       this.results.setRevive(this.reviveOffer());
+      this.results.setRemoveAds(this.adsStarted && !s.removeAds && this.money.purchases.available());
       this.results.present(s.game.score, modeBest(s), s.newBest, this.tweens, this.resultsInfo(s));
       if (s.mode !== 'classic') return;
       void this.services.gameCenter.submitBest(s.best);
@@ -1075,6 +1160,7 @@ export class Game {
     if (e.key !== 'Escape') return;
     const s = this.store.getState();
     if (this.confirm.open) this.confirm.cancel();
+    else if (this.offer.open) this.offer.dismiss();
     else if (this.settingsPanel.open) this.settingsPanel.hide();
     else if (this.awards.open) this.awards.hide();
     else if (this.questsPanel.open) this.questsPanel.hide();
@@ -1137,12 +1223,15 @@ export class Game {
     this.tweens.update(fxDt);
     this.comboGlow.update(dt, this.time);
     this.drag.update(dt);
-    if (!this.ending && !this.confirm.open) this.store.getState().tick(dt);
+    // Blitz clock: holds while a dropped piece is still in the air (that move counts) and in hit-stop
+    if (!this.ending && !this.confirm.open && !this.drag.dropping && this.freeze <= 0)
+      this.store.getState().tick(dt);
     this.chips.update(fxDt);
     this.updateHints();
     this.preview.update(dt, this.time);
     this.hud.update(dt);
     this.banner.update(dt);
+    this.offer.update(raw);
     this.updateTutorialHand(dt);
 
     const shake = this.fx.updateShake(dt);

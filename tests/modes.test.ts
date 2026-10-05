@@ -229,6 +229,51 @@ describe('modes', () => {
     expect(store.getState().settings.theme).toBe('oak');
   });
 
+  it('every finished game counts once for ad pacing, whichever way the player leaves', async () => {
+    const { store } = await setup();
+    store.getState().play('blitz');
+    expect(firstLegal(store)).toBe(true);
+    store.getState().tick(MODES.blitzSeconds);
+    expect(store.getState().meta.gamesSinceAd).toBe(1);
+    // Home, then another mode: not counted again
+    store.getState().goHome();
+    store.getState().play('daily');
+    expect(store.getState().meta.gamesSinceAd).toBe(1);
+    // an unfinished game with a score that is restarted counts
+    expect(firstLegal(store)).toBe(true);
+    store.getState().startNew();
+    expect(store.getState().meta.gamesSinceAd).toBe(2);
+  });
+
+  it('restarting a stuck Zen board is not a finished game', async () => {
+    const { store } = await setup();
+    store.getState().debugLoad(stuckSoon(0), 'zen');
+    store.getState().place(0, 0, 0);
+    expect(store.getState().zenStuck).toBe(true);
+    const before = store.getState().meta.gamesSinceAd;
+    store.getState().goHome();
+    // a rescue arriving after Home is dropped; the save already holds the rescued board
+    const seq = store.getState().reviveSeq;
+    store.getState().applyZenRescue();
+    expect(store.getState().reviveSeq).toBe(seq);
+    store.getState().play('zen');
+    expect(store.getState().game.over).toBe(false);
+    expect(store.getState().meta.gamesSinceAd).toBe(before);
+  });
+
+  it('midnight during a Daily game keeps its goal until the player leaves it', async () => {
+    const { store, setNow } = await setup();
+    store.getState().play('daily');
+    const goal = store.getState().dailyGoal;
+    setNow(new Date(2026, 9, 7, 0, 5));
+    store.getState().noteSession();
+    expect(store.getState().today).toBe(TODAY);
+    expect(store.getState().dailyGoal).toBe(goal);
+    store.getState().goHome();
+    expect(store.getState().today).toBe('2026-10-07');
+    expect(store.getState().saves.daily).toBeNull();
+  });
+
   it('reset progress clears every mode', async () => {
     const { store, storage } = await setup();
     store.getState().play('zen');
