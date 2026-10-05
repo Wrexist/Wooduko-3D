@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#3a2415">
+<title>Grain — Wood Block Puzzle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,800&family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#3a2415; --ink:#fff6e6; --ink-soft:rgba(255,246,230,.7);
+  --card:rgba(46,27,15,.92); --honey:#f0b94a; --btn:rgba(255,246,230,.12); --btn-line:rgba(255,246,230,.2);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#26170d; --card:rgba(28,17,9,.94);} }
+:root[data-theme="dark"]{ --bg:#26170d; --card:rgba(28,17,9,.94); }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+html,body{ height:100%; margin:0; }
+*,*::before,*::after{ box-sizing:inherit; }
+body{
+  background:var(--bg); color:var(--ink); overflow:hidden;
+  font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  -webkit-user-select:none; user-select:none; touch-action:none; -webkit-tap-highlight-color:transparent;
+}
+#c{ position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+#vig{ position:fixed; inset:0; pointer-events:none;
+  background:radial-gradient(ellipse 85% 75% at 50% 52%, transparent 50%, rgba(24,12,5,.62) 100%); }
+#hud{
+  position:fixed; left:0; right:0; top:0; padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 0;
+  display:grid; grid-template-columns:44px 1fr 44px; align-items:start; pointer-events:none;
+}
+.btn{
+  pointer-events:auto; width:44px; height:44px; border-radius:50%; border:1px solid var(--btn-line);
+  background:var(--btn); color:var(--ink); display:grid; place-items:center; cursor:pointer; padding:0;
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); transition:transform .12s ease;
+}
+.btn:active{ transform:scale(.92); }
+.btn:focus-visible{ outline:2px solid var(--honey); outline-offset:2px; }
+.btn svg{ width:20px; height:20px; }
+#scorebox{ text-align:center; line-height:1; position:relative; }
+#best{ display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:14px; color:var(--honey);
+  text-shadow:0 1px 2px rgba(0,0,0,.35); }
+#best svg{ width:16px; height:16px; }
+#score{ font-family:'Fraunces',Georgia,'Times New Roman',serif; font-weight:800; font-size:48px; margin-top:4px;
+  font-variant-numeric:lining-nums tabular-nums; letter-spacing:-.01em;
+  text-shadow:0 2px 0 rgba(60,30,12,.55), 0 6px 18px rgba(0,0,0,.35); }
+#toast{ position:fixed; left:50%; top:40%; transform:translate(-50%,-50%); pointer-events:none; text-align:center; opacity:0; }
+#toast .big{ font-family:'Fraunces',Georgia,serif; font-weight:800; font-size:44px; color:var(--ink);
+  text-shadow:0 3px 0 rgba(120,62,20,.85), 0 10px 30px rgba(0,0,0,.45); white-space:nowrap; }
+#toast .small{ font-weight:700; font-size:18px; color:var(--honey); margin-top:4px; text-shadow:0 2px 6px rgba(0,0,0,.5); }
+#toast.show{ animation:pop 1.25s cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes pop{
+  0%{opacity:0; transform:translate(-50%,-40%) scale(.6)}
+  14%{opacity:1; transform:translate(-50%,-50%) scale(1.08)}
+  24%{transform:translate(-50%,-50%) scale(1)}
+  72%{opacity:1; transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0; transform:translate(-50%,-70%) scale(.98)}
+}
+#hint{ position:fixed; left:50%; transform:translateX(-50%); top:calc(env(safe-area-inset-top,0px) + 98px);
+  max-width:min(88vw,360px); text-align:center; font-size:14px; line-height:1.4; color:var(--ink-soft);
+  pointer-events:none; transition:opacity .5s ease; text-shadow:0 1px 3px rgba(0,0,0,.5); }
+#hint.gone{ opacity:0; }
+#over{ position:fixed; inset:0; display:grid; place-items:center; background:rgba(20,10,4,.45);
+  transition:opacity .35s ease; padding:24px; }
+#over.hidden{ opacity:0; pointer-events:none; }
+.card{ background:var(--card); border:1px solid rgba(255,246,230,.12); border-radius:22px; padding:28px 28px 24px;
+  width:min(320px,100%); text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.45); }
+.card h2{ margin:0; font-family:'Fraunces',Georgia,serif; font-weight:500; font-size:22px; }
+.card .final{ font-family:'Fraunces',Georgia,serif; font-weight:800; font-size:64px; line-height:1.05; margin:10px 0 2px; }
+.card .bestline{ color:var(--honey); font-weight:700; font-size:15px; min-height:20px; }
+.card button{ margin-top:22px; width:100%; height:52px; border-radius:14px; border:0; cursor:pointer;
+  background:linear-gradient(#f2d39c,#d9ad68); color:#3a2010; font:700 17px 'DM Sans',system-ui,sans-serif;
+  box-shadow:0 3px 0 #8d5a2b, 0 10px 20px rgba(0,0,0,.3); }
+.card button:active{ transform:translateY(2px); box-shadow:0 1px 0 #8d5a2b; }
+.card button:focus-visible{ outline:2px solid var(--honey); outline-offset:3px; }
+#score.bump{ animation:bump .42s cubic-bezier(.2,1.6,.4,1); }
+@keyframes bump{ 0%{transform:scale(1)} 30%{transform:scale(1.16)} 100%{transform:scale(1)} }
+#combo{ position:absolute; left:50%; top:100%; margin-top:8px; transform:translateX(-50%) scale(.6); opacity:0;
+  padding:5px 12px 6px; border-radius:999px; font-weight:700; font-size:14px; white-space:nowrap; color:#3a1e0a;
+  background:linear-gradient(#ffe2a3,#f0b94a); box-shadow:0 2px 0 #9a6420, 0 6px 16px rgba(0,0,0,.3);
+  transition:opacity .25s ease, transform .35s cubic-bezier(.2,1.6,.4,1); }
+#combo.show{ opacity:1; transform:translateX(-50%) scale(1); }
+#combo.kick{ animation:kick .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes kick{ 0%{transform:translateX(-50%) scale(1)} 35%{transform:translateX(-50%) scale(1.25) rotate(-3deg)} 100%{transform:translateX(-50%) scale(1)} }
+.float{ position:fixed; transform:translate(-50%,-50%); pointer-events:none; font-family:'Fraunces',Georgia,serif; font-weight:800;
+  font-size:24px; color:var(--ink); text-shadow:0 2px 0 rgba(110,56,18,.8), 0 6px 14px rgba(0,0,0,.4); animation:rise .9s cubic-bezier(.2,.8,.3,1) forwards; }
+.float.gold{ color:#ffd77a; font-size:30px; }
+@keyframes rise{ 0%{opacity:0; transform:translate(-50%,-30%) scale(.6)} 18%{opacity:1; transform:translate(-50%,-60%) scale(1.1)} 100%{opacity:0; transform:translate(-50%,-190%) scale(1)} }
+#flash{ position:fixed; inset:0; pointer-events:none; opacity:0;
+  background:radial-gradient(ellipse 70% 55% at 50% 50%, rgba(255,214,140,.38), rgba(255,190,90,0) 70%); }
+#flash.on{ animation:flash .55s ease-out; }
+@keyframes flash{ 0%{opacity:0} 15%{opacity:1} 100%{opacity:0} }
+#over:not(.hidden) .card{ animation:cardIn .55s cubic-bezier(.2,1.3,.4,1); }
+@keyframes cardIn{ 0%{opacity:0; transform:translateY(28px) scale(.94)} 100%{opacity:1; transform:none} }
+@media (prefers-reduced-motion: reduce){ #toast.show{ animation-duration:.9s; } #score.bump, #combo.kick{ animation:none; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Wood block puzzle board"></canvas>
+<div id="vig"></div>
+<div id="hud">
+  <button class="btn" id="btnRestart" aria-label="Restart game">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+  </button>
+  <div id="scorebox">
+    <div id="best"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5z"/></svg><span id="bestVal">0</span></div>
+    <div id="score">0</div>
+    <div id="combo"></div>
+  </div>
+  <button class="btn" id="btnSound" aria-label="Mute sound">
+    <svg id="icoOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+    <svg id="icoOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
+  </button>
+</div>
+<div id="hint">Drag blocks onto the board. Fill a row, a column or a 3×3 square to clear it.</div>
+<div id="flash"></div>
+<div id="toast"></div>
+<div id="over" class="hidden">
+  <div class="card" role="dialog" aria-labelledby="overTitle">
+    <h2 id="overTitle">No room left</h2>
+    <div class="final" id="finalScore">0</div>
+    <div class="bestline" id="finalBest"></div>
+    <button id="again">Play again</button>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
