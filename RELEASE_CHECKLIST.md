@@ -28,7 +28,7 @@ Legend: **[must]** blocks release Â· **[should]** strongly expected by players Â
 - [x] **[must]** App backgrounded mid-animation: state saved, no half-placed pieces on return
 - [x] **[must]** Save file versioning + migration; corrupted save falls back to a new game instead of a blank board
 - [x] **[must]** Verify tray pieces never render off-screen on narrow phones (iPhone SE) and wide iPads
-- [ ] **[must]** Memory: play 30+ minutes, confirm geometry/material counts stay flat (`renderer.info`)
+- [x] **[must]** Memory: play 30+ minutes, confirm geometry/material counts stay flat (`renderer.info`)
 - [x] **[must]** Game-over check covers every tray piece, including after loading a save
 - [x] **[should]** Restart button: replace the "tap twice" toast with a real confirm dialog
 - [ ] **[should]** Error tracking (Sentry) wired before TestFlight

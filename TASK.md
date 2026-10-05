@@ -1,7 +1,7 @@
 # TASK.md
 
 ## Active phase
-**Phase 2 — Hardening** (spec: `MASTER_PROMPT.md` §12, `RELEASE_CHECKLIST.md` phase 2)
+**Phase 2 — Hardening** — **complete, waiting for sign-off.** Next: Phase 3 — Gameplay tuning.
 
 ## Phase 2 plan
 1. [x] **Reset races:** a drop, game-over card or tutorial step that finishes *after* a restart must not touch the new game (generation guard on delayed callbacks; commit checks the tray piece is still current)
@@ -10,7 +10,7 @@
 4. [x] **WebGL context loss** (iOS does this in the background): keep the loop alive, verify the scene comes back
 5. [x] **Corrupted save in the browser:** bad JSON / bad shapes / finished game → clean new game, no console errors (plus unit test: loaded game-over save is dropped)
 6. [x] **Small and large screens:** 320×568, 568×320, 375×667, iPad portrait/landscape, 1366×1024: board + tray fully on screen and below the HUD; HUD, toasts and cards never overflow (narrow phones drop the HUD restart button — it stays in the pause menu)
-7. [ ] **30-minute soak:** `renderer.info` (geometries, textures, programs), JS heap, DOM nodes and tween count flat
+7. [x] **30-minute soak:** passed — 14,927 moves, 180 games, geometries/textures/programs/DOM flat, heap 21.7 → 10.6 MB. `renderer.info` (geometries, textures, programs), JS heap, DOM nodes and tween count flat
 - Out of scope, needs your call: error tracking (Sentry) sends data off the device — ask before adding
 
 Verification: `npm run flows` (39 checks), `npm run layout` (13 viewports), `npm run soak` / 30-min soak on `npm run build:test` + `serve:test`.
