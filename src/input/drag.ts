@@ -15,6 +15,8 @@ export interface DragHooks {
   /** Drop animation finished on a valid spot: commit the move. */
   onDropped(tp: TrayPiece, r0: number, c0: number): void;
   onReturn(tp: TrayPiece): void;
+  /** Released over the board where it doesn't fit: the "nope" moment before it flies back. */
+  onNope?: (tp: TrayPiece) => void;
   /** Ghost snapped to a new cell. */
   onSnap?: () => void;
 }
@@ -30,6 +32,8 @@ interface DragState {
   key: string;
   /** Last pointer position, to re-aim after a resize. */
   last: ScreenPoint;
+  /** The landing point is over the board (a release there that doesn't fit gets a "nope"). */
+  overBoard: boolean;
 }
 
 interface ScreenPoint {
@@ -154,6 +158,7 @@ export class DragController {
       c0: 0,
       key: '',
       last: { clientX: e.clientX, clientY: e.clientY },
+      overBoard: false,
     };
     tp.prev.copy(tp.pivot.position);
     this.preview.makeGhost(tp.mesh.geometry, tp.shape.w, tp.shape.h);
@@ -188,6 +193,8 @@ export class DragController {
     const land = this.onPlane(e, WORLD.baseY, this.land);
     if (!land) return;
     land.z += d.offZ;
+    const half = BOARD.size / 2;
+    d.overBoard = Math.abs(land.x) <= half && Math.abs(land.z) <= half;
     // 2. hover on the camera line of sight through that spot, so it sits exactly over it
     const cp = this.world.camBase;
     this.v.copy(land).sub(cp);
@@ -269,7 +276,23 @@ export class DragController {
       // ignore
     }
     if (commit && d.valid && this.fits(d.tp, d.r0, d.c0)) this.dropTo(d.tp, d.r0, d.c0);
+    else if (commit && d.overBoard && this.world.tray[d.tp.slot] === d.tp) this.nope(d.tp);
     else this.returnHome(d.tp);
+  }
+
+  /** A quick head-shake where it was dropped, then home. */
+  private nope(tp: TrayPiece): void {
+    tp.anim = true;
+    this.hooks.onNope?.(tp);
+    const pv = tp.pivot;
+    const baseZ = pv.rotation.z;
+    this.tweens.add({
+      dur: DRAG.nopeDuration,
+      update: (_e, k) => {
+        pv.rotation.z = baseZ + DRAG.nopeAngle * Math.sin(k * Math.PI * 2 * DRAG.nopeShakes) * (1 - k);
+      },
+      done: () => this.returnHome(tp),
+    });
   }
 
   private returnHome(tp: TrayPiece): void {
@@ -344,8 +367,13 @@ export class DragController {
       pv.rotation.x += (cl(vz * DRAG.tiltPerSpeed) - pv.rotation.x) * a;
     }
     const ah = damp(TRAY.hoverRate, dt);
+    const af = damp(DRAG.heldFadeRate, dt);
     for (const t of this.world.tray) {
-      if (!t || t.anim || d?.tp === t) continue;
+      if (!t) continue;
+      // a held piece over the board turns slightly see-through so its ghost shows beneath
+      const targetOpacity = d?.tp === t && d.valid ? DRAG.heldOpacity : 1;
+      for (const m of t.mesh.material) m.opacity += (targetOpacity - m.opacity) * af;
+      if (t.anim || d?.tp === t) continue;
       const hov = t.slot === this.hoverSlot;
       const ty = hov ? TRAY.hoverLift : 0;
       const ts = TRAY.scale * (hov ? TRAY.hoverScale : 1);

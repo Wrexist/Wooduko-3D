@@ -33,7 +33,7 @@ await page.getByRole('button', { name: 'Play' }).click();
 
 async function sample() {
   await page.waitForFunction(() => window.__grain.game.debug.tweens === 0, null, { timeout: 120000 });
-  await page.waitForTimeout(1600); // float texts and toasts finish their CSS animations
+  await page.waitForTimeout(2400); // float texts, crown and toasts finish their CSS animations
   return page.evaluate(() => {
     window.gc?.();
     const { info } = window.__grain.game.debug;

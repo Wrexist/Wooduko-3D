@@ -1,4 +1,4 @@
-import { SCORE_UI } from '../config';
+import { HUD_FX, SCORE_UI } from '../config';
 import { ComboPill } from './combo';
 import { el, ICONS, replay } from './dom';
 
@@ -54,6 +54,38 @@ export class Hud {
 
   bump(): void {
     replay(this.scoreEl, 'bump');
+  }
+
+  /**
+   * The score just passed the old best: a big crown rises from (x, y) and flies into the best label,
+   * which then pulses. Reduced motion: only the pulse.
+   */
+  celebrateBest(x: number, y: number, reduced: boolean): void {
+    const label = this.bestVal.parentElement;
+    if (!label) return;
+    const done = (): void => replay(label, 'pulse');
+    if (reduced || typeof document.body.animate !== 'function') return done();
+    const crown = el('div', { class: 'flying-crown', 'aria-hidden': 'true', html: ICONS.crown });
+    document.body.append(crown);
+    const r = label.getBoundingClientRect();
+    const tx = r.left + r.width / 2;
+    const ty = r.top + r.height / 2;
+    const anim = crown.animate(
+      [
+        { transform: `translate(${x}px, ${y}px) translate(-50%, -50%) scale(0.4)`, opacity: 0 },
+        {
+          transform: `translate(${x}px, ${y - 40}px) translate(-50%, -50%) scale(2.4)`,
+          opacity: 1,
+          offset: 0.35,
+        },
+        { transform: `translate(${tx}px, ${ty}px) translate(-50%, -50%) scale(0.7)`, opacity: 1 },
+      ],
+      { duration: HUD_FX.crownMs, easing: 'cubic-bezier(.3,.7,.3,1)' },
+    );
+    anim.onfinish = (): void => {
+      crown.remove();
+      done();
+    };
   }
 
   setBest(best: number): void {

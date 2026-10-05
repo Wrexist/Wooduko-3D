@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Sound } from './audio/sound';
-import { COLORS, FX, HAPTICS, PROGRESS, RENDER, themeById, TRAY, WORDS, WORLD } from './config';
+import { COLORS, FX, HAPTICS, LADDER, PROGRESS, RENDER, themeById, TRAY, WORDS, WORLD } from './config';
 import type { ThemeId } from './config';
 import { getShape } from './core/shapes';
 import type { MoveResult } from './core/rules';
@@ -8,7 +8,9 @@ import { tutorialSteps } from './core/tutorial';
 import type { TutorialStep } from './core/tutorial';
 import type { Settings } from './core/types';
 import { Effects } from './fx/effects';
+import { ComboGlow } from './fx/comboGlow';
 import { Chips, Sparkles } from './fx/particles';
+import { rewardTier } from './core/scoring';
 import { Tweens } from './fx/tween';
 import { DragController } from './input/drag';
 import type { Haptics } from './platform/haptics';
@@ -55,6 +57,9 @@ export class Game {
   private readonly tweens = new Tweens();
   private readonly preview: Preview;
   private readonly sparkles: Sparkles;
+  private readonly comboGlow: ComboGlow;
+  /** Hit-stop: seconds left in which effects stand still. */
+  private freeze = 0;
   private readonly chips: Chips;
   private readonly fx: Effects;
   private readonly sound = new Sound();
@@ -81,6 +86,8 @@ export class Game {
   private stepIndex = -1;
   /** Game-over sequence running: input is locked until the next reset. */
   private ending = false;
+  /** The current game already passed the previous best (celebrate only once per game). */
+  private bestCelebrated = false;
   /** Bumped on every board reset; delayed callbacks from an older board are dropped. */
   private gen = 0;
   /** True while a reset is finishing old tweens: a drop landing now belongs to the old board. */
@@ -108,6 +115,7 @@ export class Game {
     const { scene, camera } = this.world;
     this.preview = new Preview(scene, this.tex);
     this.sparkles = new Sparkles(scene, this.tex);
+    this.comboGlow = new ComboGlow(scene);
     this.chips = new Chips(scene, this.tex);
     this.fx = new Effects({
       scene,
@@ -118,7 +126,10 @@ export class Game {
       chips: this.chips,
       blocks: this.world.blocks,
       reducedMotion: () => this.reduced,
-      screenFlash: () => replay(this.flashEl, 'on'),
+      screenFlash: (tier) => {
+        this.flashEl.dataset.tier = String(tier);
+        replay(this.flashEl, 'on');
+      },
     });
 
     // ---------- UI ----------
@@ -192,6 +203,10 @@ export class Game {
       },
       onDropped: (tp, r0, c0) => this.commit(tp, r0, c0),
       onReturn: () => this.sound.returnPiece(),
+      onNope: () => {
+        this.sound.nope();
+        this.haptics.pulse(HAPTICS.nope);
+      },
     });
     // first touch anywhere unlocks audio (iOS needs a gesture)
     const unlock = (): void => this.sound.unlock();
@@ -273,6 +288,7 @@ export class Game {
     this.preview.hide();
     this.preview.disposeGhost();
     this.ending = false;
+    this.bestCelebrated = false;
     this.results.hide();
     this.fx.shake = 0;
     this.world.syncAll(s.game.board, s.game.tray, s.fits);
@@ -282,6 +298,7 @@ export class Game {
     }
     this.hud.setScore(s.game.score, true);
     this.hud.combo.set(s.game.streak, s.game.misses > 0);
+    this.comboGlow.set(s.game.streak, s.game.misses > 0, this.reduced);
   }
 
   private onPhase(s: StoreState): void {
@@ -411,7 +428,7 @@ export class Game {
     const oz = drop.z;
 
     const removedIds = new Set(move.applied?.removed.map((r) => r.group.id) ?? []);
-    if (!removedIds.has(move.placed.id)) this.fx.squash(this.world.addGroup(move.placed));
+    if (!removedIds.has(move.placed.id)) this.fx.squash(this.world.addGroup(move.placed), ox, oz);
     this.sound.place();
     this.haptics.pulse(HAPTICS.place);
     this.fx.addShake(FX.placeShake);
@@ -423,7 +440,18 @@ export class Game {
     const s = this.store.getState();
     this.hud.setScore(s.game.score);
     this.hud.bump();
+    // passing a real previous best mid-game is its own moment
+    if (!tutorial && !this.bestCelebrated && before.best > 0 && s.game.score > before.best && !s.game.over) {
+      this.bestCelebrated = true;
+      const p = this.world.toScreen(ox, WORLD.topY, oz, this.width, this.height);
+      this.later(FX.newBestDelay, () => {
+        this.hud.celebrateBest(p.x, p.y, this.reduced);
+        this.sound.newBest();
+        this.haptics.pulse(HAPTICS.newBest);
+      });
+    }
     this.hud.combo.set(s.game.streak, s.game.misses > 0);
+    this.comboGlow.set(s.game.streak, s.game.misses > 0, this.reduced);
 
     if (tutorial) {
       if (move.clear.units > 0) this.later(FX.overCardDelay, () => this.nextTutorialStep());
@@ -450,7 +478,10 @@ export class Game {
     }
     for (const g of applied.created) this.world.addGroup(g);
     this.preview.flashCells(move.clear.cells, this.tweens);
-    move.clear.list.forEach((u, i) => this.fx.sweep(u, i * FX.sweepStagger));
+    const tier = rewardTier(units, streak, move.boardClear);
+    this.freeze = LADDER.hitStop[tier - 1] ?? 0;
+    const sparkScale = LADDER.sparkScale[tier - 1] ?? 1;
+    move.clear.list.forEach((u, i) => this.fx.sweep(u, i * FX.sweepStagger, sparkScale));
     this.fx.shockRing(
       ox,
       oz,
@@ -460,9 +491,9 @@ export class Game {
     );
     this.fx.punch(FX.punchBase + FX.punchPerLevel * Math.min(units + streak - 1, FX.punchMaxLevel));
     this.fx.addShake(FX.clearShakeBase + FX.clearShakePerUnit * Math.min(units, FX.clearShakeMaxUnits));
-    if (units >= FX.flashMinUnits || streak >= FX.flashMinStreak) this.fx.flash();
-    this.sound.clear(units, streak);
-    this.haptics.pulse(move.boardClear ? HAPTICS.boardClear : HAPTICS.clear);
+    if (tier >= LADDER.flashFrom) this.fx.flash(tier);
+    this.sound.clear(units, streak, tier >= LADDER.chordFrom);
+    this.haptics.pulse(LADDER.haptics[tier - 1] ?? HAPTICS.clear);
     this.float(`+${move.points}`, ox, WORLD.topY + FX.floatLiftClear, oz, true);
 
     let word: string =
@@ -477,10 +508,9 @@ export class Game {
               : streak === 2
                 ? WORDS.combo
                 : WORDS.nice;
-    let tier = Math.min(4, Math.max(units, streak >= 3 ? 2 : 1));
+
     if (move.boardClear) {
       word = WORDS.boardClear;
-      tier = 4;
       this.fx.boardClear();
       this.sound.boardClear();
     }
@@ -704,10 +734,17 @@ export class Game {
     this.time += dt;
     this.renderer.sample(raw);
 
-    this.sparkles.update(dt);
-    this.tweens.update(dt);
+    // hit-stop: effects hold still for a beat at the clear; input and camera keep running
+    let fxDt = dt;
+    if (this.freeze > 0) {
+      this.freeze -= dt;
+      fxDt = 0;
+    }
+    this.sparkles.update(fxDt);
+    this.tweens.update(fxDt);
+    this.comboGlow.update(dt, this.time);
     this.drag.update(dt);
-    this.chips.update(dt);
+    this.chips.update(fxDt);
     this.preview.update(dt, this.time);
     this.hud.update(dt);
     this.banner.update(dt);
@@ -740,12 +777,14 @@ export class Game {
     this.preview.makeGhost(pop.geometry, 1, 1);
     this.preview.warmup(true);
     this.chips.warmup(true);
+    this.comboGlow.warmup(true);
     const killFx = this.fx.warmup();
     this.sparkles.emit(0, WORLD.baseY - 2, 0, 1, 0, 0, 0);
     this.renderer.gl.compile(scene, camera);
     this.renderer.gl.render(scene, camera);
     killFx();
     this.chips.warmup(false);
+    this.comboGlow.warmup(false);
     this.preview.warmup(false);
     this.preview.disposeGhost();
     Blocks.dispose(pop);
@@ -764,6 +803,7 @@ export class Game {
     this.preview.dispose();
     this.sparkles.dispose();
     this.chips.dispose();
+    this.comboGlow.dispose();
     this.fx.dispose();
     this.world.dispose();
     this.tex.dispose();

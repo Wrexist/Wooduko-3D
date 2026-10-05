@@ -96,10 +96,18 @@ export class AwardsPanel extends Overlay {
 /** Slide-down "Achievement unlocked" banner under the HUD. Queues; never takes input. */
 export class AchievementBanner {
   readonly node = el('div', { class: 'banner', role: 'status', 'aria-live': 'polite' });
+  private readonly title = el('strong');
+  private readonly detail = el('small');
   private queue: AchievementId[] = [];
   private left = 0;
 
-  constructor(private readonly seconds: number) {}
+  constructor(private readonly seconds: number) {
+    // built once; each achievement only swaps the text
+    this.node.append(
+      el('span', { class: 'icon', 'aria-hidden': 'true', html: ICONS.crown }),
+      el('span', { class: 'text' }, [this.title, this.detail]),
+    );
+  }
 
   push(ids: readonly AchievementId[]): void {
     this.queue.push(...ids);
@@ -114,17 +122,10 @@ export class AchievementBanner {
     }
     const a = ACHIEVEMENTS.find((x) => x.id === id);
     const unlocksTheme = THEMES.find((t) => t.unlock === id);
-    this.node.replaceChildren(
-      el('span', { class: 'icon', 'aria-hidden': 'true', html: ICONS.crown }),
-      el('span', { class: 'text' }, [
-        el('strong', {}, [a?.title ?? '']),
-        el('small', {}, [
-          unlocksTheme
-            ? `${a?.description ?? ''} · ${unlocksTheme.name} wood unlocked`
-            : (a?.description ?? ''),
-        ]),
-      ]),
-    );
+    this.title.textContent = a?.title ?? '';
+    this.detail.textContent = unlocksTheme
+      ? `${a?.description ?? ''} · ${unlocksTheme.name} wood unlocked`
+      : (a?.description ?? '');
     this.node.classList.add('show');
     this.left = this.seconds;
   }

@@ -18,11 +18,21 @@ export class Blocks {
   private readonly side: THREE.MeshStandardMaterial;
 
   constructor(tex: Textures) {
-    this.top = new THREE.MeshStandardMaterial({ map: tex.ring, roughness: BLOCK.roughnessTop, metalness: 0 });
+    this.top = new THREE.MeshStandardMaterial({
+      map: tex.ring,
+      normalMap: tex.ringNormal,
+      normalScale: new THREE.Vector2(BLOCK.normalScaleTop, BLOCK.normalScaleTop),
+      roughness: BLOCK.roughnessTop,
+      metalness: 0,
+      vertexColors: true,
+    });
     this.side = new THREE.MeshStandardMaterial({
       map: tex.side,
+      normalMap: tex.sideNormal,
+      normalScale: new THREE.Vector2(BLOCK.normalScaleSide, BLOCK.normalScaleSide),
       roughness: BLOCK.roughnessSide,
       metalness: 0,
+      vertexColors: true,
     });
   }
 

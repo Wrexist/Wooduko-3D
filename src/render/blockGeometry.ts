@@ -87,6 +87,18 @@ function loopToShape(pts: readonly Pt[], r: number): THREE.Shape {
   return s;
 }
 
+/** Baked contact shading: vertex colours darken toward the bottom, where a block meets the floor. */
+function bakeAo(geo: THREE.BufferGeometry): void {
+  const pos = geo.getAttribute('position');
+  const col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const t = Math.min(1, Math.max(0, pos.getY(i) / BLOCK.aoHeight));
+    const k = BLOCK.aoMin + (1 - BLOCK.aoMin) * t * t * (3 - 2 * t);
+    col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = k;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+}
+
 /** Material index of the end-grain caps in ExtrudeGeometry. */
 export const CAP_MATERIAL = 0;
 
@@ -110,6 +122,7 @@ export function buildBlockGeometry(
     bevelSize: BLOCK.bevelSize,
     bevelSegments: BLOCK.bevelSegments,
     curveSegments: BLOCK.curveSegments,
+    steps: BLOCK.steps,
   });
   const pos = geo.getAttribute('position');
   const uv = geo.getAttribute('uv');
@@ -128,6 +141,7 @@ export function buildBlockGeometry(
   // Extrusion runs along +z; turn it so the block stands up (shape y → world z), bottom at y = 0.
   geo.rotateX(Math.PI / 2);
   geo.translate(0, BLOCK.depth + BLOCK.bevelThickness, 0);
+  bakeAo(geo);
   geo.computeBoundingSphere();
   return geo;
 }

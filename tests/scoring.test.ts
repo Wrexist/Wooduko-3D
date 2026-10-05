@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boardClearBonus, clearPoints, placementPoints } from '../src/core/scoring';
+import { boardClearBonus, clearPoints, placementPoints, rewardTier } from '../src/core/scoring';
 
 describe('scoring', () => {
   it('gives 1 point per placed cell', () => {
@@ -31,5 +31,20 @@ describe('scoring', () => {
   it('board clear is +150', () => {
     expect(boardClearBonus(true)).toBe(150);
     expect(boardClearBonus(false)).toBe(0);
+  });
+});
+
+describe('reward ladder', () => {
+  it('orders 1 line < 2 lines < combo ×3 < 4+ lines < board clear', () => {
+    const ladder = [
+      rewardTier(1, 1, false),
+      rewardTier(2, 1, false),
+      rewardTier(1, 3, false),
+      rewardTier(4, 1, false),
+      rewardTier(1, 1, true),
+    ];
+    expect(ladder).toEqual([1, 2, 3, 4, 5]);
+    expect(rewardTier(1, 2, false)).toBe(2);
+    expect(rewardTier(3, 1, false)).toBe(3);
   });
 });

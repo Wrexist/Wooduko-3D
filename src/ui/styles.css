@@ -279,7 +279,8 @@ button {
   white-space: nowrap;
 }
 .toast.tier-3 .big,
-.toast.tier-4 .big {
+.toast.tier-4 .big,
+.toast.tier-5 .big {
   font-size: clamp(32px, 12vw, 52px);
   color: var(--gold-float);
 }
@@ -358,12 +359,22 @@ button {
 .flash.on {
   animation: flash 0.55s ease-out;
 }
+.flash[data-tier='2'] {
+  --flash-peak: 0.55;
+}
+.flash[data-tier='3'] {
+  --flash-peak: 0.75;
+}
+.flash[data-tier='4'],
+.flash[data-tier='5'] {
+  --flash-peak: 1;
+}
 @keyframes flash {
   0% {
     opacity: 0;
   }
   15% {
-    opacity: 1;
+    opacity: var(--flash-peak, 1);
   }
   100% {
     opacity: 0;
@@ -666,6 +677,37 @@ button {
 .ghost-btn.small {
   height: 40px;
   font-size: 14px;
+}
+
+.flying-crown {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--honey);
+  pointer-events: none;
+  z-index: 9;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 12px rgba(255, 200, 90, 0.7));
+}
+.flying-crown svg {
+  width: 100%;
+  height: 100%;
+}
+.best.pulse {
+  animation: bestPulse 0.9s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes bestPulse {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.5);
+    color: #fff1c9;
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* ---------- awards ---------- */

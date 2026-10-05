@@ -103,6 +103,8 @@ export class World {
     if (!shape) return null;
     const center = shapeCenter(shape);
     const mesh = this.blocks.make(shape.cells, center, piece.seed);
+    // transparent from the start, so fading it while dragging never compiles a new shader mid-game
+    for (const m of mesh.material) m.transparent = true;
     mesh.position.set(-shape.w / 2, 0, -shape.h / 2);
     const pivot = new THREE.Group();
     pivot.add(mesh);

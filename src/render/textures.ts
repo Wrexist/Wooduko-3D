@@ -213,6 +213,62 @@ function boardCanvas(theme: ThemeSpec, reuse?: HTMLCanvasElement): HTMLCanvasEle
   return cv;
 }
 
+/**
+ * Tangent-space normal map from a texture's luminance: darker grain lines read as grooves.
+ * Sobel on a wrapped canvas, so tiling textures stay seamless.
+ */
+function normalCanvas(src: HTMLCanvasElement, reuse?: HTMLCanvasElement): HTMLCanvasElement {
+  const w = src.width;
+  const h = src.height;
+  const sg = src.getContext('2d');
+  if (!sg) throw new Error('2D canvas unavailable');
+  const d = sg.getImageData(0, 0, w, h).data;
+  const lum = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++)
+    lum[i] = ((d[i * 4] ?? 0) * 0.3 + (d[i * 4 + 1] ?? 0) * 0.59 + (d[i * 4 + 2] ?? 0) * 0.11) / 255;
+  const { cv, g } = canvas(w, h, reuse);
+  const out = g.createImageData(w, h);
+  const o = out.data;
+  const at = (x: number, y: number): number => lum[((y + h) % h) * w + ((x + w) % w)] ?? 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const dx =
+        at(x + 1, y - 1) +
+        2 * at(x + 1, y) +
+        at(x + 1, y + 1) -
+        at(x - 1, y - 1) -
+        2 * at(x - 1, y) -
+        at(x - 1, y + 1);
+      const dy =
+        at(x - 1, y + 1) +
+        2 * at(x, y + 1) +
+        at(x + 1, y + 1) -
+        at(x - 1, y - 1) -
+        2 * at(x, y - 1) -
+        at(x + 1, y - 1);
+      // height = luminance: normal = normalize(-dx, -dy, 1)
+      const nx = -dx;
+      const ny = -dy;
+      const len = Math.hypot(nx, ny, 1);
+      const i = (y * w + x) * 4;
+      o[i] = ((nx / len) * 0.5 + 0.5) * 255;
+      o[i + 1] = ((ny / len) * 0.5 + 0.5) * 255;
+      o[i + 2] = ((1 / len) * 0.5 + 0.5) * 255;
+      o[i + 3] = 255;
+    }
+  }
+  g.putImageData(out, 0, 0);
+  return cv;
+}
+
+function dataTexture(cv: HTMLCanvasElement, anisotropy: number, wrap: THREE.Wrapping): THREE.CanvasTexture {
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.NoColorSpace;
+  t.anisotropy = anisotropy;
+  t.wrapS = t.wrapT = wrap;
+  return t;
+}
+
 function gradCanvas(w: number, h: number, draw: (g: Ctx, w: number, h: number) => void): HTMLCanvasElement {
   const { cv, g } = canvas(w, h);
   draw(g, w, h);
@@ -242,6 +298,9 @@ export interface Textures {
   readonly bar: THREE.Texture;
   readonly halo: THREE.Texture;
   readonly boxGlow: THREE.Texture;
+  /** Grain relief derived from the wood textures (linear data, not colour). */
+  readonly ringNormal: THREE.Texture;
+  readonly sideNormal: THREE.Texture;
   /** Redraw the wood textures for another theme, in place (same textures, same materials). */
   setTheme(theme: ThemeSpec): void;
   dispose(): void;
@@ -261,6 +320,17 @@ export function createTextures(maxAnisotropy: number, theme: ThemeSpec): Texture
   );
   table.repeat.set(WOOD.table.repeat, WOOD.table.repeat);
   const board = toTexture(boardCanvas(theme), maxAnisotropy);
+  const ringNormal = dataTexture(
+    normalCanvas(ring.image as HTMLCanvasElement),
+    maxAnisotropy,
+    THREE.MirroredRepeatWrapping,
+  );
+  const sideNormal = dataTexture(
+    normalCanvas(side.image as HTMLCanvasElement),
+    maxAnisotropy,
+    THREE.RepeatWrapping,
+  );
+  sideNormal.repeat.copy(side.repeat);
 
   const overlay = toTexture(
     gradCanvas(128, 128, (g) => {
@@ -315,7 +385,7 @@ export function createTextures(maxAnisotropy: number, theme: ThemeSpec): Texture
     1,
   );
 
-  const all = [ring, side, table, board, overlay, spark, bar, halo, boxGlow];
+  const all = [ring, side, table, board, overlay, spark, bar, halo, boxGlow, ringNormal, sideNormal];
   return {
     ring,
     side,
@@ -326,13 +396,17 @@ export function createTextures(maxAnisotropy: number, theme: ThemeSpec): Texture
     bar,
     halo,
     boxGlow,
+    ringNormal,
+    sideNormal,
     setTheme: (t) => {
       const cv = (x: THREE.Texture): HTMLCanvasElement => x.image as HTMLCanvasElement;
       ringCanvas(t, cv(ring));
       grainCanvas(WOOD.side.size, sideRecipe(t), cv(side));
       grainCanvas(WOOD.table.size, tableRecipe(t), cv(table));
       boardCanvas(t, cv(board));
-      for (const x of [ring, side, table, board]) x.needsUpdate = true;
+      normalCanvas(cv(ring), cv(ringNormal));
+      normalCanvas(cv(side), cv(sideNormal));
+      for (const x of [ring, side, table, board, ringNormal, sideNormal]) x.needsUpdate = true;
     },
     dispose: () => all.forEach((t) => t.dispose()),
   };

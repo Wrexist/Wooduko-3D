@@ -24,7 +24,7 @@ export interface EffectsDeps {
   readonly chips: Chips;
   readonly blocks: Blocks;
   readonly reducedMotion: () => boolean;
-  readonly screenFlash: () => void;
+  readonly screenFlash: (tier: number) => void;
 }
 
 /** Visual reward layer. Everything is time-based and cleans up its own GPU resources. */
@@ -67,7 +67,7 @@ export class Effects {
   }
 
   /** Gold bar along a cleared row/column (or soft square for a box) with a travelling bright head. */
-  sweep(u: ClearUnit, delay: number): void {
+  sweep(u: ClearUnit, delay: number, sparkScale = 1): void {
     const { tex, tweens, sparkles } = this.d;
     let cx = 0;
     let cz = 0;
@@ -117,7 +117,7 @@ export class Effects {
             x,
             FX_Y,
             z,
-            u.kind === 'box' ? FX.sweepSparksPerBoxCell : FX.sweepSparksPerCell,
+            Math.round((u.kind === 'box' ? FX.sweepSparksPerBoxCell : FX.sweepSparksPerCell) * sparkScale),
             FX.sweepSparkSpeed,
             FX.sweepSparkUp,
             FX.sweepSparkSpread,
@@ -184,19 +184,43 @@ export class Effects {
     });
   }
 
-  flash(): void {
-    if (!this.d.reducedMotion()) this.d.screenFlash();
+  flash(tier: number): void {
+    if (!this.d.reducedMotion()) this.d.screenFlash(tier);
   }
 
   /** Squash-and-settle on a freshly placed block. */
-  squash(mesh: THREE.Object3D): void {
+  /**
+   * Squash-and-settle on a freshly placed block, with a tiny rocking wobble. The block is briefly
+   * parented to a pivot at its own centre (ox, oz) so it rocks in place, not around the board corner.
+   */
+  squash(mesh: THREE.Object3D, ox: number, oz: number): void {
+    const { scene } = this.d;
+    const pivot = new THREE.Group();
+    pivot.position.set(ox, mesh.position.y, oz);
+    scene.add(pivot);
+    const home = mesh.position.clone();
+    pivot.add(mesh);
+    mesh.position.set(home.x - ox, 0, home.z - oz);
+    const sx = (Math.random() - 0.5) * 2;
+    const sz = (Math.random() - 0.5) * 2;
+    const reduced = this.d.reducedMotion();
     this.d.tweens.add({
       dur: FX.squashDuration,
       update: (_e, k) => {
-        mesh.scale.y = 1 - FX.squashAmount * Math.exp(-k * FX.squashDecay) * Math.cos(k * FX.squashFreq);
+        const decay = Math.exp(-k * FX.squashDecay);
+        pivot.scale.y = 1 - FX.squashAmount * decay * Math.cos(k * FX.squashFreq);
+        if (!reduced) {
+          const w = FX.settleAngle * decay * Math.sin(k * FX.settleFreq);
+          pivot.rotation.set(w * sx, 0, w * sz);
+        }
       },
       done: () => {
-        mesh.scale.y = 1;
+        pivot.removeFromParent();
+        // the block may already have been cleared (and disposed) by a later move
+        if (mesh.parent === pivot) {
+          mesh.position.copy(home);
+          scene.add(mesh);
+        }
       },
     });
   }

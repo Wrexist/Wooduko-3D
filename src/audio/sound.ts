@@ -32,7 +32,15 @@ export class Sound {
         const ac = new Ctx();
         this.master = ac.createGain();
         this.master.gain.value = AUDIO.master;
-        this.master.connect(ac.destination);
+        // limiter: a big clear stacks dozens of voices; this keeps the mix from clipping
+        const limiter = ac.createDynamicsCompressor();
+        limiter.threshold.value = AUDIO.limiterThreshold;
+        limiter.knee.value = AUDIO.limiterKnee;
+        limiter.ratio.value = AUDIO.limiterRatio;
+        limiter.attack.value = AUDIO.limiterAttack;
+        limiter.release.value = AUDIO.limiterRelease;
+        this.master.connect(limiter);
+        limiter.connect(ac.destination);
         this.sfx = ac.createGain();
         this.sfx.gain.value = this.sfxOn ? 1 : 0;
         this.sfx.connect(this.master);
@@ -99,9 +107,9 @@ export class Sound {
     const o = ac.createOscillator();
     const g = ac.createGain();
     o.type = type;
-    o.frequency.setValueAtTime(f0, t0);
-    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
-    this.env(g, t0, 0.004, peak, dur);
+    o.frequency.setValueAtTime(f0 * this.jitter.p, t0);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1 * this.jitter.p, t0 + dur);
+    this.env(g, t0, 0.004, peak * this.jitter.g, dur);
     o.connect(g);
     g.connect(dest);
     o.start(t0);
@@ -122,10 +130,10 @@ export class Sound {
     s.buffer = this.noiseBuf;
     const f = ac.createBiquadFilter();
     f.type = type;
-    f.frequency.value = freq;
+    f.frequency.value = freq * this.jitter.p;
     f.Q.value = q;
     const g = ac.createGain();
-    this.env(g, t0, 0.003, peak, dur);
+    this.env(g, t0, 0.003, peak * this.jitter.g, dur);
     s.connect(f);
     f.connect(g);
     g.connect(this.sfx);
@@ -139,6 +147,19 @@ export class Sound {
     this.tone('sine', f * 10, f * 10, t0, 0.04, gain * 0.06, out);
   }
 
+  /** Per-sound pitch/volume variation for percussive sounds, so repeats don't sound robotic. */
+  private jitter = { p: 1, g: 1 };
+
+  private varied(fn: () => void): void {
+    const r = (): number => 1 + (Math.random() * 2 - 1) * AUDIO.variation;
+    this.jitter = { p: r(), g: r() };
+    try {
+      fn();
+    } finally {
+      this.jitter = { p: 1, g: 1 };
+    }
+  }
+
   private get now(): number | null {
     return this.ac && this.sfxOn ? this.ac.currentTime : null;
   }
@@ -148,26 +169,46 @@ export class Sound {
   pickup(): void {
     const t = this.now;
     if (t === null) return;
-    this.noise('bandpass', 2600, 1.2, t, 0.05, 0.16);
-    this.tone('sine', 880, 700, t, 0.05, 0.05);
+    this.varied(() => {
+      this.noise('bandpass', 2600, 1.2, t, 0.05, 0.16);
+      this.tone('sine', 880, 700, t, 0.05, 0.05);
+    });
   }
 
   place(): void {
     const t = this.now;
     if (t === null) return;
-    this.tone('sine', 165, 72, t, 0.2, 0.6);
-    this.noise('bandpass', 650, 1.1, t, 0.08, 0.38);
-    this.tone('triangle', 430, 380, t, 0.07, 0.1);
+    this.varied(() => {
+      // thump + knock + two short wood-block modes for a hollow, woody body
+      this.tone('sine', 165, 72, t, 0.2, 0.6);
+      this.noise('bandpass', 650, 1.1, t, 0.08, 0.38);
+      this.tone('triangle', 430, 380, t, 0.07, 0.1);
+      this.tone('sine', 620, 600, t, 0.06, 0.1);
+      this.tone('sine', 1560, 1500, t, 0.035, 0.045);
+    });
+  }
+
+  /** Doesn't fit: a dull, low double knock. */
+  nope(): void {
+    const t = this.now;
+    if (t === null) return;
+    this.varied(() => {
+      this.tone('sine', 140, 95, t, 0.09, 0.22);
+      this.noise('lowpass', 500, 0.8, t, 0.05, 0.14);
+      this.tone('sine', 120, 85, t + 0.09, 0.08, 0.16);
+    });
   }
 
   returnPiece(): void {
     const t = this.now;
     if (t === null) return;
-    this.tone('sine', 320, 210, t, 0.09, 0.12);
-    this.noise('lowpass', 900, 0.7, t, 0.05, 0.08);
+    this.varied(() => {
+      this.tone('sine', 320, 210, t, 0.09, 0.12);
+      this.noise('lowpass', 900, 0.7, t, 0.05, 0.08);
+    });
   }
 
-  clear(units: number, streak: number): void {
+  clear(units: number, streak: number, chord = false): void {
     const t = this.now;
     if (t === null) return;
     const scale = AUDIO.scale;
@@ -178,6 +219,10 @@ export class Sound {
       this.marimba(base * 2 ** ((scale[i] ?? 0) / 12), t + 0.05 + i * AUDIO.clearNoteGap, 0.22);
     this.noise('highpass', 3500, 0.7, t + 0.04, 0.3, 0.05);
     this.whoosh(t);
+    // bigger rewards get a warm low chord under the melody
+    if (chord)
+      for (const s of [0, 4, 7])
+        this.tone('sine', (base / 2) * 2 ** (s / 12), (base / 2) * 2 ** (s / 12), t + 0.04, 0.9, 0.09);
   }
 
   private whoosh(t: number): void {
@@ -218,6 +263,13 @@ export class Sound {
     const t = this.now;
     if (t === null) return;
     [392, 330, 262, 196].forEach((f, i) => this.marimba(f, t + i * 0.16, 0.2));
+  }
+
+  /** New best mid-game: a quick rising fanfare. */
+  newBest(): void {
+    const t = this.now;
+    if (t === null) return;
+    [0, 4, 7, 12].forEach((n, i) => this.marimba(659 * 2 ** (n / 12), t + 0.15 + i * 0.07, 0.15));
   }
 
   /** Achievement unlocked: two bright notes. */

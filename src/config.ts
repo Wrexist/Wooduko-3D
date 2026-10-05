@@ -283,6 +283,14 @@ export const BLOCK = {
   uvPerCell: 1 / 6.4,
   roughnessTop: 0.66,
   roughnessSide: 0.62,
+  /** Side subdivisions so the baked AO gradient has vertices to live on. */
+  steps: 4,
+  /** Baked ambient occlusion: brightness at the very bottom, and the height (units) where it fades out. */
+  aoMin: 0.55,
+  aoHeight: 0.5,
+  /** Grain relief from the texture luminance (normal map strength). */
+  normalScaleTop: 0.35,
+  normalScaleSide: 0.25,
 } as const;
 
 /** Board origin and key heights. */
@@ -530,6 +538,13 @@ export const DRAG = {
   /** xz finishes a bit before y lands. */
   dropXZSpeed: 1.25,
   returnDuration: 0.38,
+  /** Opacity of a held piece, so the ghost under it is never completely hidden. */
+  heldOpacity: 0.84,
+  heldFadeRate: 14,
+  /** Invalid drop over the board: a short decaying head-shake before flying home. */
+  nopeDuration: 0.24,
+  nopeAngle: 0.14,
+  nopeShakes: 2,
 } as const;
 
 export const PREVIEW = {
@@ -556,6 +571,9 @@ export const FX = {
   squashAmount: 0.1,
   squashDecay: 6,
   squashFreq: 14,
+  /** Settle wobble (radians) and its frequency, decaying with the squash. */
+  settleAngle: 0.035,
+  settleFreq: 18,
   placeShake: 0.06,
   shakeDecay: 14,
   landingDuration: 0.45,
@@ -637,6 +655,8 @@ export const FX = {
   overCardDelay: 0.9,
   floatLift: 0.3,
   floatLiftClear: 0.4,
+  /** Seconds after the move before the new-best crown flies (lets the clear land first). */
+  newBestDelay: 0.45,
   /** Seconds after the results card before the (native) review prompt. */
   reviewDelay: 1.6,
   /** Space (px) between the HUD and the achievement banner. */
@@ -687,10 +707,19 @@ export const AUDIO = {
   clearStreakCap: 7,
   clearNoteGap: 0.055,
   noiseSeconds: 0.5,
+  /** ±fraction of pitch and volume on percussive sounds. */
+  variation: 0.05,
+  limiterThreshold: -6,
+  limiterKnee: 6,
+  limiterRatio: 12,
+  limiterAttack: 0.003,
+  limiterRelease: 0.2,
 } as const;
 
 export const HAPTICS = {
   pickup: 8,
+  newBest: [10, 50, 10, 50, 30] as const,
+  nope: [6, 30, 6] as const,
   place: 14,
   clear: [12, 40, 12] as const,
   boardClear: [20, 40, 20, 40, 40] as const,
@@ -730,4 +759,44 @@ export const RETENTION = {
 export const GAME_CENTER = {
   leaderboard: 'grain.best',
   achievementPrefix: 'grain.',
+} as const;
+
+/** Feedback scaling by reward tier 1–5 (see `rewardTier`). Index 0 = tier 1. */
+export const LADDER = {
+  sparkScale: [1, 1.3, 1.7, 2.2, 2.6] as const,
+  /** Hit-stop: a tiny freeze of the animation clock right at the clear. */
+  hitStop: [0.03, 0.04, 0.05, 0.06, 0.07] as const,
+  /** Screen flash from this tier up. */
+  flashFrom: 2,
+  /** Extra low chord under the marimba from this tier up. */
+  chordFrom: 3,
+  haptics: [
+    [12, 40, 12],
+    [14, 40, 14],
+    [16, 30, 16, 30, 16],
+    [20, 30, 20, 30, 30],
+    [20, 40, 20, 40, 40],
+  ] as const,
+} as const;
+
+export const COMBO_GLOW = {
+  textureSize: 512,
+  /** World size of the glow plane (centred on the board). */
+  size: 12.4,
+  spread: 1.1,
+  rings: 24,
+  y: 0.006,
+  base: 0.35,
+  perStreak: 0.13,
+  maxStreak: 6,
+  riskFactor: 0.45,
+  reducedFactor: 0.6,
+  pulse: 0.18,
+  pulseSpeed: 3.2,
+  rate: 4,
+} as const;
+
+export const HUD_FX = {
+  /** New-best crown flight (ms). */
+  crownMs: 900,
 } as const;
