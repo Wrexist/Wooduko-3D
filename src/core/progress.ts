@@ -1,4 +1,5 @@
 // Lifetime stats and achievements. Pure: no DOM, no Three.js, no storage.
+import { QUESTS } from '../config';
 import type { ThemeSpec } from '../config';
 import type { MoveResult } from './rules';
 
@@ -14,6 +15,8 @@ export interface Stats {
   /** Most units cleared by one placement. */
   readonly biggestClear: number;
   readonly piecesPlaced: number;
+  /** Longest run of days with every daily quest completed. */
+  readonly questStreak: number;
 }
 
 export const emptyStats = (): Stats => ({
@@ -25,6 +28,7 @@ export const emptyStats = (): Stats => ({
   boardClears: 0,
   biggestClear: 0,
   piecesPlaced: 0,
+  questStreak: 0,
 });
 
 export const averageScore = (s: Stats): number =>
@@ -64,7 +68,9 @@ export type AchievementId =
   | 'score-5k'
   | 'score-10k'
   | 'games-10'
-  | 'lines-500';
+  | 'lines-500'
+  | 'quests-3'
+  | 'quests-7';
 
 export interface Achievement {
   readonly id: AchievementId;
@@ -109,6 +115,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     id: 'lines-500',
     earned: (s) => s.linesCleared >= 500,
   },
+  { id: 'quests-3', earned: (s) => s.questStreak >= QUESTS.oakDays },
+  { id: 'quests-7', earned: (s) => s.questStreak >= QUESTS.mahoganyDays },
 ];
 
 export type Unlocked = Readonly<Partial<Record<AchievementId, number>>>;

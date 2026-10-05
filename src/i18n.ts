@@ -119,6 +119,10 @@ const en = {
   'ach.games-10.desc': 'Finish 10 games',
   'ach.lines-500': 'Sawdust',
   'ach.lines-500.desc': 'Clear 500 lines in total',
+  'ach.quests-3': 'Habit',
+  'ach.quests-3.desc': 'Finish every daily quest 3 days in a row',
+  'ach.quests-7': 'Devoted',
+  'ach.quests-7.desc': 'Finish every daily quest 7 days in a row',
 
   'wood.maple': 'Maple',
   'wood.walnut': 'Walnut',
@@ -126,6 +130,8 @@ const en = {
   'wood.birch': 'Birch',
   'wood.driftwood': 'Driftwood',
   'wood.ebony': 'Ebony',
+  'wood.oak': 'Oak',
+  'wood.mahogany': 'Mahogany',
 
   'reminder.0.title': 'Your board is waiting',
   'reminder.0.body': 'A calm five-minute game?',
@@ -256,6 +262,10 @@ const sv: Record<Key, string> = {
   'ach.games-10.desc': 'Spela klart 10 spel',
   'ach.lines-500': 'Sågspån',
   'ach.lines-500.desc': 'Rensa 500 rader totalt',
+  'ach.quests-3': 'Vana',
+  'ach.quests-3.desc': 'Klara alla dagens uppdrag 3 dagar i rad',
+  'ach.quests-7': 'Hängiven',
+  'ach.quests-7.desc': 'Klara alla dagens uppdrag 7 dagar i rad',
 
   'wood.maple': 'Lönn',
   'wood.walnut': 'Valnöt',
@@ -263,6 +273,8 @@ const sv: Record<Key, string> = {
   'wood.birch': 'Björk',
   'wood.driftwood': 'Drivved',
   'wood.ebony': 'Ebenholts',
+  'wood.oak': 'Ek',
+  'wood.mahogany': 'Mahogny',
 
   'reminder.0.title': 'Brädan väntar på dig',
   'reminder.0.body': 'Ett lugnt spel på fem minuter?',

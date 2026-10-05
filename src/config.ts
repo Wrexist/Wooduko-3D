@@ -156,7 +156,7 @@ export interface ThemeSpec {
   readonly board: { readonly base: string; readonly dark: string; readonly light: string };
 }
 
-export type ThemeId = 'maple' | 'walnut' | 'cherry' | 'birch' | 'driftwood' | 'ebony';
+export type ThemeId = 'maple' | 'walnut' | 'cherry' | 'birch' | 'driftwood' | 'ebony' | 'oak' | 'mahogany';
 
 export const THEMES: readonly ThemeSpec[] = [
   {
@@ -248,6 +248,37 @@ export const THEMES: readonly ThemeSpec[] = [
     side: { base: '#55463b', dark: 'rgba(22,15,10,', light: 'rgba(120,100,86,' },
     table: { base: '#c9a77c', dark: 'rgba(120,88,52,', light: 'rgba(240,214,176,' },
     board: { base: '#a87d50', dark: 'rgba(96,64,36,', light: 'rgba(214,172,124,' },
+  },
+  {
+    // daily-quest streak woods
+    id: 'oak',
+    ridge: 0x33240f,
+    unlock: 'quests-3',
+    background: '#2c2416',
+    ring: {
+      gradient: ['#d8b67c', '#c9a46a', '#b68f56'],
+      band: 'rgba(150,108,54,',
+      line: 'rgba(108,72,30,',
+      check: 'rgba(98,66,28,',
+    },
+    side: { base: '#c49e64', dark: 'rgba(110,76,36,', light: 'rgba(236,206,152,' },
+    table: { base: '#6a5232', dark: 'rgba(36,26,12,', light: 'rgba(150,118,76,' },
+    board: { base: '#3c2c18', dark: 'rgba(16,10,4,', light: 'rgba(112,84,50,' },
+  },
+  {
+    id: 'mahogany',
+    ridge: 0x2e0e08,
+    unlock: 'quests-7',
+    background: '#241210',
+    ring: {
+      gradient: ['#b25a3e', '#9e4a32', '#883c28'],
+      band: 'rgba(110,40,22,',
+      line: 'rgba(76,24,12,',
+      check: 'rgba(70,22,12,',
+    },
+    side: { base: '#9a4a32', dark: 'rgba(70,22,12,', light: 'rgba(204,122,92,' },
+    table: { base: '#c8a072', dark: 'rgba(118,84,46,', light: 'rgba(238,208,164,' },
+    board: { base: '#3a1810', dark: 'rgba(14,4,2,', light: 'rgba(116,48,30,' },
   },
 ];
 
@@ -836,4 +867,43 @@ export const PURCHASES = {
   productId: 'grain_remove_ads',
   /** Cached ownership, so Remove ads works offline. */
   cacheKey: 'grain_no_ads_v1',
+} as const;
+
+export type Mode = 'classic' | 'daily' | 'zen' | 'blitz';
+
+/** Game modes. Classic is the original. */
+export const MODES = {
+  /** Blitz: seconds on the clock; the HUD turns urgent under `blitzUrgent`. */
+  blitzSeconds: 120,
+  blitzUrgent: 10,
+  /** Daily goal: base + step × (0…steps−1), chosen from the date. */
+  dailyGoalBase: 1000,
+  dailyGoalStep: 200,
+  dailyGoalSteps: 5,
+  saveKeys: {
+    classic: 'grain_save_v1',
+    zen: 'grain_save_zen_v1',
+    daily: 'grain_save_daily_v1',
+  },
+  dailyKey: 'grain_daily_v1',
+  blitzBestKey: 'grain_blitz_best_v1',
+  questsKey: 'grain_quests_v1',
+} as const;
+
+/** Daily quests: three a day, picked from the date. Targets are chosen from these lists. */
+export const QUESTS = {
+  perDay: 3,
+  targets: {
+    lines: [12, 15, 20, 25],
+    boxes: [3, 4, 5, 6],
+    combo: [3, 4, 5],
+    score: [600, 800, 1000, 1500],
+    pieces: [40, 60, 80],
+    triple: [1, 2],
+    daily: [1],
+    blitz: [300, 450, 600],
+  },
+  /** Quest-streak woods: days in a row with all quests done. */
+  oakDays: 3,
+  mahoganyDays: 7,
 } as const;

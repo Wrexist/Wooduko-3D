@@ -33,6 +33,13 @@ export function fullestBox(s: GameState): number {
  * tray that fits. No points; the combo resets. Returns the cleared cells for the effects.
  */
 export function revive(s: GameState): { state: GameState; cleared: ClearResult } {
+  return clearFullest(s, true);
+}
+
+/** Zen: when stuck, the fullest square clears itself — unlimited, and not counted as a revive. */
+export const zenRescue = (s: GameState): { state: GameState; cleared: ClearResult } => clearFullest(s, false);
+
+function clearFullest(s: GameState, counts: boolean): { state: GameState; cleared: ClearResult } {
   const box = fullestBox(s);
   const cells: Cell[] = [];
   for (let k = 0; k < N; k++) {
@@ -52,7 +59,7 @@ export function revive(s: GameState): { state: GameState; cleared: ClearResult }
       sinceSmall: deal.sinceSmall,
       streak: 0,
       misses: 0,
-      revives: s.revives + 1,
+      revives: counts ? s.revives + 1 : s.revives,
       rng: rng.state,
       over: false,
     },
