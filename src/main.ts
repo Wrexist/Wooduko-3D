@@ -13,8 +13,8 @@ async function boot(): Promise<void> {
   const deps = { storage: webStorage(), randomSeed };
   const store = createGameStore(deps, await loadPersisted(deps));
   const game = new Game({ canvas, uiRoot, store, haptics: webHaptics() });
-  if (import.meta.env.DEV) {
-    // dev-only hooks for scripted screenshots and soak checks
+  if (import.meta.env.DEV || import.meta.env.VITE_DEBUG_HOOKS === '1') {
+    // dev / test-build only: hooks for scripted screenshots and soak checks
     Object.assign(window, { __grain: { store, game } });
   }
 }

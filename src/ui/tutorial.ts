@@ -20,6 +20,7 @@ export class TutorialOverlay {
   private from = { x: 0, y: 0 };
   private to = { x: 0, y: 0 };
   private handOn = true;
+  private readonly sideQuery = window.matchMedia(TUTORIAL.sideTipQuery);
 
   constructor(onSkip: () => void) {
     const skip = el('button', { class: 'skip' }, ['Skip']);
@@ -31,9 +32,13 @@ export class TutorialOverlay {
     ]);
   }
 
-  /** Bottom of the instruction text (px), so the camera can fit the board below it. */
-  get bottom(): number {
-    return this.tip.getBoundingClientRect().bottom;
+  /**
+   * Screen space the instruction text needs, so the camera can fit the board around it:
+   * above the board normally, beside it on short landscape screens (same query as the CSS).
+   */
+  get reserve(): { top: number; left: number } {
+    const r = this.tip.getBoundingClientRect();
+    return this.sideQuery.matches ? { top: 0, left: r.right + TUTORIAL.tipGap } : { top: r.bottom, left: 0 };
   }
 
   get open(): boolean {

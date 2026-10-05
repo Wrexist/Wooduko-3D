@@ -14,6 +14,7 @@ const tmp = new THREE.Vector3();
 
 /**
  * Fit the content bounds into the screen band between `topPx` and `bottomPx` (from the bottom),
+ * and right of `leftPx` (used when the tutorial text sits beside the board),
  * by binary-searching the camera distance, then centre the content in that band with a view offset.
  * Returns the resting camera position (shake is applied on top of it).
  */
@@ -25,6 +26,7 @@ export function fitCamera(
   topPx: number,
   bottomPx: number,
   out: THREE.Vector3,
+  leftPx = 0,
 ): THREE.Vector3 {
   camera.aspect = width / height;
   camera.clearViewOffset();
@@ -35,6 +37,10 @@ export function fitCamera(
   const yBot = -1 + (2 * bottomPx) / height;
   const half = (yTop - yBot) / 2;
   const mid = (yTop + yBot) / 2;
+  const xRight = CAMERA.xLimit;
+  const xLeft = leftPx > 0 ? -1 + (2 * leftPx) / width : -CAMERA.xLimit;
+  const halfX = (xRight - xLeft) / 2;
+  const midX = (xLeft + xRight) / 2;
   const pts: THREE.Vector3[] = [];
   for (const x of [b.x0, b.x1]) {
     for (const z of [b.z0, b.z1])
@@ -49,7 +55,7 @@ export function fitCamera(
     camera.updateMatrixWorld(true);
     const ok = pts.every((p) => {
       tmp.copy(p).project(camera);
-      return Math.abs(tmp.x) <= CAMERA.xLimit && Math.abs(tmp.y) <= half;
+      return Math.abs(tmp.x) <= halfX && Math.abs(tmp.y) <= half;
     });
     if (ok) hi = d;
     else lo = d;
@@ -57,7 +63,7 @@ export function fitCamera(
   camera.position.copy(target).addScaledVector(dir, hi);
   camera.lookAt(target);
   camera.updateMatrixWorld(true);
-  camera.setViewOffset(width, height, 0, (mid * height) / 2, width, height);
+  camera.setViewOffset(width, height, (-midX * width) / 2, (mid * height) / 2, width, height);
   camera.updateProjectionMatrix();
   return out.copy(camera.position);
 }

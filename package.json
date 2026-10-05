@@ -16,7 +16,10 @@
     "cap:ios": "npm run build && npx cap sync ios && npx cap open ios",
     "shots": "node scripts/scenes.mjs",
     "flows": "node scripts/flows.mjs",
-    "soak": "node scripts/soak.mjs"
+    "soak": "node scripts/soak.mjs",
+    "build:test": "vite build --outDir dist-test",
+    "serve:test": "vite preview --outDir dist-test --port 5174 --strictPort",
+    "layout": "node scripts/layout.mjs"
   },
   "dependencies": {
     "three": "0.186.1",

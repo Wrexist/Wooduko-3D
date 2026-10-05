@@ -3,3 +3,5 @@ legacy/
 prototype/
 package-lock.json
 *.md
+dist-test/
+shots/

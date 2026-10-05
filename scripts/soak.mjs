@@ -1,12 +1,23 @@
-// GPU resource leak check (needs `npm run dev` running).
-// Usage: node scripts/soak.mjs [moves] [url]
-// Plays `moves` legal moves through the real commit + FX path (restarting on game over) and
-// checks that renderer.info.memory geometry/texture counts come back to the same level.
+// Leak / stability soak (needs `npm run dev` running).
+// Usage: node scripts/soak.mjs [moves | <N>m] [url]
+//   node scripts/soak.mjs 200     → 200 moves
+//   node scripts/soak.mjs 30m     → keep playing for 30 minutes
+// Plays legal moves through the real commit + FX path (restarting on game over). Every sample
+// waits for all animation to settle, forces GC, and records GPU resources (geometries per live
+// mesh, textures, shader programs), JS heap, DOM node count and running tweens. Fails if any of
+// them grows between the first warmed-up sample and the last.
 import { chromium } from 'playwright';
 
-const moves = Number(process.argv[2] ?? 200);
+const arg = process.argv[2] ?? '200';
 const url = process.argv[3] ?? 'http://localhost:5173/';
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const minutes = arg.endsWith('m') ? Number(arg.slice(0, -1)) : 0;
+const maxMoves = minutes ? Infinity : Number(arg);
+const deadline = Date.now() + minutes * 60_000;
+const SAMPLE_EVERY = minutes ? 150 : 50;
+
+const browser = await chromium.launch({
+  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--js-flags=--expose-gc'],
+});
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 let errors = 0;
 page.on('pageerror', (e) => (errors++, console.log('pageerror:', e.message)));
@@ -20,23 +31,30 @@ await page.goto(url);
 await page.waitForFunction(() => window.__grain);
 await page.getByRole('button', { name: 'Play' }).click();
 
-const settle = async () => {
+async function sample() {
   await page.waitForFunction(() => window.__grain.game.debug.tweens === 0, null, { timeout: 120000 });
-  await page.waitForTimeout(300);
-};
-const mem = () =>
-  page.evaluate(() => {
-    const { geometries, textures } = window.__grain.game.debug.info.memory;
+  await page.waitForTimeout(1600); // float texts and toasts finish their CSS animations
+  return page.evaluate(() => {
+    window.gc?.();
+    const { info } = window.__grain.game.debug;
     const s = window.__grain.store.getState();
-    const groups = s.game.board.groups.length;
-    const tray = s.game.tray.filter(Boolean).length;
-    return { geometries, textures, groups, tray };
+    const live = s.game.board.groups.length + s.game.tray.filter(Boolean).length;
+    return {
+      baseGeo: info.memory.geometries - live,
+      textures: info.memory.textures,
+      programs: info.programs?.length ?? 0,
+      heapMB: Math.round((performance.memory?.usedJSHeapSize ?? 0) / 1e5) / 10,
+      dom: document.getElementsByTagName('*').length,
+    };
   });
+}
 
-await settle();
-const start = await mem();
+const samples = [];
+let moves = 0;
 let games = 1;
-for (let i = 0; i < moves; i++) {
+const t0 = Date.now();
+samples.push(await sample());
+while (moves < maxMoves && (!minutes || Date.now() < deadline)) {
   const r = await page.evaluate(() => {
     const { store, game } = window.__grain;
     const s = store.getState();
@@ -44,8 +62,7 @@ for (let i = 0; i < moves; i++) {
       s.startNew();
       return 'restart';
     }
-    const w = game.world;
-    for (const tp of w.tray) {
+    for (const tp of game.world.tray) {
       if (!tp || tp.anim) continue;
       const cand = [];
       for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) cand.push([r, c]);
@@ -66,16 +83,36 @@ for (let i = 0; i < moves; i++) {
     return 'stuck';
   });
   if (r === 'restart') games++;
+  else moves++;
   await page.waitForTimeout(40);
+  if (moves > 0 && moves % SAMPLE_EVERY === 0) {
+    const s = await sample();
+    samples.push(s);
+    const mins = ((Date.now() - t0) / 60000).toFixed(1);
+    console.log(`${mins} min  moves ${moves}  games ${games}`, JSON.stringify(s));
+  }
 }
-await settle();
-const end = await mem();
+samples.push(await sample());
 await browser.close();
 
-// geometries scale with live meshes: one per placed group + tray piece, plus a fixed scene base
-const base = (m) => m.geometries - m.groups - m.tray;
-console.log('start', start, 'end', end, `games ${games}`);
-const ok = base(start) === base(end) && start.textures === end.textures;
-console.log(ok ? 'PASS  no GPU resource growth' : 'FAIL  geometry/texture count grew');
+// compare the first warmed-up sample (after the first batch, when every FX has run once) to the last
+const first = samples[Math.min(1, samples.length - 1)];
+const last = samples[samples.length - 1];
+console.log('first', JSON.stringify(first));
+console.log('last ', JSON.stringify(last));
+const heapGrowth = first.heapMB ? (last.heapMB - first.heapMB) / first.heapMB : 0;
+const checks = [
+  ['geometries flat', last.baseGeo <= first.baseGeo],
+  ['textures flat', last.textures <= first.textures],
+  ['shader programs flat', last.programs <= first.programs],
+  ['DOM nodes flat', last.dom <= first.dom],
+  [`JS heap flat (${(heapGrowth * 100).toFixed(1)}%)`, heapGrowth < 0.15],
+];
+let ok = !errors;
+for (const [name, pass] of checks) {
+  console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}`);
+  ok &&= pass;
+}
+console.log(`moves ${moves}, games ${games}, ${((Date.now() - t0) / 60000).toFixed(1)} min`);
 console.log(errors ? `${errors} console error(s)` : 'no console errors');
-process.exit(ok && !errors ? 0 : 1);
+process.exit(ok ? 0 : 1);

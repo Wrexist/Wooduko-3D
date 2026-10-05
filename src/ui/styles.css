@@ -113,7 +113,7 @@ button {
   top: 0;
   padding: calc(var(--safe-top) + 10px) calc(var(--safe-right) + 16px) 0 calc(var(--safe-left) + 16px);
   display: grid;
-  grid-template-columns: 96px 1fr 96px;
+  grid-template-columns: 96px minmax(0, 1fr) 96px;
   align-items: start;
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -179,7 +179,7 @@ button {
 .score {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 48px;
+  font-size: clamp(36px, 11.5vw, 48px);
   margin-top: 4px;
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.01em;
@@ -254,7 +254,7 @@ button {
 .toast .big {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 44px;
+  font-size: clamp(30px, 10vw, 44px);
   color: var(--ink);
   text-shadow:
     0 3px 0 rgba(120, 62, 20, 0.85),
@@ -263,7 +263,7 @@ button {
 }
 .toast.tier-3 .big,
 .toast.tier-4 .big {
-  font-size: 52px;
+  font-size: clamp(32px, 10.5vw, 52px);
   color: var(--gold-float);
 }
 .toast .small {
@@ -357,8 +357,10 @@ button {
 .overlay {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   background: var(--scrim);
   padding: calc(var(--safe-top) + 24px) calc(var(--safe-right) + 24px) calc(var(--safe-bottom) + 24px)
     calc(var(--safe-left) + 24px);
@@ -381,7 +383,9 @@ button {
   z-index: 30;
 }
 .overlay.dialog-layer .card,
-.overlay.confirm-layer .card {
+.overlay.confirm-layer /* margin:auto centres the card when it fits and lets the overlay scroll from the top when not */
+.card {
+  margin: auto;
   background: var(--card-solid);
 }
 .cta.danger {
@@ -630,6 +634,70 @@ button {
 .tutorial .hand svg {
   width: 100%;
   height: 100%;
+}
+
+/* ---------- small screens ---------- */
+/* narrow phones: restart lives in the pause menu so the score has room */
+@media (max-width: 379px) {
+  .hud {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+  .hud .restart {
+    display: none;
+  }
+}
+/* short screens (landscape phones): compact cards, tutorial tip beside the board */
+@media (max-height: 500px) {
+  .overlay {
+    padding-top: calc(var(--safe-top) + 12px);
+    padding-bottom: calc(var(--safe-bottom) + 12px);
+  }
+  .card {
+    padding: 18px 22px 16px;
+  }
+  .stack,
+  .row2 {
+    margin-top: 14px;
+    gap: 8px;
+  }
+  .cta {
+    height: 44px;
+  }
+  .ghost-btn {
+    height: 40px;
+  }
+  .home .card {
+    padding-top: 20px;
+  }
+  .home .title {
+    font-size: 40px;
+  }
+  .home .best {
+    margin-top: 8px;
+  }
+  .card .final {
+    font-size: 48px;
+    margin: 4px 0 0;
+  }
+  .settings-list {
+    margin-top: 10px;
+    gap: 0;
+  }
+  .setting {
+    min-height: 40px;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .tutorial .tip {
+    top: 50%;
+    left: calc(var(--safe-left) + 16px);
+    transform: translateY(-50%);
+    width: min(28vw, 220px);
+    text-align: left;
+  }
+  .tutorial .text {
+    font-size: 17px;
+  }
 }
 
 .sr-only {

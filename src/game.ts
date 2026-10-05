@@ -575,8 +575,9 @@ export class Game {
     this.height = window.innerHeight;
     this.renderer.resize(this.width, this.height);
     const safeBottom = Number.parseFloat(getComputedStyle(this.safeProbe).paddingBottom) || 0;
-    const top = Math.max(this.hud.bottom, this.tutorialUi.open ? this.tutorialUi.bottom : 0);
-    this.world.resize(this.width, this.height, top, safeBottom);
+    const tip = this.tutorialUi.open ? this.tutorialUi.reserve : { top: 0, left: 0 };
+    const top = Math.max(this.hud.bottom, tip.top);
+    this.world.resize(this.width, this.height, top, safeBottom, tip.left);
     this.drag.refresh();
   }
 

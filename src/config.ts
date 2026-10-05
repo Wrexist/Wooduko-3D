@@ -530,4 +530,8 @@ export const TUTORIAL = {
   handMoveEnd: 0.72,
   handHoldEnd: 0.86,
   handPress: 0.12,
+  /** Must match the CSS rule that moves the tip beside the board (`ui/styles.css`). */
+  sideTipQuery: '(max-height: 500px) and (orientation: landscape)',
+  /** Space (px) between a side tip and the board. */
+  tipGap: 8,
 } as const;

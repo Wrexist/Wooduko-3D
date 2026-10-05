@@ -20,7 +20,7 @@ export class Hud {
 
   constructor(h: HudHandlers) {
     const pause = el('button', { class: 'btn', 'aria-label': 'Pause', html: ICONS.pause });
-    const restart = el('button', { class: 'btn', 'aria-label': 'Restart game', html: ICONS.restart });
+    const restart = el('button', { class: 'btn restart', 'aria-label': 'Restart game', html: ICONS.restart });
     this.soundBtn = el('button', { class: 'btn', 'aria-label': 'Mute sound', html: ICONS.soundOn });
     pause.addEventListener('click', h.onPause);
     restart.addEventListener('click', h.onRestart);

@@ -4,7 +4,7 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'legacy/', 'prototype/', 'ios/', 'android/'] },
+  { ignores: ['dist/', 'dist-test/', 'shots/', 'legacy/', 'prototype/', 'ios/', 'android/'] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   { languageOptions: { globals: globals.browser } },

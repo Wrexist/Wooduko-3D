@@ -50,7 +50,7 @@ export class World {
   }
 
   /** Recompute layout + camera for a new viewport. Idle tray pieces snap to their slots. */
-  resize(width: number, height: number, topPx: number, bottomInsetPx: number): void {
+  resize(width: number, height: number, topPx: number, bottomInsetPx: number, leftPx = 0): void {
     this.layout = layoutFor(width / height);
     fitCamera(
       this.camera,
@@ -60,6 +60,7 @@ export class World {
       topPx + this.layout.padTop,
       bottomInsetPx + this.layout.padBottom,
       this.camBase,
+      leftPx,
     );
     for (const t of this.tray) if (t && !t.anim) this.slotPos(t.slot, t.pivot.position);
   }
