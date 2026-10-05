@@ -1,6 +1,10 @@
 # TASK.md
 
 ## Active phase
+**Polish for release (Oct 2026)**
+1. [x] **Remove-ads offer:** gold popup (perks, price, Restore, clear "Not now") after every interstitial, after a rewarded ad (15-min gap), on home once ads run (session 2+, 3+ games, 30-min gap), max 4/day; "Tired of ads? Remove them" link on the results card. Never for owners. Pacing: `UPSELL` in config, `core/upsell.ts` (tested). Deliberately no fake timers, hidden close buttons or guilt-trip copy: App Review guideline 5.6 rejects manipulative upsells.
+2. [x] Independent review of the modes → fixed: Blitz clock vs a piece in the air, Daily past midnight, ad pacing for finished Blitz/Home games, late Zen rescue after Home, stuck-Zen restart
+
 **Update 1.1 — Modes & dailies** (requested by you; Classic is code-complete, so the "no new modes before Classic" rule is satisfied)
 
 ### Plan

@@ -38,7 +38,7 @@ Made for quiet moments: a coffee break, the commute, or winding down at night.
 No login required. The Google consent form and the App Tracking Transparency prompt appear after
 the first finished game (or on the 2nd launch), before any ad loads. Ads only appear between games
 (on "Play again") or as an optional "Keep playing" reward after a game ends. "Remove ads" is a
-non-consumable IAP (`grain_remove_ads`); Restore purchases is in Settings. A quick way to reach game
+non-consumable IAP (`grain_remove_ads`); Restore purchases is in Settings and in the Remove-ads offer (shown after ads, always with "Not now"). A quick way to reach game
 over for testing: play until no piece fits (≈2–5 minutes).
 
 ## Svenska
