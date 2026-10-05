@@ -61,14 +61,14 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [ ] **[should]** Accessibility: VoiceOver labels on buttons, Dynamic Type for menus, colour-safe highlights _(labels, roles, live regions, reduced motion done; Dynamic Type not yet)_
 
 ## Phase 7 — Performance / mobile optimization
-- [ ] **[must]** Capacitor iOS project: bundle id `com.wrexist.grain`, `contentInset: never`, status bar style
-- [ ] **[must]** `CADisableMinimumFrameDurationOnPhone = true` in Info.plist for 120 Hz on ProMotion iPhones
-- [ ] **[must]** Haptics through `@capacitor/haptics` (light on place, medium on clear, success on board clear)
-- [ ] **[must]** Saves through `@capacitor/preferences` (iOS may clear WebView localStorage)
-- [ ] **[must]** Audio: unlock on first touch, respect the silent switch, pause music when backgrounded
+- [x] **[must]** Capacitor iOS project: bundle id `com.wrexist.grain`, `contentInset: never`, status bar style
+- [x] **[must]** `CADisableMinimumFrameDurationOnPhone = true` in Info.plist for 120 Hz on ProMotion iPhones
+- [x] **[must]** Haptics through `@capacitor/haptics` (light on place, medium on clear, success on board clear)
+- [x] **[must]** Saves through `@capacitor/preferences` (iOS may clear WebView localStorage)
+- [x] **[must]** Audio: unlock on first touch, respect the silent switch, pause music when backgrounded
 - [ ] **[must]** Hold 60 fps on an iPhone XR / 11 and 120 fps on a 13 Pro or newer; profile shadow map size and pixel ratio
 - [ ] **[must]** Cold start under 2 s; first frame shows the board, not a blank screen
-- [ ] **[should]** Lazy-create FX resources; pool chips/sparkles (sparkles already pooled)
+- [x] **[should]** Lazy-create FX resources; pool chips/sparkles (sparkles already pooled)
 - [ ] **[should]** Android build tested on a mid-range device (if shipping Android)
 
 ## Phase 8 — Monetization

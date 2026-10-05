@@ -1,7 +1,16 @@
 # TASK.md
 
 ## Active phase
-**Phase 6 — UI / UX / animation** — complete except items that need assets or devices (listed below).
+**Phase 7 — Performance / mobile (native iOS)** (`RELEASE_CHECKLIST.md` phase 7)
+
+## Phase 7 plan
+1. [x] **Capacitor 8 iOS project** (Swift Package Manager, no CocoaPods): bundle id `com.wrexist.grain`, `contentInset: never`, light status bar, launch screen hidden on the first frame
+2. [x] **`scripts/ios-setup.mjs`** (idempotent, re-run after `cap add/sync`): in-repo Swift Game Center plugin + view controller, Game Center entitlement, `CADisableMinimumFrameDurationOnPhone` (120 Hz), `ITSAppUsesNonExemptEncryption = false`, arm64, en + sv, opaque 1024 icon, launch images
+3. [x] **Native adapters** (`platform/native.ts`, lazy-loaded only in the app): Preferences storage with one-time localStorage migration, Taptic haptics, Game Center, in-app review, local notifications
+4. [x] **Audio:** `audioSession.type = 'ambient'` (respects the silent switch, mixes with other apps), music pauses in background
+5. [ ] **On a Mac (you):** `npm run ios:open`, pick your team in Signing, run on a device. Then: 60 fps on an iPhone XR/11, 120 fps on a 13 Pro+, cold start < 2 s, input latency. See RELEASE_CHECKLIST phase 7.
+6. [ ] **App Store Connect (you):** enable Game Center for the app id; create leaderboard `grain.best` and achievements `grain.<id>` (ids in DESIGN.md)
+- Android: not shipping in v1.
 
 ## Phase 6 plan
 1. [x] **Contact shading:** baked ambient occlusion on block sides (darker toward the floor) + a procedural normal map so the grain has relief

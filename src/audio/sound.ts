@@ -25,6 +25,9 @@ export class Sound {
 
   /** Call from a user gesture. Safe to call often. */
   unlock(): void {
+    // iOS: play as "ambient" so the silent switch mutes the game and other apps' audio keeps playing
+    const session = (navigator as { audioSession?: { type: string } }).audioSession;
+    if (session && session.type !== 'ambient') session.type = 'ambient';
     if (!this.ac) {
       try {
         const Ctx = window.AudioContext ?? (window as Win).webkitAudioContext;

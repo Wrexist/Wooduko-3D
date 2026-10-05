@@ -2,5 +2,20 @@
   "appId": "com.wrexist.grain",
   "appName": "Grain",
   "webDir": "dist",
-  "ios": { "contentInset": "never", "backgroundColor": "#3a2415" }
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#3a2415",
+    "scrollEnabled": false,
+    "limitsNavigationsToAppBoundDomains": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#3a2415",
+      "showSpinner": false
+    },
+    "LocalNotifications": {
+      "iconColor": "#f0b94a"
+    }
+  }
 }

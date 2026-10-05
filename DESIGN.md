@@ -48,3 +48,9 @@ rarest). Dealing a tray of 3:
 
 Woods are cosmetic only. Stats: games, best, average, lines, best combo, board clears.
 A restarted game with a score counts as played. The tutorial never counts.
+
+## Game Center ids (App Store Connect)
+Leaderboard: `grain.best` (high score, sorted high → low).
+Achievements: `grain.first_clear`, `grain.combo_3`, `grain.combo_5`, `grain.triple`, `grain.quad`,
+`grain.board_clear`, `grain.score_1k`, `grain.score_5k`, `grain.score_10k`, `grain.games_10`, `grain.lines_500`
+(the game's achievement id with `-` → `_`, prefixed `grain.`). Titles/descriptions: `src/i18n.ts`.

@@ -780,3 +780,13 @@ export const HUD_FX = {
   /** New-best crown flight (ms). */
   crownMs: 900,
 } as const;
+
+/** Native (Capacitor) glue. */
+export const NATIVE = {
+  /** Set once localStorage has been copied into Preferences. */
+  migratedKey: 'grain_native_migrated_v1',
+  /** Vibration pulses up to these lengths (ms) map to light / medium Taptic impacts; longer = heavy. */
+  hapticLightMs: 10,
+  hapticMediumMs: 16,
+  splashFadeMs: 250,
+} as const;

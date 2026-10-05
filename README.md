@@ -39,11 +39,14 @@ With `npm run dev` running in another terminal: `npm run shots` (screenshots), `
 | `CLAUDE.md` | Rules for coding agents working in this repo |
 | `TASK.md` / `LEARNINGS.md` / `IDEAS.md` | Session handoff, lessons learned, parked ideas |
 
-## Add the iOS app (when you get to phase 7)
+## iOS app
+
+The iOS project lives in `ios/` (Capacitor 8, Swift Package Manager). On a Mac with Xcode:
 
 ```bash
-npm install @capacitor/core @capacitor/ios @capacitor/haptics @capacitor/preferences
-npm install -D @capacitor/cli
-npx cap add ios
-npm run cap:ios    # builds, syncs and opens Xcode
+npm install
+npm run ios:open   # builds the web app, copies it into ios/, applies scripts/ios-setup.mjs, opens Xcode
 ```
+
+In Xcode: select the **App** target → Signing & Capabilities → choose your team, then Run on a device.
+`npm run icons` re-renders the app icon and launch screens (needs `npm run dev` running).
