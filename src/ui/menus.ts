@@ -164,6 +164,7 @@ export class SettingsPanel extends Overlay {
       list,
       el('div', { class: 'stack' }, [done, this.owned, this.buy, this.restore, this.privacy, reset]),
       this.note,
+      el('p', { class: 'version' }, [`Grain ${__APP_VERSION__}`]),
     );
   }
 

@@ -1,7 +1,7 @@
 {
   "name": "grain",
   "private": true,
-  "version": "0.2.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host",
@@ -22,7 +22,9 @@
     "ios:sync": "npm run build && npx cap sync ios && node scripts/ios-setup.mjs",
     "ios:open": "npm run ios:sync && npx cap open ios",
     "icons": "node scripts/icon.mjs",
-    "store-shots": "node scripts/store-shots.mjs"
+    "store-shots": "node scripts/store-shots.mjs",
+    "release-check": "node scripts/release-check.mjs",
+    "prod-check": "node scripts/prod-check.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.2.0",
@@ -40,6 +42,7 @@
     "zustand": "5.0.15"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@capacitor/cli": "8.5.2",
     "@eslint/js": "10.0.1",
     "@types/node": "22.18.0",
@@ -56,5 +59,6 @@
   },
   "overrides": {
     "uuid": "11.1.1"
-  }
+  },
+  "iosBuild": 1
 }

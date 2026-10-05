@@ -43,7 +43,7 @@
   --pill-top: #ffe2a3;
   --pill-edge: #9a6420;
   --pill-ink: #3a1e0a;
-  --danger: #e2774f;
+  --danger: #f5a382;
   --toggle-off: rgba(255, 246, 230, 0.18);
   --vignette: rgba(24, 12, 5, 0.62);
   --flash: rgba(255, 214, 140, 0.38);
@@ -723,6 +723,11 @@ button {
   color: var(--honey);
   font-weight: 700;
 }
+.card .version {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
 .card .note {
   min-height: 18px;
   margin: 10px 0 0;
@@ -828,11 +833,14 @@ button {
   align-items: center;
   padding: 8px 10px;
   border-radius: 12px;
-  background: var(--btn);
-  opacity: 0.55;
+  background: rgba(255, 246, 230, 0.06);
+}
+/* locked rows: dimmer surface and title, but text keeps readable contrast */
+.achievements li:not(.have) strong {
+  color: var(--ink-soft);
 }
 .achievements li.have {
-  opacity: 1;
+  background: var(--btn);
 }
 .achievements .icon {
   flex: none;

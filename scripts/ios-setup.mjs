@@ -5,6 +5,7 @@
 //  - Game Center entitlement
 //  - Info.plist: 120 Hz on ProMotion, no-encryption export flag, arm64, en + sv localisations
 //  - ads: AdMob app id, tracking (ATT) text, SKAdNetwork ids; PrivacyInfo.xcprivacy
+//  - version (package.json "version") and build number (package.json "iosBuild")
 //  - app icon (opaque 1024) and launch images
 // Usage: node scripts/ios-setup.mjs
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -54,10 +55,14 @@ writeFileSync(
 </plist>
 `,
 );
+// version from package.json ("version" = App Store version, "iosBuild" = build number, bump per upload)
+const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const configs = proj.pbxXCBuildConfigurationSection();
 for (const [key, cfg] of Object.entries(configs)) {
   if (key.endsWith('_comment') || !cfg.buildSettings?.PRODUCT_BUNDLE_IDENTIFIER) continue;
   cfg.buildSettings.CODE_SIGN_ENTITLEMENTS = 'App/App.entitlements';
+  cfg.buildSettings.MARKETING_VERSION = pkg.version;
+  cfg.buildSettings.CURRENT_PROJECT_VERSION = String(pkg.iosBuild);
 }
 writeFileSync(PBX, proj.writeSync());
 
