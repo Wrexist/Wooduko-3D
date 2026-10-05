@@ -21,7 +21,8 @@
     "sim": "vitest run --config vitest.sim.config.ts",
     "ios:sync": "npm run build && npx cap sync ios && node scripts/ios-setup.mjs",
     "ios:open": "npm run ios:sync && npx cap open ios",
-    "icons": "node scripts/icon.mjs"
+    "icons": "node scripts/icon.mjs",
+    "store-shots": "node scripts/store-shots.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.2.0",

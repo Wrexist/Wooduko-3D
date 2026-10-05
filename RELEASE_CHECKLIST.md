@@ -85,11 +85,11 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [ ] **[nice]** A/B test: camera tilt, combo rule, interstitial frequency
 
 ## Phase 10 — ASO / App Store listing
-- [ ] **[must]** Name + subtitle + keywords (e.g. "Grain: Wood Block Puzzle")
-- [ ] **[must]** Screenshots for 6.9" and 6.5" iPhone + 13" iPad, showing the 3D blocks and a big clear moment
-- [ ] **[must]** App preview video (15–30 s) of satisfying clears
-- [ ] **[must]** Description, promo text, privacy policy URL, support URL, age rating, review notes
-- [ ] **[should]** Localized listing (English, Swedish)
+- [x] **[must]** Name + subtitle + keywords (e.g. "Grain: Wood Block Puzzle")
+- [x] **[must]** Screenshots for 6.9" and 6.5" iPhone + 13" iPad, showing the 3D blocks and a big clear moment
+- [ ] **[must]** App preview video (15–30 s) of satisfying clears _(shot list in ASO.md; record on device)_
+- [ ] **[must]** Description, promo text, privacy policy URL, support URL, age rating, review notes _(all text ready in ASO.md / PRIVACY.md / STORE.md; URLs need publishing)_
+- [x] **[should]** Localized listing (English, Swedish)
 
 ## Phase 11 — Release candidate / zero-defect audit
 - [ ] **[must]** Full test pass on iPhone SE, standard iPhone, Pro Max, iPad (portrait + landscape)

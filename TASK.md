@@ -1,7 +1,14 @@
 # TASK.md
 
 ## Active phase
-**Phase 8 — Monetization** — code complete (decided: free + ads + one-time "Remove ads"; no analytics; no Sentry for now). Your account steps: `STORE.md`.
+**Phase 10 — ASO / App Store listing** (phase 9 analytics: decided none for v1)
+
+## Phase 10 plan
+1. [x] **Listing text** en + sv (`ASO.md`): name, subtitle, keywords (no trademarks), promo text, description, what's new, review notes — all within Apple's limits
+2. [x] **Screenshots** from the real game (`npm run store-shots` → `store/`): 5 scenes × en/sv × iPhone 6.9" (1320×2868), 6.5" (1242×2688), iPad 13" (2064×2752), opaque PNG
+3. [x] **iPad polish found by the screenshots:** HUD, menus, callouts and tutorial scale up on large screens
+4. [x] **Privacy policy draft** (`PRIVACY.md`, en + sv) + store setup guide (`STORE.md`)
+5. [ ] **You:** publish the privacy policy + support page, record the app preview video on a device (shot list in `ASO.md`), paste the listing into App Store Connect
 
 ## Phase 8 plan
 1. [x] **Revive (pure, tested):** once per game, clears the fullest 3×3 square and deals a fresh tray that fits. Offered on the results card: watch a rewarded ad, or free with Remove ads. Save v3 remembers it.

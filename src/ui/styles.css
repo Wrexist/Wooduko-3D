@@ -959,6 +959,55 @@ button {
   }
 }
 
+/* tablets / large windows: phone-sized UI looks lost next to a big board — scale it up */
+/* zoom only on elements whose position isn't set from JS (zoom would scale those px too) */
+@media (min-width: 700px) and (min-height: 700px) {
+  .hud,
+  .tutorial .skip {
+    zoom: 1.35;
+  }
+  .card {
+    zoom: 1.25;
+  }
+  .toast .big {
+    font-size: 72px;
+  }
+  .toast.tier-3 .big,
+  .toast.tier-4 .big,
+  .toast.tier-5 .big {
+    font-size: 84px;
+  }
+  .toast .small {
+    font-size: 26px;
+  }
+  .float {
+    font-size: 34px;
+  }
+  .float.gold {
+    font-size: 42px;
+  }
+  .banner {
+    width: 440px;
+    padding: 14px 20px 14px 16px;
+  }
+  .banner strong {
+    font-size: 20px;
+  }
+  .banner small {
+    font-size: 16px;
+  }
+  .tutorial .tip {
+    width: 520px;
+    top: calc(var(--safe-top) + 150px);
+  }
+  .tutorial .step {
+    font-size: 16px;
+  }
+  .tutorial .text {
+    font-size: 30px;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

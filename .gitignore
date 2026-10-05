@@ -8,3 +8,4 @@ android/app/build/
 .env*
 shots/
 dist-test/
+store/
