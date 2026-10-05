@@ -903,6 +903,216 @@ button {
   height: 100%;
 }
 
+/* ---------- modes ---------- */
+.topline {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 18px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.chip svg {
+  width: 16px;
+  height: 16px;
+}
+.chip.done {
+  color: var(--honey);
+}
+.chip.urgent {
+  color: #ff8a6a;
+  animation: urgent 1s ease-in-out infinite;
+}
+.reduced .chip.urgent {
+  animation: none;
+}
+@keyframes urgent {
+  50% {
+    opacity: 0.6;
+  }
+}
+.chip.kick {
+  animation: chipKick 0.4s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes chipKick {
+  30% {
+    transform: scale(1.3);
+  }
+}
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.tile {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 9px 4px 8px;
+  border-radius: 14px;
+  cursor: pointer;
+  border: 1px solid var(--btn-line);
+  background: var(--btn);
+  color: var(--ink);
+  min-width: 0;
+}
+.tile:active {
+  transform: translateY(1px);
+}
+.tile:focus-visible {
+  outline: 2px solid var(--honey);
+  outline-offset: 2px;
+}
+.tile .icon {
+  width: 22px;
+  height: 22px;
+  color: var(--honey);
+}
+.tile .icon svg {
+  width: 100%;
+  height: 100%;
+}
+.tile strong {
+  font-size: 15px;
+}
+.tile small {
+  font-size: 12px;
+  color: var(--ink-soft);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.tile.daily {
+  border-color: var(--honey);
+}
+.tile.daily.done small {
+  color: var(--honey);
+}
+.tile .streak {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffb066;
+}
+.tile .streak svg {
+  width: 13px;
+  height: 13px;
+}
+.tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px 48px;
+  gap: 8px;
+}
+.icon-btn {
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+.quests-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.quests-btn svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--honey);
+}
+.quests-btn span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quests-btn .count {
+  color: var(--honey);
+  font-variant-numeric: tabular-nums;
+}
+.quests-btn.done {
+  border-color: var(--honey);
+}
+.quests {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+.quests li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 14px;
+}
+.quests .n {
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.quests .n svg {
+  width: 18px;
+  height: 18px;
+  color: var(--honey);
+  display: block;
+}
+.quests .bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--btn);
+  overflow: hidden;
+}
+.quests .bar i {
+  display: block;
+  height: 100%;
+  background: var(--honey);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.quests li.done .q {
+  color: var(--ink-soft);
+}
+.card .quest-note {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--honey);
+}
+.ghost-btn.share {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ghost-btn.share svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* ---------- small screens ---------- */
 /* narrow phones: restart lives in the pause menu so the score has room */
 @media (max-width: 379px) {
@@ -911,6 +1121,22 @@ button {
   }
   .hud .restart {
     display: none;
+  }
+  .home .card {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .tiles {
+    gap: 6px;
+  }
+  .tile small {
+    font-size: 11px;
+  }
+  .quests-btn svg {
+    display: none;
+  }
+  .tools {
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
   }
 }
 /* short screens (landscape phones): compact cards, tutorial tip beside the board */
@@ -942,6 +1168,20 @@ button {
   .home .best {
     margin-top: 8px;
   }
+  .home .subtitle {
+    display: none;
+  }
+  .tile {
+    padding: 5px 4px;
+    gap: 0;
+  }
+  .tile .icon {
+    width: 18px;
+    height: 18px;
+  }
+  .tools {
+    grid-template-columns: minmax(0, 1fr) 40px 40px;
+  }
   .card .final {
     font-size: 48px;
     margin: 4px 0 0;
@@ -955,6 +1195,31 @@ button {
   }
 }
 @media (max-height: 500px) and (orientation: landscape) {
+  /* home: title on the left, buttons on the right, so it fits a phone on its side */
+  .home .card {
+    width: min(580px, 100%);
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    grid-template-rows: auto auto 1fr;
+    column-gap: 24px;
+    align-items: center;
+  }
+  .home .title,
+  .home .best {
+    grid-column: 1;
+  }
+  .home .best {
+    justify-self: center;
+    align-self: start;
+  }
+  .home .stack {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin-top: 0;
+  }
+  .home .offer {
+    grid-column: 1 / -1;
+  }
   .tutorial .tip {
     top: 50%;
     left: calc(var(--safe-left) + 16px);

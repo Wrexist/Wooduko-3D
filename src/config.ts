@@ -696,6 +696,8 @@ export const FX = {
   newBestDelay: 0.45,
   /** Seconds after the results card before the (native) review prompt. */
   reviewDelay: 1.6,
+  /** Zen: seconds the stuck board stays before the fullest square clears. */
+  zenRescueDelay: 0.6,
   /** Space (px) between the HUD and the achievement banner. */
   bannerGap: 8,
   /** World point the toast is anchored to. */

@@ -109,7 +109,7 @@ export class AchievementBanner {
   readonly node = el('div', { class: 'banner', role: 'status', 'aria-live': 'polite' });
   private readonly title = el('strong');
   private readonly detail = el('small');
-  private queue: AchievementId[] = [];
+  private queue: { title: string; detail: string }[] = [];
   private left = 0;
 
   constructor(private readonly seconds: number) {
@@ -121,21 +121,29 @@ export class AchievementBanner {
   }
 
   push(ids: readonly AchievementId[]): void {
-    this.queue.push(...ids);
+    for (const id of ids) {
+      const unlocksTheme = THEMES.find((th) => th.unlock === id);
+      const detail = unlocksTheme
+        ? `${achDesc(id)} · ${t('awards.woodUnlocked', { name: woodName(unlocksTheme.id) })}`
+        : achDesc(id);
+      this.pushText(achTitle(id), detail);
+    }
+  }
+
+  /** Any other good news (e.g. daily quests complete). */
+  pushText(title: string, detail: string): void {
+    this.queue.push({ title, detail });
     if (this.left <= 0) this.next();
   }
 
   private next(): void {
-    const id = this.queue.shift();
-    if (!id) {
+    const item = this.queue.shift();
+    if (!item) {
       this.node.classList.remove('show');
       return;
     }
-    const unlocksTheme = THEMES.find((th) => th.unlock === id);
-    this.title.textContent = achTitle(id);
-    this.detail.textContent = unlocksTheme
-      ? `${achDesc(id)} · ${t('awards.woodUnlocked', { name: woodName(unlocksTheme.id) })}`
-      : achDesc(id);
+    this.title.textContent = item.title;
+    this.detail.textContent = item.detail;
     this.node.classList.add('show');
     this.left = this.seconds;
   }

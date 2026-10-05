@@ -16,6 +16,9 @@ export class Hud {
   private readonly scoreEl = el('div', { class: 'score', 'aria-live': 'polite' }, ['0']);
   private readonly bestVal = el('span', {}, ['0']);
   private readonly soundBtn: HTMLButtonElement;
+  private readonly bestEl: HTMLDivElement;
+  /** Mode info next to the best: Blitz clock, Daily goal, "Zen". */
+  private readonly chip = el('span', { class: 'chip', hidden: '' });
   private target = 0;
   private shown = 0;
 
@@ -33,9 +36,14 @@ export class Hud {
     const best = el('div', { class: 'best' });
     best.innerHTML = ICONS.crown;
     best.append(this.bestVal);
+    this.bestEl = best;
     this.node = el('div', { class: 'hud' }, [
       el('div', { class: 'side' }, [pause, restart]),
-      el('div', { class: 'scorebox' }, [best, this.scoreEl, this.combo.node]),
+      el('div', { class: 'scorebox' }, [
+        el('div', { class: 'topline' }, [best, this.chip]),
+        this.scoreEl,
+        this.combo.node,
+      ]),
       el('div', { class: 'side right' }, [this.soundBtn]),
     ]);
   }
@@ -98,6 +106,39 @@ export class Hud {
       crown.remove();
       done();
     };
+  }
+
+  /**
+   * Per-mode info: `best` hides the crown (Zen has none); `chip` is a short label with an icon
+   * (null = hidden); `urgent` makes it pulse red (last seconds of Blitz); `done` turns it gold.
+   */
+  setInfo(o: {
+    best: boolean;
+    chip: string | null;
+    icon?: string;
+    urgent?: boolean;
+    done?: boolean;
+    label?: string;
+  }): void {
+    this.bestEl.hidden = !o.best;
+    this.chip.hidden = o.chip === null;
+    if (o.chip === null) return;
+    const html = `${o.icon ?? ''}<span></span>`;
+    if (this.chip.dataset.icon !== (o.icon ?? '')) {
+      this.chip.innerHTML = html;
+      this.chip.dataset.icon = o.icon ?? '';
+    }
+    const span = this.chip.querySelector('span');
+    if (span && span.textContent !== o.chip) span.textContent = o.chip;
+    this.chip.classList.toggle('urgent', o.urgent === true);
+    this.chip.classList.toggle('done', o.done === true);
+    if (o.label) this.chip.setAttribute('aria-label', o.label);
+    else this.chip.removeAttribute('aria-label');
+  }
+
+  /** Short pop on the chip (goal reached, a Blitz second ticking away). */
+  kickChip(): void {
+    replay(this.chip, 'kick');
   }
 
   setBest(best: number): void {

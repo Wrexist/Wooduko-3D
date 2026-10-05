@@ -4,11 +4,73 @@ import type { Key } from '../i18n';
 import { Overlay } from './dialogs';
 import { el, ICONS } from './dom';
 
-/** Home: title, best, Continue (when a save exists), Play / New game, Settings. */
+export interface QuestView {
+  readonly text: string;
+  readonly progress: number;
+  readonly target: number;
+}
+
+/** Everything the home screen shows. */
+export interface HomeView {
+  readonly best: number;
+  readonly hasSave: boolean;
+  readonly daily: {
+    readonly goal: number;
+    readonly done: boolean;
+    readonly best: number;
+    readonly streak: number;
+  };
+  readonly blitzBest: number;
+  readonly quests: readonly QuestView[];
+  readonly questsDone: boolean;
+  readonly questStreak: number;
+}
+
+/** Quest rows with progress bars. */
+function questRows(quests: readonly QuestView[]): HTMLLIElement[] {
+  return quests.map((q) => {
+    const done = q.progress >= q.target;
+    const fill = el('i');
+    fill.style.width = `${Math.round((100 * Math.min(q.progress, q.target)) / q.target)}%`;
+    const right = el('span', { class: 'n', 'aria-hidden': 'true' });
+    if (done) right.innerHTML = ICONS.check;
+    else right.textContent = `${num(q.progress)}/${num(q.target)}`;
+    return el('li', { class: done ? 'done' : '' }, [
+      el('span', { class: 'q' }, [q.text]),
+      right,
+      el('span', { class: 'bar', 'aria-hidden': 'true' }, [fill]),
+      el('span', { class: 'sr-only' }, [
+        done ? t('awards.unlocked') : t('quest.progress', { n: q.progress, total: q.target }),
+      ]),
+    ]);
+  });
+}
+
+/** A mode tile: icon, name, one short line. */
+function tile(icon: string, name: string, sub: HTMLElement, onClick: () => void): HTMLButtonElement {
+  const b = el('button', { class: 'tile' }, [
+    el('span', { class: 'icon', html: icon }),
+    el('strong', {}, [name]),
+    sub,
+  ]);
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+/**
+ * Home: title, best, Continue (when a save exists), Play / New game, the other modes (Daily,
+ * Zen, Blitz) as tiles, today's quests, Awards and Settings.
+ */
 export class HomeMenu extends Overlay {
   private readonly bestVal = el('span', {}, ['0']);
   private readonly cont = el('button', { class: 'cta' }, [t('home.continue')]);
   private readonly play = el('button', { class: 'cta' }, [t('home.play')]);
+  private readonly daily: HTMLButtonElement;
+  private readonly dailySub = el('small');
+  private readonly dailyStreak = el('span', { class: 'streak', hidden: '' });
+  private readonly blitzSub = el('small', {}, [t('mode.blitzDesc')]);
+  private readonly questsBtn = el('button', { class: 'ghost-btn quests-btn' });
+  private readonly questsCount = el('span', { class: 'count' });
 
   /** Soft ask for the daily reminder (shown once, after a few sessions, native only). */
   private readonly offer: HTMLDivElement;
@@ -16,6 +78,10 @@ export class HomeMenu extends Overlay {
   constructor(h: {
     onPlay(): void;
     onContinue(): void;
+    onDaily(): void;
+    onZen(): void;
+    onBlitz(): void;
+    onQuests(): void;
     onSettings(): void;
     onAwards(): void;
     onReminder(yes: boolean): void;
@@ -24,17 +90,40 @@ export class HomeMenu extends Overlay {
     const best = el('div', { class: 'best' });
     best.innerHTML = ICONS.crown;
     best.append(this.bestVal);
-    const settings = el('button', { class: 'ghost-btn' }, [t('home.settings')]);
-    const awards = el('button', { class: 'ghost-btn' }, [t('home.awards')]);
+    const settings = el('button', {
+      class: 'ghost-btn icon-btn',
+      'aria-label': t('home.settings'),
+      html: ICONS.gear,
+    });
+    const awards = el('button', {
+      class: 'ghost-btn icon-btn',
+      'aria-label': t('home.awards'),
+      html: ICONS.trophy,
+    });
     awards.addEventListener('click', h.onAwards);
+    settings.addEventListener('click', h.onSettings);
     this.cont.addEventListener('click', h.onContinue);
     this.play.addEventListener('click', h.onPlay);
-    settings.addEventListener('click', h.onSettings);
+    this.questsBtn.innerHTML = ICONS.list;
+    this.questsBtn.append(el('span', {}, [t('quests.short')]), this.questsCount);
+    this.questsBtn.addEventListener('click', h.onQuests);
+
+    this.daily = tile(ICONS.calendar, t('mode.dailyShort'), this.dailySub, h.onDaily);
+    this.daily.classList.add('daily');
+    this.daily.append(this.dailyStreak);
+    const zen = tile(ICONS.leaf, t('mode.zen'), el('small', {}, [t('mode.zenDesc')]), h.onZen);
+    const blitz = tile(ICONS.clock, t('mode.blitz'), this.blitzSub, h.onBlitz);
+
     this.card.append(
       el('div', { class: 'title', id: 'homeTitle' }, [t('app.title')]),
       el('div', { class: 'subtitle' }, [t('app.subtitle')]),
       best,
-      el('div', { class: 'stack' }, [this.cont, this.play, el('div', { class: 'pair' }, [awards, settings])]),
+      el('div', { class: 'stack' }, [
+        this.cont,
+        this.play,
+        el('div', { class: 'tiles' }, [this.daily, zen, blitz]),
+        el('div', { class: 'tools' }, [this.questsBtn, awards, settings]),
+      ]),
     );
     const yes = el('button', { class: 'cta small' }, [t('home.reminderYes')]);
     const no = el('button', { class: 'ghost-btn small' }, [t('home.reminderNo')]);
@@ -51,11 +140,61 @@ export class HomeMenu extends Overlay {
     this.offer.hidden = !visible;
   }
 
-  update(best: number, hasSave: boolean): void {
-    this.bestVal.textContent = num(best);
-    this.cont.hidden = !hasSave;
-    this.play.textContent = hasSave ? t('home.newGame') : t('home.play');
-    this.play.className = hasSave ? 'ghost-btn' : 'cta';
+  update(v: HomeView): void {
+    this.bestVal.textContent = num(v.best);
+    this.cont.hidden = !v.hasSave;
+    this.play.textContent = v.hasSave ? t('home.newGame') : t('home.play');
+    this.play.className = v.hasSave ? 'ghost-btn' : 'cta';
+
+    const goal = t('daily.goal', { n: num(v.daily.goal) });
+    this.daily.classList.toggle('done', v.daily.done);
+    this.dailySub.textContent = v.daily.done ? t('daily.doneShort') : goal;
+    const streak = v.daily.streak > 0 ? `, ${t('daily.streak', { n: v.daily.streak })}` : '';
+    this.daily.setAttribute(
+      'aria-label',
+      `${t('mode.daily')}, ${v.daily.done ? t('daily.done', { n: num(v.daily.best) }) : goal}${streak}`,
+    );
+    this.dailyStreak.hidden = v.daily.streak < 1;
+    this.dailyStreak.innerHTML = ICONS.flame;
+    this.dailyStreak.append(String(v.daily.streak));
+    this.blitzSub.textContent = v.blitzBest > 0 ? num(v.blitzBest) : t('mode.blitzDesc');
+
+    const done = v.quests.filter((q) => q.progress >= q.target).length;
+    this.questsCount.textContent = `${done}/${v.quests.length}`;
+    this.questsBtn.classList.toggle('done', v.questsDone);
+    this.questsBtn.setAttribute(
+      'aria-label',
+      `${t('quests.title')} ${t('quest.progress', { n: done, total: v.quests.length })}`,
+    );
+  }
+}
+
+/** Today's quests: progress, the quest streak and the woods it unlocks. */
+export class QuestsPanel extends Overlay {
+  private readonly list = el('ul', { class: 'quests' });
+  private readonly note = el('p', { class: 'quest-note' });
+  private readonly streak = el('span', { class: 'count' });
+
+  constructor(onClose: () => void) {
+    super('quests-panel dialog-layer', 'questsTitle');
+    const done = el('button', { class: 'cta' }, [t('common.done')]);
+    done.addEventListener('click', onClose);
+    this.node.addEventListener('pointerdown', (e) => {
+      if (e.target === this.node) onClose();
+    });
+    this.card.append(
+      el('h2', { id: 'questsTitle' }, [t('quests.title')]),
+      el('h3', {}, [t('quests.streakTitle'), ' ', this.streak]),
+      this.list,
+      this.note,
+      el('div', { class: 'stack' }, [done]),
+    );
+  }
+
+  update(v: HomeView): void {
+    this.list.replaceChildren(...questRows(v.quests));
+    this.streak.textContent = String(v.questStreak);
+    this.note.textContent = v.questsDone ? t('quests.allDone') : t('quests.hint');
   }
 }
 

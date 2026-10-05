@@ -6,6 +6,7 @@ import {
   FX,
   HAPTICS,
   LADDER,
+  MODES,
   PROGRESS,
   RENDER,
   RETENTION,
@@ -15,6 +16,7 @@ import {
 } from './config';
 import type { AchievementId } from './core/progress';
 import type { ThemeId } from './config';
+import { streakAlive } from './core/daily';
 import { lastGaps } from './core/board';
 import { getShape } from './core/shapes';
 import type { MoveResult } from './core/rules';
@@ -33,7 +35,7 @@ import type { Services } from './platform/services';
 import type { Monetization } from './platform/monetization';
 import { canRevive, shouldShowInterstitial } from './core/revive';
 import { nextReminder, reminderIndex, shouldAskReview, shouldOfferReminder } from './core/retention';
-import { t } from './i18n';
+import { num, t } from './i18n';
 import type { Key } from './i18n';
 import { Blocks } from './render/blocks';
 import type { BlockMesh } from './render/blocks';
@@ -47,11 +49,12 @@ import type { TrayPiece } from './render/world';
 import type { GameStore, StoreState } from './state/store';
 import { AchievementBanner, AwardsPanel } from './ui/awards';
 import { ConfirmDialog, ResultsCard } from './ui/dialogs';
-import { el, replay } from './ui/dom';
+import type { ResultsInfo } from './ui/dialogs';
+import { el, ICONS, replay } from './ui/dom';
 import { floatText } from './ui/floatText';
 import { Hud } from './ui/hud';
-import { HomeMenu, PauseMenu, SettingsPanel } from './ui/menus';
-import type { ToggleKey } from './ui/menus';
+import { HomeMenu, PauseMenu, QuestsPanel, SettingsPanel } from './ui/menus';
+import type { HomeView, ToggleKey } from './ui/menus';
 import { Toast } from './ui/toast';
 import { TutorialOverlay } from './ui/tutorial';
 
@@ -63,6 +66,10 @@ export interface GameDeps {
   readonly services: Services;
   readonly monetization: Monetization;
 }
+
+/** Best score shown for the current mode (Zen has none). */
+const modeBest = (s: StoreState): number =>
+  s.mode === 'classic' ? s.best : s.mode === 'blitz' ? s.blitzBest : s.mode === 'daily' ? s.daily.best : 0;
 
 /** Wires the store (rules + state) to the scene, effects, audio, UI and input. */
 export class Game {
@@ -93,6 +100,7 @@ export class Game {
   private readonly floatLayer = el('div', { 'aria-hidden': 'true' });
   private readonly safeProbe = el('div', { 'aria-hidden': 'true' });
   private readonly home: HomeMenu;
+  private readonly questsPanel = new QuestsPanel(() => this.questsPanel.hide());
   private readonly pauseMenu: PauseMenu;
   private readonly settingsPanel: SettingsPanel;
   private readonly confirm = new ConfirmDialog();
@@ -167,7 +175,14 @@ export class Game {
     });
     this.home = new HomeMenu({
       onPlay: () => void this.onPlay(),
-      onContinue: () => this.store.getState().continueGame(),
+      onContinue: () => this.store.getState().play('classic'),
+      onDaily: () => this.store.getState().play('daily'),
+      onZen: () => this.store.getState().play('zen'),
+      onBlitz: () => this.store.getState().play('blitz'),
+      onQuests: () => {
+        this.refreshHome(this.store.getState());
+        this.questsPanel.show();
+      },
       onSettings: () => this.showSettings(),
       onAwards: () => this.showAwards(),
       onReminder: (yes) => void this.answerReminder(yes),
@@ -200,6 +215,7 @@ export class Game {
       onAgain: () => void this.newGameAfterAd(),
       onRevive: () => void this.tryRevive(),
       onHome: () => this.store.getState().goHome(),
+      onShare: () => void this.shareDaily(),
     });
     this.tutorialUi = new TutorialOverlay(() => this.endTutorial());
     Object.assign(this.safeProbe.style, {
@@ -220,6 +236,7 @@ export class Game {
       this.results.node,
       this.settingsPanel.node,
       this.awards.node,
+      this.questsPanel.node,
       this.confirm.node,
       this.safeProbe,
     );
@@ -291,26 +308,64 @@ export class Game {
   private onStore(s: StoreState, prev: StoreState): void {
     if (s.resetSeq !== prev.resetSeq) this.syncFromStore(s.phase === 'playing');
     if (s.reviveSeq !== prev.reviveSeq) this.onRevived();
+    // Blitz: the clock ran out (no move ended it)
+    if (
+      s.game.over &&
+      !prev.game.over &&
+      s.moveSeq === prev.moveSeq &&
+      s.resetSeq === prev.resetSeq &&
+      !s.tutorial
+    )
+      this.gameOver();
+    if (s.timeLeft !== prev.timeLeft && s.mode === 'blitz' && s.phase === 'playing') {
+      if (s.timeLeft > 0 && s.timeLeft <= MODES.blitzUrgent) {
+        this.sound.tick();
+        this.hud.kickChip();
+      }
+    }
+    if (s.goalSeq !== prev.goalSeq) this.onGoal();
+    if (s.questSeq !== prev.questSeq)
+      this.showBanner(() =>
+        this.banner.pushText(t('quests.complete'), t('quests.completeDetail', { n: s.questStreak.count })),
+      );
     if (s.removeAds !== prev.removeAds) this.syncStoreUi();
     if (s.phase !== prev.phase) this.onPhase(s);
     if (s.settings !== prev.settings) this.applySettings(s.settings);
     if (s.unlockSeq !== prev.unlockSeq && s.recentUnlocks.length) {
       const ids = s.recentUnlocks;
       for (const id of ids) void this.services.gameCenter.unlock(id);
-      // next frame, once this move's HUD (combo pill) is updated: sit just under it
-      requestAnimationFrame(() => {
-        this.banner.node.style.top = `${this.hud.contentBottom + FX.bannerGap}px`;
-        this.banner.push(ids);
-        this.sound.achievement();
-      });
+      this.showBanner(() => this.banner.push(ids));
     }
     if (
       this.awards.open &&
       (s.stats !== prev.stats || s.unlocked !== prev.unlocked || s.settings !== prev.settings)
     )
       this.refreshAwards();
-    if (s.best !== prev.best) this.hud.setBest(s.best);
-    if (s.hasSave !== prev.hasSave || s.best !== prev.best) this.home.update(s.best, s.hasSave);
+    if (
+      s.best !== prev.best ||
+      s.blitzBest !== prev.blitzBest ||
+      s.daily !== prev.daily ||
+      s.mode !== prev.mode
+    )
+      this.hud.setBest(modeBest(s));
+    if (
+      s.timeLeft !== prev.timeLeft ||
+      s.mode !== prev.mode ||
+      s.daily !== prev.daily ||
+      s.dailyGoal !== prev.dailyGoal ||
+      s.tutorial !== prev.tutorial
+    )
+      this.refreshHudInfo(s);
+    if (
+      s.best !== prev.best ||
+      s.saves !== prev.saves ||
+      s.daily !== prev.daily ||
+      s.dailyStreak !== prev.dailyStreak ||
+      s.quests !== prev.quests ||
+      s.questStreak !== prev.questStreak ||
+      s.blitzBest !== prev.blitzBest
+    )
+      this.refreshHome(s);
     if (s.meta !== prev.meta) this.syncReminderUi();
   }
 
@@ -335,14 +390,109 @@ export class Game {
       this.later(TRAY.dealSoundDelay, () => this.sound.deal());
     }
     this.hud.setScore(s.game.score, true);
+    this.hud.setBest(modeBest(s));
+    this.refreshHudInfo(s);
     this.hud.combo.set(s.game.streak, s.game.misses > 0);
     this.comboGlow.set(s.game.streak, s.game.misses > 0, this.reduced);
+  }
+
+  /** Next frame, once this move's HUD (combo pill) is updated: the banner sits just under it. */
+  private showBanner(push: () => void): void {
+    requestAnimationFrame(() => {
+      this.banner.node.style.top = `${this.hud.contentBottom + FX.bannerGap}px`;
+      push();
+      this.sound.achievement();
+    });
+  }
+
+  /** Mode info in the HUD: Blitz clock, Daily goal, Zen label. */
+  private refreshHudInfo(s: StoreState): void {
+    if (s.tutorial || s.mode === 'classic') return this.hud.setInfo({ best: true, chip: null });
+    if (s.mode === 'zen') return this.hud.setInfo({ best: false, chip: t('mode.zen'), icon: ICONS.leaf });
+    if (s.mode === 'blitz') {
+      const clock = `${Math.floor(s.timeLeft / 60)}:${String(s.timeLeft % 60).padStart(2, '0')}`;
+      return this.hud.setInfo({
+        best: true,
+        chip: clock,
+        icon: ICONS.clock,
+        urgent: s.timeLeft <= MODES.blitzUrgent,
+        label: t('hud.time', { t: clock }),
+      });
+    }
+    this.hud.setInfo({
+      best: true,
+      chip: t('hud.goal', { n: num(s.dailyGoal) }),
+      icon: s.daily.done ? ICONS.check : ICONS.calendar,
+      done: s.daily.done,
+    });
+  }
+
+  private homeView(s: StoreState): HomeView {
+    return {
+      best: s.best,
+      hasSave: s.hasSave,
+      daily: {
+        goal: s.dailyGoal,
+        done: s.daily.done,
+        best: s.daily.best,
+        streak: streakAlive(s.dailyStreak, s.today) ? s.dailyStreak.count : 0,
+      },
+      blitzBest: s.blitzBest,
+      quests: s.quests.quests.map((q, i) => ({
+        text: t((q.kind === 'triple' && q.target === 1 ? 'quest.tripleOnce' : `quest.${q.kind}`) as Key, {
+          n: num(q.target),
+        }),
+        progress: s.quests.progress[i] ?? 0,
+        target: q.target,
+      })),
+      questsDone: s.quests.done,
+      questStreak: streakAlive(s.questStreak, s.today) ? s.questStreak.count : 0,
+    };
+  }
+
+  private refreshHome(s: StoreState): void {
+    const v = this.homeView(s);
+    this.home.update(v);
+    this.questsPanel.update(v);
+  }
+
+  /** Today's daily goal was just reached. */
+  private onGoal(): void {
+    this.later(FX.newBestDelay, () => {
+      this.hud.kickChip();
+      this.sound.newBest();
+      this.haptics.pulse(HAPTICS.newBest);
+      const s = this.store.getState();
+      this.showBanner(() =>
+        this.banner.pushText(t('daily.reached'), t('daily.streak', { n: s.dailyStreak.count })),
+      );
+    });
+  }
+
+  /** Share today's daily result: the system share sheet where there is one, else the clipboard. */
+  private async shareDaily(): Promise<void> {
+    const s = this.store.getState();
+    const text = t('share.daily', {
+      date: s.today,
+      score: num(s.game.score),
+      mark: s.daily.done ? '✅' : `/ ${num(s.dailyGoal)}`,
+    });
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({ text });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      this.results.setNote(t('results.copied'));
+    } catch {
+      // cancelled, or no clipboard: nothing to do
+    }
   }
 
   private onPhase(s: StoreState): void {
     const p = s.phase;
     if (p === 'home') {
-      this.home.update(s.best, s.hasSave);
+      this.refreshHome(s);
       this.home.show();
     } else this.home.hide();
     if (p === 'paused') {
@@ -456,7 +606,7 @@ export class Game {
   /** What the results card can offer: a free revive (Remove ads), one for a rewarded ad, or none. */
   private reviveOffer(): 'ad' | 'free' | null {
     const s = this.store.getState();
-    if (s.tutorial || !canRevive(s.game)) return null;
+    if (s.tutorial || s.mode !== 'classic' || !canRevive(s.game)) return null;
     if (s.removeAds) return 'free';
     return this.money.ads.rewardedReady() ? 'ad' : null;
   }
@@ -489,7 +639,7 @@ export class Game {
     if (cleared) for (const u of cleared.list) this.fx.sweep(u, 0, LADDER.sparkScale[2]);
     this.sound.clear(1, 1, true);
     const a = this.world.toScreen(...FX.toastAnchor, this.width, this.height);
-    this.toast.show(t('word.revive'), '', a.y, 3);
+    this.toast.show(s.mode === 'zen' ? t('word.zen') : t('word.revive'), '', a.y, 3);
   }
 
   /** Between games only: maybe an interstitial (paced by core/revive.shouldShowInterstitial), then a new game. */
@@ -566,7 +716,8 @@ export class Game {
       !this.ending &&
       !this.confirm.open &&
       !this.settingsPanel.open &&
-      !this.awards.open
+      !this.awards.open &&
+      !this.questsPanel.open
     );
   }
 
@@ -617,7 +768,9 @@ export class Game {
     this.hud.setScore(s.game.score);
     this.hud.bump();
     // passing a real previous best mid-game is its own moment
-    if (!tutorial && !this.bestCelebrated && before.best > 0 && s.game.score > before.best && !s.game.over) {
+    const oldBest = modeBest(before);
+    const crown = before.mode === 'classic' || before.mode === 'blitz';
+    if (!tutorial && crown && !this.bestCelebrated && oldBest > 0 && s.game.score > oldBest && !s.game.over) {
       this.bestCelebrated = true;
       const p = this.world.toScreen(ox, WORLD.topY, oz, this.width, this.height);
       this.later(FX.newBestDelay, () => {
@@ -639,7 +792,15 @@ export class Game {
       this.later(TRAY.dealSoundDelay, () => this.sound.deal());
     }
     this.world.setFits(s.fits);
-    if (s.game.over) this.gameOver();
+    if (s.zenStuck) this.zenStuck();
+    else if (s.game.over) this.gameOver();
+  }
+
+  /** Zen: no room left. Hold the board a moment, then the fullest square clears (store → onRevived). */
+  private zenStuck(): void {
+    this.ending = true;
+    this.drag.cancel();
+    this.later(FX.zenRescueDelay, () => this.store.getState().applyZenRescue());
   }
 
   /** Escalating clear feedback: pops, sweeps, ring, punch, shake, flash, words. */
@@ -723,7 +884,8 @@ export class Game {
       const s = this.store.getState();
       this.sound.gameOver();
       this.results.setRevive(this.reviveOffer());
-      this.results.present(s.game.score, s.best, s.newBest, this.tweens);
+      this.results.present(s.game.score, modeBest(s), s.newBest, this.tweens, this.resultsInfo(s));
+      if (s.mode !== 'classic') return;
       void this.services.gameCenter.submitBest(s.best);
       // a new best is a high: the only moment we ever ask for a review
       if (
@@ -738,6 +900,21 @@ export class Game {
         });
       }
     });
+  }
+
+  private resultsInfo(s: StoreState): ResultsInfo | undefined {
+    if (s.mode === 'blitz') return { title: s.timeLeft <= 0 ? t('results.timeUp') : t('results.title') };
+    if (s.mode !== 'daily') return undefined;
+    return {
+      title: t('mode.daily'),
+      line: s.daily.done
+        ? t('results.goalReached')
+        : s.daily.best > 0
+          ? t('results.goalMissed', { n: num(s.dailyGoal), best: num(s.daily.best) })
+          : t('daily.goal', { n: num(s.dailyGoal) }),
+      good: s.daily.done,
+      share: true,
+    };
   }
 
   private dimGroup(id: number, mesh: BlockMesh): void {
@@ -837,7 +1014,7 @@ export class Game {
 
   private async onPlay(): Promise<void> {
     const s = this.store.getState();
-    if (s.hasSave && s.game.score > 0) {
+    if ((s.saves.classic ?? 0) > 0) {
       const ok = await this.confirm.ask({
         title: t('confirm.newGame.title'),
         body: t('confirm.newGame.body'),
@@ -846,7 +1023,7 @@ export class Game {
       if (!ok) return;
     }
     // no interstitial here: ads only ever come between games, from the results card
-    this.store.getState().startNew();
+    this.store.getState().startNew('classic');
   }
 
   private onHome(): void {
@@ -900,6 +1077,7 @@ export class Game {
     if (this.confirm.open) this.confirm.cancel();
     else if (this.settingsPanel.open) this.settingsPanel.hide();
     else if (this.awards.open) this.awards.hide();
+    else if (this.questsPanel.open) this.questsPanel.hide();
     else if (s.phase === 'playing') s.pause();
     else if (s.phase === 'paused') s.resume();
   }
@@ -910,6 +1088,7 @@ export class Game {
    */
   private async onForeground(): Promise<void> {
     this.sound.resume();
+    this.store.getState().refreshDay();
     const away = Date.now() - this.backgroundAt;
     if (this.backgroundAt && away >= RETENTION.sessionGapMs) this.store.getState().noteSession();
     if (this.store.getState().meta.reminder === 'on') await this.scheduleReminder();
@@ -958,6 +1137,7 @@ export class Game {
     this.tweens.update(fxDt);
     this.comboGlow.update(dt, this.time);
     this.drag.update(dt);
+    if (!this.ending && !this.confirm.open) this.store.getState().tick(dt);
     this.chips.update(fxDt);
     this.updateHints();
     this.preview.update(dt, this.time);

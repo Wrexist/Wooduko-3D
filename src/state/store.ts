@@ -1,7 +1,15 @@
 import { createStore } from 'zustand/vanilla';
 import { MODES, PROGRESS, PURCHASES, RETENTION, SAVE, themeById, TUTORIAL_KEY } from '../config';
 import type { Mode } from '../config';
-import { dailyGoal, dailySeed, dateKey, emptyDaily, extendStreak, parseDaily, parseStreak } from '../core/daily';
+import {
+  dailyGoal,
+  dailySeed,
+  dateKey,
+  emptyDaily,
+  extendStreak,
+  parseDaily,
+  parseStreak,
+} from '../core/daily';
 import type { DailyRecord, Streak } from '../core/daily';
 import { applyQuestEvent, parseQuestDay, questDayFor } from '../core/quests';
 import type { QuestDay, QuestEvent } from '../core/quests';
