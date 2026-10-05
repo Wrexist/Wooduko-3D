@@ -179,7 +179,7 @@ button {
 .score {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(36px, 11.5vw, 48px);
+  font-size: clamp(36px, 12.5vw, 48px);
   margin-top: 4px;
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.01em;
@@ -254,7 +254,7 @@ button {
 .toast .big {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(30px, 10vw, 44px);
+  font-size: clamp(30px, 11.5vw, 44px);
   color: var(--ink);
   text-shadow:
     0 3px 0 rgba(120, 62, 20, 0.85),
@@ -263,7 +263,7 @@ button {
 }
 .toast.tier-3 .big,
 .toast.tier-4 .big {
-  font-size: clamp(32px, 10.5vw, 52px);
+  font-size: clamp(32px, 12vw, 52px);
   color: var(--gold-float);
 }
 .toast .small {

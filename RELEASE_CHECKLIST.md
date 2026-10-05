@@ -23,13 +23,13 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [ ] **[nice]** Undo last move (limited uses — could be a rewarded-ad reward)
 
 ## Phase 2 — Bug hunt / hardening
-- [ ] **[must]** Resize / rotate mid-drag doesn't break the piece or the preview
+- [x] **[must]** Resize / rotate mid-drag doesn't break the piece or the preview
 - [x] **[must]** Second finger touching the screen mid-drag is ignored (multi-touch)
-- [ ] **[must]** App backgrounded mid-animation: state saved, no half-placed pieces on return
+- [x] **[must]** App backgrounded mid-animation: state saved, no half-placed pieces on return
 - [x] **[must]** Save file versioning + migration; corrupted save falls back to a new game instead of a blank board
-- [ ] **[must]** Verify tray pieces never render off-screen on narrow phones (iPhone SE) and wide iPads
+- [x] **[must]** Verify tray pieces never render off-screen on narrow phones (iPhone SE) and wide iPads
 - [ ] **[must]** Memory: play 30+ minutes, confirm geometry/material counts stay flat (`renderer.info`)
-- [ ] **[must]** Game-over check covers every tray piece, including after loading a save
+- [x] **[must]** Game-over check covers every tray piece, including after loading a save
 - [x] **[should]** Restart button: replace the "tap twice" toast with a real confirm dialog
 - [ ] **[should]** Error tracking (Sentry) wired before TestFlight
 

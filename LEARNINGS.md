@@ -15,3 +15,10 @@
 - Tutorial boards must leave other blocks on the board, otherwise every lesson ends in "Board clear!" (+150).
 - Dialogs stacked over menus need solid cards; translucent cards let the menu text bleed through.
 - Art recipes (synth voices in `audio/sound.ts`, brush strokes in `render/textures.ts`) stay inline: they get replaced by recorded foley and scanned textures in phase 6. Everything gameplay, feel, layout and timing is in `config.ts`.
+- A drop animation that finishes during a reset (restart, tutorial step) used to commit into the *new* game. Delayed callbacks now carry a board generation, and commits check the tray piece is still current. The flow test fails without the guard.
+- Backgrounding should finish all tweens, not just pause: a piece mid-drop then commits and saves before iOS can kill the app.
+- WebGL context loss: Three r186 re-initialises on `webglcontextrestored` and re-uploads canvas textures by itself; nothing extra was needed (verified with `WEBGL_lose_context`).
+- 320 px wide: a 5-digit Fraunces score at 48 px pushes the HUD grid wider than the screen. Use `minmax(0, 1fr)` for the middle column and clamp font sizes to `vw`.
+- Overlays: `display: flex` + `overflow-y: auto` + `margin: auto` on the card centres when it fits and scrolls from the top when it doesn't (`place-items: center` cuts off the top instead). Needs `touch-action: pan-y` because the body disables touch scrolling.
+- Never run a long soak against the dev server: editing a .ts file reloads the page. Use the test build.
+- Never stop the dev server with `taskkill /IM node.exe`: it kills every Node process on the machine. Stop the specific PID.

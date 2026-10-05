@@ -19,7 +19,7 @@ Local-only game: **no backend / no database** (no social features planned for v1
 ## Things that will break if you're not careful
 - The prototype used Three r128. The rebuild uses the modern API (`outputColorSpace`, physical light units, colour management): see `LEARNINGS.md` before touching colours or lights.
 - TypeScript is pinned to 6.0.x because typescript-eslint does not support TS 7 yet.
-- Verify visually: with `npm run dev` running, `npm run shots` (review the PNGs in `shots/`), `npm run flows` and `npm run soak` must pass. Dev builds expose `window.__grain` (store + game) for these scripts.
+- Verify visually: with `npm run dev` running, `npm run shots` (review the PNGs in `shots/`), `npm run flows`, `npm run layout` and `npm run soak` must pass. Long soaks: `VITE_DEBUG_HOOKS=1 npm run build:test`, `npm run serve:test`, then `node scripts/soak.mjs 30m http://localhost:5174/` (the dev server reloads on edits). Dev builds expose `window.__grain` (store + game) for these scripts.
 - All motion must be time-based (`dt`), never per-frame, so it feels identical at 60/120/144 Hz.
 - Materials are cloned per block (shared textures). Always dispose geometry + materials when removing meshes.
 - `navigator.vibrate` does nothing on iOS; haptics must go through `@capacitor/haptics` in the native build.
