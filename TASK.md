@@ -15,9 +15,9 @@
 - [x] Update `CLAUDE.md`: Three.js r128 pin is lifted (master prompt wins), new layout
 
 ### Step 2 — `core/` port + tests (pure, no DOM/Three)
-- `types.ts`, `shapes.ts` (rotations/mirrors, dedupe, weight split), `board.ts` (canPlace, place, findClears, applyClear, components), `scoring.ts`, `generator.ts` (seeded RNG, weighted tray, 40 retries), `rules.ts` (game over, streak), `save.ts` (versioned, validated)
-- Tests: orientation counts per base shape, canPlace edges, clears row/col/box/combined, scoring table, component split keeps seed + UV centre, game-over, save round-trip + corrupt inputs
-- `state/store.ts` (Zustand vanilla) on top of core
+- [x] `types.ts`, `shapes.ts` (39 orientations, legacy order kept so old saves load), `board.ts`, `scoring.ts`, `generator.ts` (xorshift32 RNG, weighted tray, 40 retries), `rules.ts` (`playMove` reducer, game over, streak), `save.ts` (v1 + v0 prototype migration, validation)
+- [x] Tests (97): orientation counts, canPlace, clears row/col/box/combined, scoring table, splits keep seed + UV centre, game over, save round-trip + corrupt inputs, 20 simulated full games
+- [x] `state/store.ts` (Zustand vanilla) + `platform/storage.ts` (async, localStorage now, Preferences in phase 7)
 
 ### Step 3 — Render / input / FX / audio / HUD rebuild
 - Three.js latest (pinned exact), SRGB colour space, physical light units retuned, ACES
