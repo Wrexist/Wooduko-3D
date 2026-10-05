@@ -40,6 +40,13 @@ export class Hud {
     return this.node.getBoundingClientRect().bottom;
   }
 
+  /** Lowest visible HUD pixel, including the combo pill when it shows (for things placed below). */
+  get contentBottom(): number {
+    const pill = this.combo.node;
+    const pillBottom = pill.classList.contains('show') ? pill.getBoundingClientRect().bottom : 0;
+    return Math.max(this.bottom, pillBottom);
+  }
+
   setVisible(on: boolean): void {
     this.node.classList.toggle('hidden', !on);
   }

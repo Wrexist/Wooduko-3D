@@ -261,11 +261,14 @@ export class Game {
     if (s.phase !== prev.phase) this.onPhase(s);
     if (s.settings !== prev.settings) this.applySettings(s.settings);
     if (s.unlockSeq !== prev.unlockSeq && s.recentUnlocks.length) {
-      // just under the HUD so the score stays visible
-      this.banner.node.style.top = `${this.hud.bottom + FX.bannerGap}px`;
-      this.banner.push(s.recentUnlocks);
-      for (const id of s.recentUnlocks) void this.services.gameCenter.unlock(id);
-      this.sound.achievement();
+      const ids = s.recentUnlocks;
+      for (const id of ids) void this.services.gameCenter.unlock(id);
+      // next frame, once this move's HUD (combo pill) is updated: sit just under it
+      requestAnimationFrame(() => {
+        this.banner.node.style.top = `${this.hud.contentBottom + FX.bannerGap}px`;
+        this.banner.push(ids);
+        this.sound.achievement();
+      });
     }
     if (
       this.awards.open &&
