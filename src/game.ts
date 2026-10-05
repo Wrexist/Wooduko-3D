@@ -1,6 +1,19 @@
 import * as THREE from 'three';
 import { Sound } from './audio/sound';
-import { ADS, COLORS, FX, HAPTICS, LADDER, PROGRESS, RENDER, themeById, TRAY, WORLD } from './config';
+import {
+  ADS,
+  COLORS,
+  FX,
+  HAPTICS,
+  LADDER,
+  PROGRESS,
+  RENDER,
+  RETENTION,
+  themeById,
+  TRAY,
+  WORLD,
+} from './config';
+import type { AchievementId } from './core/progress';
 import type { ThemeId } from './config';
 import { getShape } from './core/shapes';
 import type { MoveResult } from './core/rules';
@@ -96,6 +109,10 @@ export class Game {
   private ending = false;
   /** The current game already passed the previous best (celebrate only once per game). */
   private bestCelebrated = false;
+  /** A full-screen ad is up: the results card ignores taps. */
+  private adBusy = false;
+  /** When the app last went to the background (ms), for session counting. */
+  private backgroundAt = 0;
   /** Bumped on every board reset; delayed callbacks from an older board are dropped. */
   private gen = 0;
   /** True while a reset is finishing old tweens: a drop landing now belongs to the old board. */
@@ -236,7 +253,7 @@ export class Game {
       () => window.removeEventListener('keydown', onKey),
       () => window.removeEventListener('resize', onResize),
       () => window.visualViewport?.removeEventListener('resize', onResize),
-      onLifecycle({ background: () => this.onBackground(), foreground: () => this.sound.resume() }),
+      onLifecycle({ background: () => this.onBackground(), foreground: () => void this.onForeground() }),
     );
     const onMotion = (): void => this.applySettings(this.store.getState().settings);
     this.mql.addEventListener('change', onMotion);
@@ -306,7 +323,8 @@ export class Game {
     this.preview.hide();
     this.preview.disposeGhost();
     this.ending = false;
-    this.bestCelebrated = false;
+    // a game that already holds the record (continued / revived) has had its moment
+    this.bestCelebrated = s.game.score > 0 && s.game.score >= s.best;
     this.results.hide();
     this.fx.shake = 0;
     this.world.syncAll(s.game.board, s.game.tray, s.fits);
@@ -359,27 +377,44 @@ export class Game {
   /** Launch-time native work: Game Center sign-in, re-schedule the reminder for tomorrow. */
   private async bootServices(): Promise<void> {
     const { gameCenter } = this.services;
-    if (gameCenter.available()) void gameCenter.signIn();
+    if (gameCenter.available()) void this.signInGameCenter();
     if (this.store.getState().meta.reminder === 'on') await this.scheduleReminder();
     await this.bootMonetization();
   }
 
   /**
-   * Purchases first (Remove ads owners never see consent, tracking or ad prompts), then — from
-   * the 2nd session on — consent → ATT → ads.
+   * Sign in, then re-send the best score and every unlocked achievement: anything earned while
+   * signed out (or before sign-in finished) reaches Game Center now. Duplicates are ignored there.
    */
+  private async signInGameCenter(): Promise<void> {
+    const gc = this.services.gameCenter;
+    if (!(await gc.signIn())) return;
+    const s = this.store.getState();
+    if (s.best > 0) await gc.submitBest(s.best);
+    for (const id of Object.keys(s.unlocked) as AchievementId[]) await gc.unlock(id);
+  }
+
+  /** Purchases first (Remove ads owners never see consent, tracking or ad prompts), then ads. */
   private async bootMonetization(): Promise<void> {
-    const { purchases, ads } = this.money;
+    const { purchases } = this.money;
     if (purchases.available()) {
       if (await purchases.owned()) this.store.getState().setRemoveAds(true);
       this.price = await purchases.price();
       this.syncStoreUi();
     }
+    await this.maybeStartAds();
+  }
+
+  /**
+   * Consent → ATT → ads, never on a player's first visit: from the 2nd session (relaunch, or back
+   * after a long break) or once their first game has finished — whichever comes first.
+   */
+  private async maybeStartAds(): Promise<void> {
     const s = this.store.getState();
-    if (!s.removeAds && s.meta.sessions >= ADS.initFromSession) {
-      await ads.start();
-      this.syncStoreUi();
-    }
+    if (s.removeAds || s.tutorial) return;
+    if (s.meta.sessions < ADS.initFromSession && s.stats.gamesPlayed < 1) return;
+    await this.money.ads.start();
+    this.syncStoreUi();
   }
 
   private syncStoreUi(): void {
@@ -394,6 +429,13 @@ export class Game {
 
   private showSettings(): void {
     this.settingsPanel.setNote('');
+    // the store may have been unreachable at launch: try the price again
+    if (this.price === null && this.money.purchases.available()) {
+      void this.money.purchases.price().then((p) => {
+        this.price = p;
+        this.syncStoreUi();
+      });
+    }
     this.syncStoreUi();
     this.settingsPanel.show();
   }
@@ -419,14 +461,20 @@ export class Game {
 
   private async tryRevive(): Promise<void> {
     const offer = this.reviveOffer();
-    if (!offer) return;
+    if (!offer || this.adBusy) return;
     if (offer === 'ad') {
-      this.results.setReviveBusy(true);
+      this.adBusy = true;
+      this.results.setBusy(true);
       this.sound.suspend();
       const earned = await this.money.ads.showRewarded();
       this.sound.resume();
-      this.results.setReviveBusy(false);
-      if (!earned) return;
+      this.results.setBusy(false);
+      this.adBusy = false;
+      if (!earned) {
+        // skipped or failed: offer it again only if another ad is ready
+        this.results.setRevive(this.reviveOffer());
+        return;
+      }
     }
     this.store.getState().revive();
   }
@@ -444,6 +492,7 @@ export class Game {
 
   /** Between games only: maybe an interstitial (paced by core/revive.shouldShowInterstitial), then a new game. */
   private async newGameAfterAd(): Promise<void> {
+    if (this.adBusy) return;
     const s = this.store.getState();
     const show = shouldShowInterstitial({
       sessions: s.meta.sessions,
@@ -452,13 +501,21 @@ export class Game {
       msSinceAd: Date.now() - s.meta.lastAdAt,
       removeAds: s.removeAds,
     });
+    let shown = false;
     if (show && this.money.ads.interstitialReady()) {
+      this.adBusy = true;
+      this.results.setBusy(true);
       this.sound.suspend();
       await this.money.ads.showInterstitial();
       this.sound.resume();
-      s.noteInterstitial();
+      this.results.setBusy(false);
+      this.adBusy = false;
+      shown = true;
     }
     this.store.getState().startNew();
+    // after startNew (which counts the game that just ended), so pacing restarts from zero
+    if (shown) this.store.getState().noteInterstitial();
+    await this.maybeStartAds();
   }
 
   private async scheduleReminder(): Promise<void> {
@@ -659,8 +716,12 @@ export class Game {
         this.services.review.available() &&
         shouldAskReview(s.meta, s.newBest, s.stats.gamesPlayed, new Date())
       ) {
-        s.noteReviewAsked();
-        this.later(FX.reviewDelay, () => void this.services.review.request());
+        this.later(FX.reviewDelay, () => {
+          // only if the player is still looking at the results (not tapped away / backgrounded)
+          if (!this.results.open || document.visibilityState !== 'visible') return;
+          this.store.getState().noteReviewAsked();
+          void this.services.review.request();
+        });
       }
     });
   }
@@ -770,20 +831,26 @@ export class Game {
       });
       if (!ok) return;
     }
-    await this.newGameAfterAd();
+    // no interstitial here: ads only ever come between games, from the results card
+    this.store.getState().startNew();
   }
 
   private onHome(): void {
     const s = this.store.getState();
     if (s.tutorial) {
-      this.stepIndex = -1;
-      this.drag.setAllowed(undefined);
-      this.tutorialUi.hide();
-      this.resize();
+      this.teardownTutorial();
       s.finishTutorial();
       return;
     }
     s.goHome();
+  }
+
+  /** Remove the tutorial's overlay and drop restriction (store state is handled by the caller). */
+  private teardownTutorial(): void {
+    this.stepIndex = -1;
+    this.drag.setAllowed(undefined);
+    this.tutorialUi.hide();
+    this.resize();
   }
 
   private async onResetProgress(): Promise<void> {
@@ -795,6 +862,7 @@ export class Game {
     });
     if (!ok) return;
     this.settingsPanel.hide();
+    if (this.store.getState().tutorial) this.teardownTutorial();
     this.store.getState().resetProgress();
   }
 
@@ -822,7 +890,20 @@ export class Game {
     else if (s.phase === 'paused') s.resume();
   }
 
+  /**
+   * Back from the background: resume audio; a long absence counts as a new session; the reminder
+   * is pushed to tomorrow again (so it never fires on a day they played); ads may start now.
+   */
+  private async onForeground(): Promise<void> {
+    this.sound.resume();
+    const away = Date.now() - this.backgroundAt;
+    if (this.backgroundAt && away >= RETENTION.sessionGapMs) this.store.getState().noteSession();
+    if (this.store.getState().meta.reminder === 'on') await this.scheduleReminder();
+    await this.maybeStartAds();
+  }
+
   private onBackground(): void {
+    this.backgroundAt = Date.now();
     this.drag.cancel();
     // finish everything in flight now: a drop that is mid-air commits (and saves) before iOS
     // may kill the app, and nothing is left half-animated on return

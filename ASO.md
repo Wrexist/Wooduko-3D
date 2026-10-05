@@ -32,8 +32,9 @@ Made for quiet moments: a coffee break, the commute, or winding down at night.
 **What's New (v1.0):** First release. Thanks for playing!
 
 **Review notes (for Apple):**
-No login required. Ads appear from the 2nd launch (Google consent + tracking prompt first), only
-between games or as an optional "Keep playing" reward after a game ends. "Remove ads" is a
+No login required. The Google consent form and the App Tracking Transparency prompt appear after
+the first finished game (or on the 2nd launch), before any ad loads. Ads only appear between games
+(on "Play again") or as an optional "Keep playing" reward after a game ends. "Remove ads" is a
 non-consumable IAP (`grain_remove_ads`); Restore purchases is in Settings. A quick way to reach game
 over for testing: play until no piece fits (≈2–5 minutes).
 

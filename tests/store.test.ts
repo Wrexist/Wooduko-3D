@@ -222,3 +222,37 @@ describe('store progression', () => {
     expect(storage.data.has(PROGRESS.statsKey)).toBe(false);
   });
 });
+
+describe('store review fixes', () => {
+  it('reset progress during the tutorial leaves tutorial mode with a fresh board', async () => {
+    const { store } = await setup();
+    const step = tutorialSteps()[0];
+    if (!step) throw new Error('no tutorial');
+    store.getState().loadTutorial(step.game);
+    store.getState().resetProgress();
+    const s = store.getState();
+    expect(s.tutorial).toBe(false);
+    expect(s.phase).toBe('home');
+    expect(s.game.board.groups).toHaveLength(0);
+    store.getState().startNew();
+    // a normal game: any legal spot works, not just the tutorial target
+    expect(store.getState().place(0, 8 - 4, 0) ?? store.getState().place(1, 0, 0)).not.toBeNull();
+  });
+
+  it('a long absence counts as a new session', async () => {
+    const { store } = await setup();
+    const before = store.getState().meta.sessions;
+    store.getState().noteSession();
+    expect(store.getState().meta.sessions).toBe(before + 1);
+  });
+
+  it('interstitial pacing restarts from zero after an ad between games', async () => {
+    const { store } = await setup();
+    store.getState().startNew();
+    firstLegal(store);
+    // the order the game uses: start the next game, then note the ad
+    store.getState().startNew();
+    store.getState().noteInterstitial();
+    expect(store.getState().meta.gamesSinceAd).toBe(0);
+  });
+});

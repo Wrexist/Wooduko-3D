@@ -128,8 +128,9 @@ export class ResultsCard extends Overlay {
     if (again) again.className = offer ? 'ghost-btn' : 'cta';
   }
 
-  setReviveBusy(busy: boolean): void {
-    this.revive.disabled = busy;
+  /** While a full-screen ad is up, no button on the card reacts. */
+  setBusy(busy: boolean): void {
+    for (const b of this.card.querySelectorAll('button')) b.disabled = busy;
   }
 
   present(score: number, best: number, newBest: boolean, tweens: Tweens): void {

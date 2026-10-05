@@ -32,6 +32,8 @@
 - `[hidden]` loses to any component rule that sets `display` (e.g. `.setting { display: flex }`): a global `[hidden] { display: none !important }` is needed.
 - `xcode`'s `addResourceFile` requires a group literally named "Resources"; Capacitor projects don't have one, so add the file reference + build-phase entries by hand.
 - Never edit a file by slicing between two search anchors after Prettier ran: a reformatted anchor silently truncates the file. Use exact-match replacements that fail loudly.
+- An independent review pass (fresh agent, read-only) before release found 11 real issues the tests missed — mostly ordering/race bugs around ads, sessions and the tutorial. Worth repeating before each release.
+- Sessions that only count cold starts are wrong on iOS: apps live in memory for days. Count a return after 30 minutes as a session and re-schedule time-based things (reminders) on foreground.
 
 ## Playtests
 

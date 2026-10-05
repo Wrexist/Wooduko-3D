@@ -61,4 +61,19 @@ async function boot(): Promise<void> {
   }
 }
 
-void boot();
+boot().catch(async (err: unknown) => {
+  console.error(err);
+  const ui = document.getElementById('ui');
+  if (ui) {
+    ui.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'fatal';
+    p.textContent = t('app.error');
+    ui.append(p);
+  }
+  // never leave the native app stuck on the launch screen
+  if (Capacitor.isNativePlatform()) {
+    const { SplashScreen } = await import('@capacitor/splash-screen');
+    await SplashScreen.hide().catch(() => undefined);
+  }
+});

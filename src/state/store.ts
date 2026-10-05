@@ -74,6 +74,8 @@ export interface StoreActions {
   goHome(): void;
   setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void;
   setReminder(choice: ReminderChoice): void;
+  /** The app came back after a long break: counts as a new session. */
+  noteSession(): void;
   setRemoveAds(on: boolean): void;
   /** Second chance after game over (once per game). Returns false if not allowed. */
   revive(): boolean;
@@ -261,6 +263,12 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
         saveMeta(meta);
       },
 
+      noteSession: () => {
+        const meta = recordSession(get().meta, now());
+        set({ meta });
+        saveMeta(meta);
+      },
+
       setReminder: (choice) => {
         const meta = { ...get().meta, reminder: choice };
         set({ meta });
@@ -361,7 +369,9 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
       resetProgress: () => {
         realGame = null;
         const settings = { ...get().settings, theme: 'maple' as const };
-        set({
+        // also leaves tutorial mode, with a fresh board behind the home card
+        const game = newGame(deps.randomSeed());
+        set((x) => ({
           best: 0,
           newBest: false,
           hasSave: false,
@@ -369,7 +379,12 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
           stats: emptyStats(),
           unlocked: {},
           settings,
-        });
+          tutorial: false,
+          game,
+          fits: trayFits(game.board, game.tray),
+          lastMove: null,
+          resetSeq: x.resetSeq + 1,
+        }));
         persist(async () => {
           await storage.remove(SAVE.bestKey);
           await storage.remove(SAVE.gameKey);

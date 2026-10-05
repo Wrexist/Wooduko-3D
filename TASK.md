@@ -1,7 +1,14 @@
 # TASK.md
 
 ## Active phase
-**Phase 10 — ASO / App Store listing** (phase 9 analytics: decided none for v1)
+**Phase 11 — Release candidate** — code side complete (v1.0.0). Remaining steps need your accounts, a Mac and devices: `RELEASE.md`.
+
+## Phase 11 plan
+1. [x] Versioning (1.0.0 / build 1) into Xcode; version shown in Settings
+2. [x] `npm run release-check` (ship blockers) and `npm run prod-check` (production build, offline, accessibility)
+3. [x] Accessibility fixes from axe (contrast)
+4. [x] Independent code review → fixed: reset during tutorial, interstitial pacing off by one, Game Center resync after sign-in, reminder re-scheduled on foreground, sessions counted on return after 30 min, ads only from the results card and after the first finished game, review ask recorded only when shown, results card locked while an ad is up, revive button refreshed after a skipped ad, no double new-best moment, boot failure never strands the splash, price retried in Settings
+5. [ ] **You:** `STORE.md` account setup until `npm run release-check` is green, then TestFlight + device pass (`RELEASE.md`)
 
 ## Phase 10 plan
 1. [x] **Listing text** en + sv (`ASO.md`): name, subtitle, keywords (no trademarks), promo text, description, what's new, review notes — all within Apple's limits

@@ -610,7 +610,7 @@ for (const [name, viewport] of Object.entries({
     (await ads()).includes('interstitial') &&
       st.phase === 'playing' &&
       st.game.score === 0 &&
-      st.meta.gamesSinceAd <= 1,
+      st.meta.gamesSinceAd === 0,
   );
   await page.getByRole('button', { name: 'Pause' }).click();
   await page.locator('.pause').getByRole('button', { name: 'Settings' }).click();
@@ -635,6 +635,30 @@ for (const [name, viewport] of Object.entries({
     (await page.evaluate(
       () => window.__grain.store.getState().removeAds && localStorage.getItem('grain_no_ads_v1') === '1',
     )) && (await page.getByText('Ads removed. Thank you!').isVisible()),
+  );
+  await page.close();
+}
+
+// ---------------------------------------------------------------- reset progress during the tutorial
+{
+  const page = await open({ width: 390, height: 844 });
+  await wait(page, 0.6);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.locator('.pause').getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Reset progress' }).click();
+  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  await page.waitForTimeout(400);
+  await page.getByRole('button', { name: 'Play' }).click();
+  await wait(page, 1.0);
+  const tutorialVisible = await page.evaluate(
+    () => !document.querySelector('.tutorial').classList.contains('hidden'),
+  );
+  const seq = (await state(page)).moveSeq;
+  await drag(page, await slotScreen(page, 0), await worldScreen(page, 0, 0));
+  await wait(page, 0.6);
+  check(
+    'reset during the tutorial gives a normal game (no overlay, drops anywhere)',
+    !tutorialVisible && (await state(page)).moveSeq > seq,
   );
   await page.close();
 }

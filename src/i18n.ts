@@ -5,6 +5,7 @@ const en = {
   'app.title': 'Grain',
   'app.subtitle': 'Wood block puzzle',
   'board.label': 'Wood block puzzle board',
+  'app.error': 'Something went wrong while starting Grain. Please close the app and open it again.',
 
   'hud.pause': 'Pause',
   'hud.restart': 'Restart game',
@@ -139,6 +140,7 @@ const sv: Record<Key, string> = {
   'app.title': 'Grain',
   'app.subtitle': 'Träklosspussel',
   'board.label': 'Spelplan för träklosspussel',
+  'app.error': 'Något gick fel när Grain startade. Stäng appen och öppna den igen.',
 
   'hud.pause': 'Paus',
   'hud.restart': 'Börja om',

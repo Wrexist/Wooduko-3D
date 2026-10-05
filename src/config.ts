@@ -724,6 +724,8 @@ export const TUTORIAL = {
 
 export const RETENTION = {
   metaKey: 'grain_meta_v1',
+  /** Coming back after at least this long away counts as a new session. */
+  sessionGapMs: 30 * 60 * 1000,
   hoursKept: 14,
   reviewMinSessions: 3,
   reviewMinGames: 5,
