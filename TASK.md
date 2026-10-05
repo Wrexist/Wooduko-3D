@@ -6,13 +6,13 @@
 ## Plan
 
 ### Step 1 — Scaffold (tooling only, no game code)
-- [ ] Unpack `grain-repo.zip` into the repo root, delete the zip
-- [ ] TypeScript strict `tsconfig.json` (+ `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`)
-- [ ] Vitest (`npm test`), ESLint flat config + typescript-eslint, Prettier
-- [ ] Scripts: `dev`, `build`, `typecheck`, `test`, `lint`, `format`
-- [ ] Empty module folders from the architecture (`core/ state/ render/ fx/ input/ audio/ platform/ ui/`) with `config.ts` + `core/types.ts` stubs
-- [ ] Legacy game keeps running: move `src/game.js` + `three-global.js` to `legacy/`, `index.html` still boots it until step 3 replaces it
-- [ ] Update `CLAUDE.md`: Three.js r128 pin is lifted (master prompt wins), new layout
+- [x] Unpack `grain-repo.zip` into the repo root, delete the zip
+- [x] TypeScript strict `tsconfig.json` (+ `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`)
+- [x] Vitest (`npm test`), ESLint flat config + typescript-eslint, Prettier
+- [x] Scripts: `dev`, `build`, `typecheck`, `test`, `lint`, `format`
+- [x] Empty module folders from the architecture (`core/ state/ render/ fx/ input/ audio/ platform/ ui/`) with `config.ts` + `core/types.ts` stubs
+- [x] Legacy game keeps running: move `src/game.js` + `three-global.js` to `legacy/`, `index.html` still boots it until step 3 replaces it
+- [x] Update `CLAUDE.md`: Three.js r128 pin is lifted (master prompt wins), new layout
 
 ### Step 2 — `core/` port + tests (pure, no DOM/Three)
 - `types.ts`, `shapes.ts` (rotations/mirrors, dedupe, weight split), `board.ts` (canPlace, place, findClears, applyClear, components), `scoring.ts`, `generator.ts` (seeded RNG, weighted tray, 40 retries), `rules.ts` (game over, streak), `save.ts` (versioned, validated)
