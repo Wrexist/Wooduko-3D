@@ -8,7 +8,10 @@ const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--ena
 let errors = 0;
 for (const [name, viewport] of Object.entries(sizes)) {
   const page = await browser.newPage({ viewport, hasTouch: name === 'portrait' });
-  page.on('console', (m) => m.type() === 'error' && (errors++, console.log(`[${name}] console.error:`, m.text())));
+  page.on(
+    'console',
+    (m) => m.type() === 'error' && (errors++, console.log(`[${name}] console.error:`, m.text())),
+  );
   page.on('pageerror', (e) => (errors++, console.log(`[${name}] pageerror:`, e.message)));
   await page.goto(url);
   await page.waitForTimeout(2500);

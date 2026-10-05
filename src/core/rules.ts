@@ -46,6 +46,8 @@ export interface MoveResult {
   /** Present when something cleared. */
   readonly applied: ClearApplied | null;
   readonly clearPoints: number;
+  /** Streak after this move (the state's streak is reset to 0 on game over). */
+  readonly streak: number;
   readonly boardClear: boolean;
   readonly bonus: number;
   /** Total points this move (placement + clear + bonus). */
@@ -98,6 +100,7 @@ export function playMove(state: GameState, slot: number, r0: number, c0: number)
     clear,
     applied,
     clearPoints: cPoints,
+    streak,
     boardClear,
     bonus,
     points,
