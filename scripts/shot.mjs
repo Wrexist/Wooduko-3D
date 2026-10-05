@@ -7,7 +7,7 @@ const sizes = { portrait: { width: 390, height: 844 }, landscape: { width: 1280,
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 let errors = 0;
 for (const [name, viewport] of Object.entries(sizes)) {
-  const page = await browser.newPage({ viewport, hasTouch: name === 'portrait' });
+  const page = await browser.newPage({ locale: 'en-US', viewport, hasTouch: name === 'portrait' });
   page.on(
     'console',
     (m) => m.type() === 'error' && (errors++, console.log(`[${name}] console.error:`, m.text())),

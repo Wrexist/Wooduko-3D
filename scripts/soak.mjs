@@ -18,7 +18,7 @@ const SAMPLE_EVERY = minutes ? 150 : 50;
 const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--js-flags=--expose-gc'],
 });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const page = await browser.newPage({ locale: 'en-US', viewport: { width: 390, height: 844 } });
 let errors = 0;
 page.on('pageerror', (e) => (errors++, console.log('pageerror:', e.message)));
 page.on('console', (m) => m.type() === 'error' && (errors++, console.log('console.error:', m.text())));

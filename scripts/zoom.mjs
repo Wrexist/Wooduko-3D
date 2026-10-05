@@ -4,7 +4,11 @@ import { chromium } from 'playwright';
 
 const out = process.argv[2] ?? 'shots/zoom.png';
 const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-const page = await b.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
+const page = await b.newPage({
+  locale: 'en-US',
+  viewport: { width: 1280, height: 800 },
+  deviceScaleFactor: 2,
+});
 const seed = (a) => ({ a, s: 1, jx: 0, jy: 0, t: 0.9 });
 const save = {
   version: 2,

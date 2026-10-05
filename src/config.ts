@@ -135,7 +135,7 @@ export const PROGRESS = {
 /** Colours that change per wood theme. Everything else in `WOOD` (sizes, counts) is shared. */
 export interface ThemeSpec {
   readonly id: ThemeId;
-  readonly name: string;
+  /** Display name lives in i18n as `wood.<id>`. */
   /** Achievement that unlocks it (null = always available). */
   readonly unlock: AchievementId | null;
   /** Scene + page background. */
@@ -160,7 +160,6 @@ export const THEMES: readonly ThemeSpec[] = [
   {
     id: 'maple',
     ridge: 0x3e1c0f,
-    name: 'Maple',
     unlock: null,
     background: '#3a2415',
     ring: {
@@ -176,7 +175,6 @@ export const THEMES: readonly ThemeSpec[] = [
   {
     id: 'walnut',
     ridge: 0x2a1c12,
-    name: 'Walnut',
     unlock: 'score-1k',
     background: '#2b2a24',
     ring: {
@@ -192,7 +190,6 @@ export const THEMES: readonly ThemeSpec[] = [
   {
     id: 'cherry',
     ridge: 0x3a160c,
-    name: 'Cherry',
     unlock: 'combo-5',
     background: '#2e1a14',
     ring: {
@@ -208,7 +205,6 @@ export const THEMES: readonly ThemeSpec[] = [
   {
     id: 'birch',
     ridge: 0x3a2c1c,
-    name: 'Birch',
     unlock: 'games-10',
     background: '#3a2a18',
     ring: {
@@ -224,7 +220,6 @@ export const THEMES: readonly ThemeSpec[] = [
   {
     id: 'driftwood',
     ridge: 0x22282a,
-    name: 'Driftwood',
     unlock: 'board-clear',
     background: '#1d2427',
     ring: {
@@ -240,7 +235,6 @@ export const THEMES: readonly ThemeSpec[] = [
   {
     id: 'ebony',
     ridge: 0x4a3220,
-    name: 'Ebony',
     unlock: 'score-10k',
     background: '#1c1a19',
     ring: {
@@ -687,17 +681,6 @@ export const SCORE_UI = {
   overCountMax: 1.2,
 } as const;
 
-/** Toast words by tier. */
-export const WORDS = {
-  nice: 'Nice!',
-  combo: 'Combo!',
-  fire: 'On fire!',
-  great: 'Great!',
-  excellent: 'Excellent!',
-  unreal: 'Unreal!',
-  boardClear: 'Board clear!',
-} as const;
-
 export const AUDIO = {
   master: 0.9,
   musicVolume: 0.16,
@@ -748,11 +731,8 @@ export const RETENTION = {
   reviewGapDays: 60,
   reminderAfterSessions: 3,
   reminderDefaultHour: 19,
-  reminderLines: [
-    { title: 'Your board is waiting', body: 'A calm five-minute game?' },
-    { title: 'Fresh wood on the table', body: 'Three new pieces are ready when you are.' },
-    { title: 'Time for a quick clear?', body: 'Line them up, clear them out.' },
-  ],
+  /** Number of reminder texts (`reminder.<i>.title/body` in i18n). */
+  reminderLines: 3,
 } as const;
 
 /** Game Center ids (must match App Store Connect). */

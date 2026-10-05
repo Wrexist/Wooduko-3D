@@ -15,7 +15,7 @@ const check = (name, ok, detail = '') => {
 };
 
 async function open(viewport, init = {}) {
-  const page = await browser.newPage({ viewport, hasTouch: true });
+  const page = await browser.newPage({ locale: 'en-US', viewport, hasTouch: true });
   page.on('console', (m) => m.type() === 'error' && (errors++, console.log('console.error:', m.text())));
   page.on('pageerror', (e) => (errors++, console.log('pageerror:', e.message)));
   await page.addInitScript((kv) => {
@@ -161,7 +161,7 @@ for (const [name, viewport] of Object.entries({
   check(
     `${name}: home shows Play + best`,
     (await page.getByRole('button', { name: 'Play' }).isVisible()) &&
-      (await page.locator('.home .best').innerText()).includes('1234'),
+      (await page.locator('.home .best').innerText()).includes('1,234'),
   );
   await page.getByRole('button', { name: 'Play' }).click();
   await wait(page, 1.0);
@@ -375,7 +375,7 @@ for (const [name, viewport] of Object.entries({
 
 // ---------------------------------------------------------------- native service triggers (fake services)
 {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 390, height: 844 } });
   page.on('pageerror', (e) => (errors++, console.log('pageerror:', e.message)));
   const seed = { a: 1, s: 1, jx: 0, jy: 0, t: 0.9 };
   const groups = [];

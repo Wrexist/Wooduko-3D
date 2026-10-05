@@ -2,26 +2,33 @@ import { THEMES } from '../config';
 import type { ThemeId } from '../config';
 import { ACHIEVEMENTS, averageScore, themeUnlocked } from '../core/progress';
 import type { AchievementId, Stats, Unlocked } from '../core/progress';
+import { num, t } from '../i18n';
+import type { Key } from '../i18n';
 import { Overlay } from './dialogs';
 import { el, ICONS } from './dom';
 
-const fmt = (n: number): string => n.toLocaleString('en-US');
-const titleOf = (id: AchievementId | null): string => ACHIEVEMENTS.find((a) => a.id === id)?.title ?? '';
+const fmt = num;
+export const achTitle = (id: AchievementId): string => t(`ach.${id}` as Key);
+export const achDesc = (id: AchievementId): string => t(`ach.${id}.desc` as Key);
+export const woodName = (id: ThemeId): string => t(`wood.${id}` as Key);
+const titleOf = (id: AchievementId | null): string => (id ? achTitle(id) : '');
 
 /** Stats, wood themes and achievements. */
 export class AwardsPanel extends Overlay {
   private readonly statsEl = el('dl', { class: 'stats' });
-  private readonly themesEl = el('div', { class: 'themes', role: 'radiogroup', 'aria-label': 'Wood' });
+  private readonly themesEl = el('div', {
+    class: 'themes',
+    role: 'radiogroup',
+    'aria-label': t('awards.wood'),
+  });
   private readonly listEl = el('ul', { class: 'achievements' });
   private readonly countEl = el('span', { class: 'count' });
 
-  private readonly leaderboard = el('button', { class: 'ghost-btn', hidden: '' }, [
-    'Game Center leaderboard',
-  ]);
+  private readonly leaderboard = el('button', { class: 'ghost-btn', hidden: '' }, [t('awards.leaderboard')]);
 
   constructor(private readonly h: { onTheme(id: ThemeId): void; onClose(): void; onLeaderboard(): void }) {
     super('awards dialog-layer', 'awardsTitle');
-    const done = el('button', { class: 'cta' }, ['Done']);
+    const done = el('button', { class: 'cta' }, [t('common.done')]);
     done.addEventListener('click', h.onClose);
     this.leaderboard.addEventListener('click', h.onLeaderboard);
     this.node.addEventListener('pointerdown', (e) => {
@@ -29,11 +36,11 @@ export class AwardsPanel extends Overlay {
     });
     this.card.classList.add('wide');
     this.card.append(
-      el('h2', { id: 'awardsTitle' }, ['Awards']),
+      el('h2', { id: 'awardsTitle' }, [t('awards.title')]),
       this.statsEl,
-      el('h3', {}, ['Wood']),
+      el('h3', {}, [t('awards.wood')]),
       this.themesEl,
-      el('h3', {}, ['Achievements ', this.countEl]),
+      el('h3', {}, [`${t('awards.achievements')} `, this.countEl]),
       this.listEl,
       el('div', { class: 'stack' }, [this.leaderboard, done]),
     );
@@ -42,32 +49,33 @@ export class AwardsPanel extends Overlay {
   update(stats: Stats, best: number, unlocked: Unlocked, theme: ThemeId, leaderboard = false): void {
     this.leaderboard.hidden = !leaderboard;
     const rows: [string, string][] = [
-      ['Best', fmt(Math.max(best, stats.bestScore))],
-      ['Games', fmt(stats.gamesPlayed)],
-      ['Average', fmt(averageScore(stats))],
-      ['Lines', fmt(stats.linesCleared)],
-      ['Best combo', stats.bestCombo ? `×${stats.bestCombo}` : '–'],
-      ['Board clears', fmt(stats.boardClears)],
+      [t('stat.best'), fmt(Math.max(best, stats.bestScore))],
+      [t('stat.games'), fmt(stats.gamesPlayed)],
+      [t('stat.average'), fmt(averageScore(stats))],
+      [t('stat.lines'), fmt(stats.linesCleared)],
+      [t('stat.bestCombo'), stats.bestCombo ? `×${stats.bestCombo}` : '–'],
+      [t('stat.boardClears'), fmt(stats.boardClears)],
     ];
     this.statsEl.replaceChildren(
       ...rows.map(([k, v]) => el('div', { class: 'stat' }, [el('dt', {}, [k]), el('dd', {}, [v])])),
     );
 
     this.themesEl.replaceChildren(
-      ...THEMES.map((t) => {
-        const open = themeUnlocked(t, unlocked);
+      ...THEMES.map((th) => {
+        const open = themeUnlocked(th, unlocked);
+        const name = woodName(th.id);
         const b = el('button', {
-          class: `swatch${t.id === theme ? ' on' : ''}${open ? '' : ' locked'}`,
+          class: `swatch${th.id === theme ? ' on' : ''}${open ? '' : ' locked'}`,
           role: 'radio',
-          'aria-checked': String(t.id === theme),
-          'aria-label': open ? t.name : `${t.name}, locked: ${titleOf(t.unlock)}`,
-          title: open ? t.name : `Unlock: ${titleOf(t.unlock)}`,
+          'aria-checked': String(th.id === theme),
+          'aria-label': open ? name : t('awards.locked', { name, req: titleOf(th.unlock) }),
+          title: open ? name : t('awards.unlock', { req: titleOf(th.unlock) }),
         });
         const chip = el('span', { class: 'chip', 'aria-hidden': 'true' });
-        chip.style.background = `radial-gradient(circle at 50% 45%, ${t.ring.gradient[0]}, ${t.ring.gradient[2]})`;
-        chip.style.boxShadow = `0 0 0 3px ${t.table.base}`;
-        b.append(chip, el('span', { class: 'name' }, [open ? t.name : titleOf(t.unlock)]));
-        if (open) b.addEventListener('click', () => this.h.onTheme(t.id));
+        chip.style.background = `radial-gradient(circle at 50% 45%, ${th.ring.gradient[0]}, ${th.ring.gradient[2]})`;
+        chip.style.boxShadow = `0 0 0 3px ${th.table.base}`;
+        b.append(chip, el('span', { class: 'name' }, [open ? name : titleOf(th.unlock)]));
+        if (open) b.addEventListener('click', () => this.h.onTheme(th.id));
         else b.setAttribute('aria-disabled', 'true');
         return b;
       }),
@@ -85,8 +93,11 @@ export class AwardsPanel extends Overlay {
         });
         return el('li', { class: have ? 'have' : '' }, [
           icon,
-          el('span', { class: 'text' }, [el('strong', {}, [a.title]), el('small', {}, [a.description])]),
-          el('span', { class: 'sr-only' }, [have ? 'Unlocked' : 'Locked']),
+          el('span', { class: 'text' }, [
+            el('strong', {}, [achTitle(a.id)]),
+            el('small', {}, [achDesc(a.id)]),
+          ]),
+          el('span', { class: 'sr-only' }, [have ? t('awards.unlocked') : t('awards.lockedShort')]),
         ]);
       }),
     );
@@ -120,12 +131,11 @@ export class AchievementBanner {
       this.node.classList.remove('show');
       return;
     }
-    const a = ACHIEVEMENTS.find((x) => x.id === id);
-    const unlocksTheme = THEMES.find((t) => t.unlock === id);
-    this.title.textContent = a?.title ?? '';
+    const unlocksTheme = THEMES.find((th) => th.unlock === id);
+    this.title.textContent = achTitle(id);
     this.detail.textContent = unlocksTheme
-      ? `${a?.description ?? ''} · ${unlocksTheme.name} wood unlocked`
-      : (a?.description ?? '');
+      ? `${achDesc(id)} · ${t('awards.woodUnlocked', { name: woodName(unlocksTheme.id) })}`
+      : achDesc(id);
     this.node.classList.add('show');
     this.left = this.seconds;
   }

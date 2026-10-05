@@ -55,7 +55,7 @@ const check = (name, ok, detail = '') => {
 };
 
 for (const [name, [width, height]] of Object.entries(VIEWPORTS)) {
-  const page = await browser.newPage({ viewport: { width, height } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width, height } });
   page.on('pageerror', (e) => (errors++, console.log(`[${name}] pageerror:`, e.message)));
   page.on('console', (m) => m.type() === 'error' && (errors++, console.log(`[${name}]`, m.text())));
   await page.addInitScript((s) => {

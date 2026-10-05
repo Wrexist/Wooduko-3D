@@ -51,7 +51,7 @@ const save = {
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 
 async function render(size, out, frame) {
-  const page = await browser.newPage({ viewport: { width: size, height: size } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: size, height: size } });
   await page.addInitScript((s) => {
     localStorage.clear();
     localStorage.setItem('grain_tutorial_v1', '1');
@@ -92,7 +92,7 @@ for (const [name, bg] of [
   ['splash', '#3a2415'],
   ['splash-dark', '#26170d'],
 ]) {
-  const page = await browser.newPage({ viewport: { width: 2732, height: 2732 } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 2732, height: 2732 } });
   await page.setContent(`<style>@font-face{font-family:F;src:url(${font})}body{margin:0;width:2732px;height:2732px;display:grid;place-items:center;background:${bg}}
     .c{display:grid;justify-items:center;gap:90px}
     img{width:560px;height:560px;border-radius:124px;box-shadow:0 40px 120px rgba(0,0,0,.45)}
@@ -109,7 +109,7 @@ for (const [file, px] of [
   ['public/apple-touch-icon.png', 180],
   ['public/favicon-32.png', 32],
 ]) {
-  const page = await browser.newPage({ viewport: { width: px, height: px } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: px, height: px } });
   await page.setContent(
     `<body style="margin:0"><img src="${icon}" style="width:${px}px;height:${px}px;display:block"></body>`,
   );

@@ -1,12 +1,14 @@
 import type { Settings } from '../core/types';
+import { num, t } from '../i18n';
+import type { Key } from '../i18n';
 import { Overlay } from './dialogs';
 import { el, ICONS } from './dom';
 
 /** Home: title, best, Continue (when a save exists), Play / New game, Settings. */
 export class HomeMenu extends Overlay {
   private readonly bestVal = el('span', {}, ['0']);
-  private readonly cont = el('button', { class: 'cta' }, ['Continue']);
-  private readonly play = el('button', { class: 'cta' }, ['Play']);
+  private readonly cont = el('button', { class: 'cta' }, [t('home.continue')]);
+  private readonly play = el('button', { class: 'cta' }, [t('home.play')]);
 
   /** Soft ask for the daily reminder (shown once, after a few sessions, native only). */
   private readonly offer: HTMLDivElement;
@@ -22,24 +24,24 @@ export class HomeMenu extends Overlay {
     const best = el('div', { class: 'best' });
     best.innerHTML = ICONS.crown;
     best.append(this.bestVal);
-    const settings = el('button', { class: 'ghost-btn' }, ['Settings']);
-    const awards = el('button', { class: 'ghost-btn' }, ['Awards']);
+    const settings = el('button', { class: 'ghost-btn' }, [t('home.settings')]);
+    const awards = el('button', { class: 'ghost-btn' }, [t('home.awards')]);
     awards.addEventListener('click', h.onAwards);
     this.cont.addEventListener('click', h.onContinue);
     this.play.addEventListener('click', h.onPlay);
     settings.addEventListener('click', h.onSettings);
     this.card.append(
-      el('div', { class: 'title', id: 'homeTitle' }, ['Grain']),
-      el('div', { class: 'subtitle' }, ['Wood block puzzle']),
+      el('div', { class: 'title', id: 'homeTitle' }, [t('app.title')]),
+      el('div', { class: 'subtitle' }, [t('app.subtitle')]),
       best,
       el('div', { class: 'stack' }, [this.cont, this.play, el('div', { class: 'pair' }, [awards, settings])]),
     );
-    const yes = el('button', { class: 'cta small' }, ['Yes, remind me']);
-    const no = el('button', { class: 'ghost-btn small' }, ['Not now']);
+    const yes = el('button', { class: 'cta small' }, [t('home.reminderYes')]);
+    const no = el('button', { class: 'ghost-btn small' }, [t('home.reminderNo')]);
     yes.addEventListener('click', () => h.onReminder(true));
     no.addEventListener('click', () => h.onReminder(false));
     this.offer = el('div', { class: 'offer', hidden: '' }, [
-      el('p', {}, ['Want a gentle reminder on days you haven’t played?']),
+      el('p', {}, [t('home.reminder')]),
       el('div', { class: 'pair' }, [no, yes]),
     ]);
     this.card.append(this.offer);
@@ -50,9 +52,9 @@ export class HomeMenu extends Overlay {
   }
 
   update(best: number, hasSave: boolean): void {
-    this.bestVal.textContent = String(best);
+    this.bestVal.textContent = num(best);
     this.cont.hidden = !hasSave;
-    this.play.textContent = hasSave ? 'New game' : 'Play';
+    this.play.textContent = hasSave ? t('home.newGame') : t('home.play');
     this.play.className = hasSave ? 'ghost-btn' : 'cta';
   }
 }
@@ -66,18 +68,18 @@ export class PauseMenu extends Overlay {
     onAwards(): void;
   }) {
     super('pause', 'pauseTitle');
-    const resume = el('button', { class: 'cta' }, ['Resume']);
-    const restart = el('button', { class: 'ghost-btn' }, ['Restart']);
-    const settings = el('button', { class: 'ghost-btn' }, ['Settings']);
-    const home = el('button', { class: 'ghost-btn' }, ['Home']);
-    const awards = el('button', { class: 'ghost-btn' }, ['Awards']);
+    const resume = el('button', { class: 'cta' }, [t('pause.resume')]);
+    const restart = el('button', { class: 'ghost-btn' }, [t('pause.restart')]);
+    const settings = el('button', { class: 'ghost-btn' }, [t('home.settings')]);
+    const home = el('button', { class: 'ghost-btn' }, [t('pause.home')]);
+    const awards = el('button', { class: 'ghost-btn' }, [t('home.awards')]);
     awards.addEventListener('click', h.onAwards);
     resume.addEventListener('click', h.onResume);
     restart.addEventListener('click', h.onRestart);
     settings.addEventListener('click', h.onSettings);
     home.addEventListener('click', h.onHome);
     this.card.append(
-      el('h2', { id: 'pauseTitle' }, ['Paused']),
+      el('h2', { id: 'pauseTitle' }, [t('pause.title')]),
       el('div', { class: 'stack' }, [
         resume,
         restart,
@@ -91,11 +93,11 @@ export class PauseMenu extends Overlay {
 /** On/off settings (the wood theme is picked on the Awards screen). */
 export type ToggleKey = Exclude<keyof Settings, 'theme'>;
 
-const LABELS: Record<ToggleKey, string> = {
-  sound: 'Sound effects',
-  music: 'Music',
-  haptics: 'Haptics',
-  reduceMotion: 'Reduce motion',
+const LABELS: Record<ToggleKey, Key> = {
+  sound: 'settings.sound',
+  music: 'settings.music',
+  haptics: 'settings.haptics',
+  reduceMotion: 'settings.reduceMotion',
 };
 
 export class SettingsPanel extends Overlay {
@@ -109,15 +111,15 @@ export class SettingsPanel extends Overlay {
     const list = el('div', { class: 'settings-list' });
     for (const key of Object.keys(LABELS) as ToggleKey[]) {
       const id = `set-${key}`;
-      const t = el('button', {
+      const sw = el('button', {
         class: 'toggle',
         role: 'switch',
         'aria-checked': 'false',
         'aria-labelledby': id,
       });
-      t.addEventListener('click', () => h.onToggle(key));
-      this.toggles.set(key, t);
-      list.append(el('div', { class: 'setting' }, [el('span', { id }, [LABELS[key]]), t]));
+      sw.addEventListener('click', () => h.onToggle(key));
+      this.toggles.set(key, sw);
+      list.append(el('div', { class: 'setting' }, [el('span', { id }, [t(LABELS[key])]), sw]));
     }
     this.reminderToggle = el('button', {
       class: 'toggle',
@@ -127,19 +129,19 @@ export class SettingsPanel extends Overlay {
     });
     this.reminderToggle.addEventListener('click', h.onReminder);
     this.reminderRow = el('div', { class: 'setting', hidden: '' }, [
-      el('span', { id: 'set-reminder' }, ['Daily reminder']),
+      el('span', { id: 'set-reminder' }, [t('settings.reminder')]),
       this.reminderToggle,
     ]);
     list.append(this.reminderRow);
-    const reset = el('button', { class: 'ghost-btn danger' }, ['Reset progress']);
-    const done = el('button', { class: 'cta' }, ['Done']);
+    const reset = el('button', { class: 'ghost-btn danger' }, [t('settings.reset')]);
+    const done = el('button', { class: 'cta' }, [t('common.done')]);
     reset.addEventListener('click', h.onReset);
     done.addEventListener('click', h.onClose);
     this.node.addEventListener('pointerdown', (e) => {
       if (e.target === this.node) h.onClose();
     });
     this.card.append(
-      el('h2', { id: 'settingsTitle' }, ['Settings']),
+      el('h2', { id: 'settingsTitle' }, [t('settings.title')]),
       list,
       el('div', { class: 'stack' }, [done, reset]),
     );

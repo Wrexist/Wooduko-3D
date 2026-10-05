@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Sound } from './audio/sound';
-import { COLORS, FX, HAPTICS, LADDER, PROGRESS, RENDER, themeById, TRAY, WORDS, WORLD } from './config';
+import { COLORS, FX, HAPTICS, LADDER, PROGRESS, RENDER, themeById, TRAY, WORLD } from './config';
 import type { ThemeId } from './config';
 import { getShape } from './core/shapes';
 import type { MoveResult } from './core/rules';
@@ -16,7 +16,9 @@ import { DragController } from './input/drag';
 import type { Haptics } from './platform/haptics';
 import { onLifecycle } from './platform/lifecycle';
 import type { Services } from './platform/services';
-import { nextReminder, reminderText, shouldAskReview, shouldOfferReminder } from './core/retention';
+import { nextReminder, reminderIndex, shouldAskReview, shouldOfferReminder } from './core/retention';
+import { t } from './i18n';
+import type { Key } from './i18n';
 import { Blocks } from './render/blocks';
 import type { BlockMesh } from './render/blocks';
 import { Preview } from './render/preview';
@@ -352,7 +354,8 @@ export class Game {
     const r = this.services.reminders;
     if (!r.available()) return;
     const at = nextReminder(this.store.getState().meta, new Date());
-    const text = reminderText(at);
+    const i = reminderIndex(at);
+    const text = { title: t(`reminder.${i}.title` as Key), body: t(`reminder.${i}.body` as Key) };
     await r.cancel();
     await r.schedule(at, text.title, text.body);
   }
@@ -501,23 +504,24 @@ export class Game {
 
     let word: string =
       units >= 4
-        ? WORDS.unreal
+        ? t('word.unreal')
         : units === 3
-          ? WORDS.excellent
+          ? t('word.excellent')
           : units === 2
-            ? WORDS.great
+            ? t('word.great')
             : streak >= 3
-              ? WORDS.fire
+              ? t('word.fire')
               : streak === 2
-                ? WORDS.combo
-                : WORDS.nice;
+                ? t('word.combo')
+                : t('word.nice');
 
     if (move.boardClear) {
-      word = WORDS.boardClear;
+      word = t('word.boardClear');
       this.fx.boardClear();
       this.sound.boardClear();
     }
-    const sub = streak >= 2 ? `Combo ×${streak}` : units >= 2 ? `${units} lines` : '';
+    const sub =
+      streak >= 2 ? t('combo.pill', { n: streak }) : units >= 2 ? t('word.lines', { n: units }) : '';
     const a = this.world.toScreen(...FX.toastAnchor, this.width, this.height);
     this.toast.show(word, sub, a.y, tier);
   }
@@ -581,7 +585,7 @@ export class Game {
     const [tr, tc] = step.target;
     this.drag.setAllowed((r, c) => r === tr && c === tc);
     this.store.getState().loadTutorial(step.game);
-    this.tutorialUi.show(this.stepIndex, this.steps.length, step.text);
+    this.tutorialUi.show(this.stepIndex, this.steps.length, t(step.text));
     this.resize();
   }
 
@@ -635,9 +639,9 @@ export class Game {
     if (s.phase !== 'over' && s.game.score > 0) {
       this.drag.cancel();
       const ok = await this.confirm.ask({
-        title: 'Start over?',
-        body: 'Your current board and score will be lost.',
-        confirm: 'Restart',
+        title: t('confirm.restart.title'),
+        body: t('confirm.restart.body'),
+        confirm: t('confirm.restart.ok'),
       });
       if (!ok) return;
     }
@@ -648,9 +652,9 @@ export class Game {
     const s = this.store.getState();
     if (s.hasSave && s.game.score > 0) {
       const ok = await this.confirm.ask({
-        title: 'New game?',
-        body: 'Your saved game will be replaced.',
-        confirm: 'New game',
+        title: t('confirm.newGame.title'),
+        body: t('confirm.newGame.body'),
+        confirm: t('confirm.newGame.ok'),
       });
       if (!ok) return;
     }
@@ -672,9 +676,9 @@ export class Game {
 
   private async onResetProgress(): Promise<void> {
     const ok = await this.confirm.ask({
-      title: 'Reset progress?',
-      body: 'This deletes your best score, saved game, stats and awards. Settings are kept.',
-      confirm: 'Reset',
+      title: t('confirm.reset.title'),
+      body: t('confirm.reset.body'),
+      confirm: t('confirm.reset.ok'),
       danger: true,
     });
     if (!ok) return;

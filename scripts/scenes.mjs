@@ -72,7 +72,7 @@ const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--ena
 let errors = 0;
 
 async function open(name, viewport, save) {
-  const page = await browser.newPage({ viewport });
+  const page = await browser.newPage({ locale: 'en-US', viewport });
   page.on(
     'console',
     (m) => m.type() === 'error' && (errors++, console.log(`[${name}] console.error:`, m.text())),

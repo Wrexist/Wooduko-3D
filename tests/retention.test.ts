@@ -5,7 +5,7 @@ import {
   nextReminder,
   parseMeta,
   recordSession,
-  reminderText,
+  reminderIndex,
   reviewAsked,
   shouldAskReview,
   shouldOfferReminder,
@@ -66,7 +66,7 @@ describe('reminder', () => {
 
   it('defaults to the evening with no history, and always has copy', () => {
     expect(usualHour(emptyMeta())).toBe(RETENTION.reminderDefaultHour);
-    expect(reminderText(at(9)).title.length).toBeGreaterThan(0);
+    expect(reminderIndex(at(9))).toBeLessThan(RETENTION.reminderLines);
   });
 });
 

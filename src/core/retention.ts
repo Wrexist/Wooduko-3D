@@ -83,11 +83,9 @@ export function nextReminder(m: Meta, now: Date): Date {
   return at;
 }
 
-/** Calm reminder copy, rotated by day. */
-export function reminderText(at: Date): { title: string; body: string } {
-  const lines = RETENTION.reminderLines;
-  const i = Math.floor(at.getTime() / DAY) % lines.length;
-  return lines[i] ?? lines[0] ?? { title: 'Grain', body: '' };
+/** Which reminder copy to use (rotates by day; text lives in i18n as `reminder.<i>.*`). */
+export function reminderIndex(at: Date): number {
+  return Math.floor(at.getTime() / DAY) % RETENTION.reminderLines;
 }
 
 export function parseMeta(raw: string | null): Meta {

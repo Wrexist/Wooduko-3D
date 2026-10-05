@@ -54,11 +54,11 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [ ] **[nice]** Remote config for piece weights and ad frequency so balance can change without a release _(skipped: needs a server, v1 has no backend)_
 
 ## Phase 6 — UI / UX / animation
-- [ ] **[must]** Everything in `POLISH.md` marked [must]
-- [ ] **[must]** App icon (1024×1024) and launch screen that matches the first frame (no white flash)
-- [ ] **[must]** Safe areas on every iPhone shape (notch, Dynamic Island, home indicator) and iPad
-- [ ] **[should]** Localization: English + Swedish at minimum; all strings in one file
-- [ ] **[should]** Accessibility: VoiceOver labels on buttons, Dynamic Type for menus, colour-safe highlights
+- [ ] **[must]** Everything in `POLISH.md` marked [must] _(all done except scanned textures, recorded foley, real-phone tuning and frame timing — need assets/devices)_
+- [x] **[must]** App icon (1024×1024) and launch screen that matches the first frame (no white flash)
+- [x] **[must]** Safe areas on every iPhone shape (notch, Dynamic Island, home indicator) and iPad
+- [x] **[should]** Localization: English + Swedish at minimum; all strings in one file
+- [ ] **[should]** Accessibility: VoiceOver labels on buttons, Dynamic Type for menus, colour-safe highlights _(labels, roles, live regions, reduced motion done; Dynamic Type not yet)_
 
 ## Phase 7 — Performance / mobile optimization
 - [ ] **[must]** Capacitor iOS project: bundle id `com.wrexist.grain`, `contentInset: never`, status bar style

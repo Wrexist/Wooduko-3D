@@ -26,6 +26,9 @@
 - Dark woods need a light board (ebony): block/board contrast matters more than "realistic" pairings. Ridges need a per-theme tint or they stay orange on grey woods.
 - A CSS edit that inserts a comment must not land inside a selector list: `.a /* x */ .card` silently became a descendant selector and un-centred every menu card. The layout check now also catches stretched cards.
 - Game Center on Capacitor 8: only single-maintainer forks exist on npm; a ~100-line in-repo Swift plugin is safer than a supply-chain dependency.
+- Headless Chromium inherits the machine's locale (Swedish here): test scripts pin `locale: 'en-US'` so role/name lookups stay stable.
+- DOM that is rebuilt per event (toast subtitle, banner) makes soak DOM counts wobble; build once and swap text.
+- A one-off thin vertical line across a block top showed up in one close-up and never again in identical re-renders; watch for it on device.
 
 ## Playtests
 

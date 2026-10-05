@@ -1,11 +1,13 @@
 import { BOARD } from '../config';
+import type { Key } from '../i18n';
 import { components, emptyBoard, place } from './board';
 import { createRng, makeWoodSeed } from './generator';
 import { ORIENTATIONS } from './shapes';
 import type { BoardState, Cell, GameState, Piece } from './types';
 
 export interface TutorialStep {
-  readonly text: string;
+  /** i18n key of the instruction. */
+  readonly text: Key;
   readonly game: GameState;
   /** Tray slot holding the piece to drag. */
   readonly slot: number;
@@ -37,7 +39,7 @@ function boardWith(cells: readonly Cell[], seed: number): BoardState {
 }
 
 function step(
-  text: string,
+  text: Key,
   cells: readonly Cell[],
   shapeIndex: number,
   target: [number, number],
@@ -112,20 +114,8 @@ export function tutorialSteps(): TutorialStep[] {
     [8, 1],
   ];
   return [
-    step(
-      'Drag the block into the gap to fill the row.',
-      [...rowCells, ...rowExtras],
-      findShape('i2', 2, 1),
-      [row, 3],
-      TUTORIAL_SEED,
-    ),
-    step(
-      'Columns clear too. Drop it in the column.',
-      [...colCells, ...colExtras],
-      findShape('i3', 1, 3),
-      [2, col],
-      TUTORIAL_SEED + 10,
-    ),
-    step('Fill a 3×3 square to clear it.', [...boxCells, ...boxExtras], l3.index, [3, 3], TUTORIAL_SEED + 20),
+    step('tutorial.row', [...rowCells, ...rowExtras], findShape('i2', 2, 1), [row, 3], TUTORIAL_SEED),
+    step('tutorial.col', [...colCells, ...colExtras], findShape('i3', 1, 3), [2, col], TUTORIAL_SEED + 10),
+    step('tutorial.box', [...boxCells, ...boxExtras], l3.index, [3, 3], TUTORIAL_SEED + 20),
   ];
 }

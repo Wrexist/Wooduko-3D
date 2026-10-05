@@ -1,4 +1,5 @@
 import { TUTORIAL } from '../config';
+import { t } from '../i18n';
 import { el, ICONS } from './dom';
 
 const LOOP = TUTORIAL.handLoop;
@@ -23,9 +24,9 @@ export class TutorialOverlay {
   private readonly sideQuery = window.matchMedia(TUTORIAL.sideTipQuery);
 
   constructor(onSkip: () => void) {
-    const skip = el('button', { class: 'skip' }, ['Skip']);
+    const skip = el('button', { class: 'skip' }, [t('tutorial.skip')]);
     skip.addEventListener('click', onSkip);
-    this.node = el('div', { class: 'tutorial hidden', role: 'region', 'aria-label': 'Tutorial' }, [
+    this.node = el('div', { class: 'tutorial hidden', role: 'region', 'aria-label': t('tutorial.region') }, [
       (this.tip = el('div', { class: 'tip', 'aria-live': 'polite' }, [this.stepEl, this.textEl])),
       this.hand,
       skip,
@@ -47,7 +48,7 @@ export class TutorialOverlay {
 
   show(index: number, total: number, text: string): void {
     this.node.classList.remove('hidden');
-    this.stepEl.textContent = `Step ${index + 1} of ${total}`;
+    this.stepEl.textContent = t('tutorial.step', { n: index + 1, total });
     this.textEl.textContent = text;
     this.t = 0;
   }

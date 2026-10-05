@@ -1,5 +1,6 @@
 import './ui/styles.css';
 import { Game } from './game';
+import { pickLanguage, setLanguage, t } from './i18n';
 import { webHaptics } from './platform/haptics';
 import { webServices } from './platform/services';
 import type { Services } from './platform/services';
@@ -9,9 +10,13 @@ import { createGameStore, loadPersisted } from './state/store';
 const randomSeed = (): number => (Math.random() * 0x100000000) >>> 0 || 1;
 
 async function boot(): Promise<void> {
+  const lang = pickLanguage(navigator.languages?.length ? navigator.languages : [navigator.language]);
+  setLanguage(lang);
+  document.documentElement.lang = lang;
   const canvas = document.getElementById('c');
   const uiRoot = document.getElementById('ui');
   if (!(canvas instanceof HTMLCanvasElement) || !uiRoot) throw new Error('Missing #c or #ui');
+  canvas.setAttribute('aria-label', t('board.label'));
   const deps = { storage: webStorage(), randomSeed };
   const store = createGameStore(deps, await loadPersisted(deps));
   const debug = import.meta.env.DEV || import.meta.env.VITE_DEBUG_HOOKS === '1';

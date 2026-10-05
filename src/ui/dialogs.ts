@@ -1,6 +1,7 @@
 import { SCORE_UI } from '../config';
 import { easeOutCubic } from '../fx/tween';
 import type { Tweens } from '../fx/tween';
+import { num, t } from '../i18n';
 import { el } from './dom';
 
 /** Full-screen scrim with a centred card. */
@@ -72,7 +73,7 @@ export class ConfirmDialog extends Overlay {
     this.title.textContent = o.title;
     this.body.textContent = o.body;
     this.ok.textContent = o.confirm;
-    this.no.textContent = o.cancel ?? 'Cancel';
+    this.no.textContent = o.cancel ?? t('common.cancel');
     this.ok.classList.toggle('danger', o.danger === true);
     this.show();
     this.no.focus({ preventScroll: true });
@@ -103,12 +104,12 @@ export class ResultsCard extends Overlay {
 
   constructor(handlers: { onAgain(): void; onHome(): void }) {
     super('results', 'overTitle');
-    const again = el('button', { class: 'cta' }, ['Play again']);
-    const home = el('button', { class: 'ghost-btn' }, ['Home']);
+    const again = el('button', { class: 'cta' }, [t('results.again')]);
+    const home = el('button', { class: 'ghost-btn' }, [t('results.home')]);
     again.addEventListener('click', handlers.onAgain);
     home.addEventListener('click', handlers.onHome);
     this.card.append(
-      el('h2', { id: 'overTitle' }, ['No room left']),
+      el('h2', { id: 'overTitle' }, [t('results.title')]),
       this.finalEl,
       this.bestEl,
       el('div', { class: 'stack' }, [again, home]),
@@ -117,14 +118,15 @@ export class ResultsCard extends Overlay {
 
   present(score: number, best: number, newBest: boolean, tweens: Tweens): void {
     this.finalEl.textContent = '0';
-    this.bestEl.textContent = newBest && score > 0 ? 'New best score!' : `Best ${best}`;
+    this.bestEl.textContent =
+      newBest && score > 0 ? t('results.newBest') : t('results.best', { n: num(best) });
     this.bestEl.classList.toggle('new', newBest && score > 0);
     this.show();
     tweens.add({
       dur: Math.min(SCORE_UI.overCountMax, SCORE_UI.overCountBase + score * SCORE_UI.overCountPerPoint),
       ease: easeOutCubic,
       update: (e) => {
-        this.finalEl.textContent = String(Math.round(score * e));
+        this.finalEl.textContent = num(Math.round(score * e));
       },
     });
   }

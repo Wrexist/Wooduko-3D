@@ -1,18 +1,18 @@
 # TASK.md
 
 ## Active phase
-**Phase 6 — UI / UX / animation** (`RELEASE_CHECKLIST.md` phase 6 + `POLISH.md`)
+**Phase 6 — UI / UX / animation** — complete except items that need assets or devices (listed below).
 
 ## Phase 6 plan
-1. [ ] **Contact shading:** baked ambient occlusion on block sides (darker toward the floor) + a procedural normal map so the grain has relief
-2. [ ] **Ghost never fully hidden:** the dragged piece turns slightly translucent while over the board
-3. [ ] **Invalid drop:** short "nope" wobble + soft thud before flying back
-4. [ ] **Reward ladder:** one tier function (1 line < 2 lines < combo ×3 < 4+ lines < board clear) drives sparkles, flash, sound layers and toast size; 40 ms hit-stop before the pops; warm board-edge glow while a combo is alive
-5. [ ] **New best mid-game:** the moment the score passes the old best, a crown flies to the score with a chime (once per game)
-6. [ ] **Audio mix:** master limiter (no clipping on big clears), ±5% pitch/volume variation, richer wood knock
-7. [ ] **Placed blocks settle:** tiny rotation wobble on top of the squash
-8. [ ] **App icon (1024) + launch screen** rendered from the real scene; launch background matches the first frame
-9. [ ] **Localization:** English + Swedish, all strings in one file, follows the device language
+1. [x] **Contact shading:** baked ambient occlusion on block sides (darker toward the floor) + a procedural normal map so the grain has relief
+2. [x] **Ghost never fully hidden:** the dragged piece turns slightly translucent while over the board
+3. [x] **Invalid drop:** short "nope" wobble + soft thud before flying back
+4. [x] **Reward ladder:** one tier function (1 line < 2 lines < combo ×3 < 4+ lines < board clear) drives sparkles, flash, sound layers and toast size; 40 ms hit-stop before the pops; warm board-edge glow while a combo is alive
+5. [x] **New best mid-game:** the moment the score passes the old best, a crown flies to the score with a chime (once per game)
+6. [x] **Audio mix:** master limiter (no clipping on big clears), ±5% pitch/volume variation, richer wood knock
+7. [x] **Placed blocks settle:** tiny rotation wobble on top of the squash
+8. [x] **App icon (1024) + launch screen** rendered from the real scene; launch background matches the first frame
+9. [x] **Localization:** English + Swedish, all strings in one file, follows the device language
 - Needs you / assets / devices: scanned wood textures, recorded foley, tuning lift/finger offset on real phones, frame-time on a 3-year-old iPhone.
 
 ## Phase 5 plan

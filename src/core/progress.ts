@@ -68,8 +68,7 @@ export type AchievementId =
 
 export interface Achievement {
   readonly id: AchievementId;
-  readonly title: string;
-  readonly description: string;
+  /** Title and description live in i18n as `ach.<id>` / `ach.<id>.desc`. */
   /** Earned given lifetime stats and the current game's score. */
   readonly earned: (s: Stats, gameScore: number) => boolean;
 }
@@ -77,53 +76,37 @@ export interface Achievement {
 export const ACHIEVEMENTS: readonly Achievement[] = [
   {
     id: 'first-clear',
-    title: 'First cut',
-    description: 'Clear your first line',
     earned: (s) => s.linesCleared >= 1,
   },
-  { id: 'combo-3', title: 'In the groove', description: 'Reach Combo ×3', earned: (s) => s.bestCombo >= 3 },
-  { id: 'combo-5', title: 'On a roll', description: 'Reach Combo ×5', earned: (s) => s.bestCombo >= 5 },
+  { id: 'combo-3', earned: (s) => s.bestCombo >= 3 },
+  { id: 'combo-5', earned: (s) => s.bestCombo >= 5 },
   {
     id: 'triple',
-    title: 'Triple cut',
-    description: 'Clear 3 lines with one block',
     earned: (s) => s.biggestClear >= 3,
   },
   {
     id: 'quad',
-    title: 'Clean sweep',
-    description: 'Clear 4 or more lines with one block',
     earned: (s) => s.biggestClear >= 4,
   },
   {
     id: 'board-clear',
-    title: 'Spotless',
-    description: 'Clear the whole board',
     earned: (s) => s.boardClears >= 1,
   },
   {
     id: 'score-1k',
-    title: 'Apprentice',
-    description: 'Score 1,000 in one game',
     earned: (s, g) => Math.max(g, s.bestScore) >= 1000,
   },
   {
     id: 'score-5k',
-    title: 'Journeyman',
-    description: 'Score 5,000 in one game',
     earned: (s, g) => Math.max(g, s.bestScore) >= 5000,
   },
   {
     id: 'score-10k',
-    title: 'Master carpenter',
-    description: 'Score 10,000 in one game',
     earned: (s, g) => Math.max(g, s.bestScore) >= 10000,
   },
-  { id: 'games-10', title: 'Regular', description: 'Finish 10 games', earned: (s) => s.gamesPlayed >= 10 },
+  { id: 'games-10', earned: (s) => s.gamesPlayed >= 10 },
   {
     id: 'lines-500',
-    title: 'Sawdust',
-    description: 'Clear 500 lines in total',
     earned: (s) => s.linesCleared >= 500,
   },
 ];

@@ -1,4 +1,5 @@
 import { HUD_FX, SCORE_UI } from '../config';
+import { num, t } from '../i18n';
 import { ComboPill } from './combo';
 import { el, ICONS, replay } from './dom';
 
@@ -19,9 +20,13 @@ export class Hud {
   private shown = 0;
 
   constructor(h: HudHandlers) {
-    const pause = el('button', { class: 'btn', 'aria-label': 'Pause', html: ICONS.pause });
-    const restart = el('button', { class: 'btn restart', 'aria-label': 'Restart game', html: ICONS.restart });
-    this.soundBtn = el('button', { class: 'btn', 'aria-label': 'Mute sound', html: ICONS.soundOn });
+    const pause = el('button', { class: 'btn', 'aria-label': t('hud.pause'), html: ICONS.pause });
+    const restart = el('button', {
+      class: 'btn restart',
+      'aria-label': t('hud.restart'),
+      html: ICONS.restart,
+    });
+    this.soundBtn = el('button', { class: 'btn', 'aria-label': t('hud.mute'), html: ICONS.soundOn });
     pause.addEventListener('click', h.onPause);
     restart.addEventListener('click', h.onRestart);
     this.soundBtn.addEventListener('click', h.onSound);
@@ -96,12 +101,12 @@ export class Hud {
   }
 
   setBest(best: number): void {
-    this.bestVal.textContent = String(best);
+    this.bestVal.textContent = num(best);
   }
 
   setSound(on: boolean): void {
     this.soundBtn.innerHTML = on ? ICONS.soundOn : ICONS.soundOff;
-    this.soundBtn.setAttribute('aria-label', on ? 'Mute sound' : 'Unmute sound');
+    this.soundBtn.setAttribute('aria-label', on ? t('hud.mute') : t('hud.unmute'));
   }
 
   /** Smooth count-up. */

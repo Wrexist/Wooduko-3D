@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { el, replay } from './dom';
 
 /**
@@ -10,12 +11,12 @@ export class ComboPill {
 
   set(streak: number, atRisk = false): void {
     if (streak >= 2) {
-      this.node.textContent = `Combo ×${streak}`;
+      this.node.textContent = t('combo.pill', { n: streak });
       this.node.classList.add('show');
       this.node.classList.toggle('risk', atRisk);
       this.node.setAttribute(
         'aria-label',
-        atRisk ? `Combo ×${streak}, clear next move to keep it` : `Combo ×${streak}`,
+        atRisk ? t('combo.risk', { n: streak }) : t('combo.pill', { n: streak }),
       );
       if (streak !== this.shown) replay(this.node, 'kick');
     } else this.node.classList.remove('show', 'kick', 'risk');
