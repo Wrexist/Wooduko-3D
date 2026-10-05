@@ -74,6 +74,10 @@ for (const [name, [width, height]] of Object.entries(VIEWPORTS)) {
     return r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth;
   });
   check(`${name}: home card fits`, homeFits);
+  const homeTall = await page.evaluate(
+    () => document.querySelector('.home .card').getBoundingClientRect().height / innerHeight,
+  );
+  check(`${name}: home card is not stretched`, homeTall < 0.9 || height < 500, homeTall.toFixed(2));
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.waitForTimeout(800);
 

@@ -637,6 +637,8 @@ export const FX = {
   overCardDelay: 0.9,
   floatLift: 0.3,
   floatLiftClear: 0.4,
+  /** Seconds after the results card before the (native) review prompt. */
+  reviewDelay: 1.6,
   /** Space (px) between the HUD and the achievement banner. */
   bannerGap: 8,
   /** World point the toast is anchored to. */
@@ -706,4 +708,26 @@ export const TUTORIAL = {
   sideTipQuery: '(max-height: 500px) and (orientation: landscape)',
   /** Space (px) between a side tip and the board. */
   tipGap: 8,
+} as const;
+
+export const RETENTION = {
+  metaKey: 'grain_meta_v1',
+  hoursKept: 14,
+  reviewMinSessions: 3,
+  reviewMinGames: 5,
+  reviewMaxAsks: 3,
+  reviewGapDays: 60,
+  reminderAfterSessions: 3,
+  reminderDefaultHour: 19,
+  reminderLines: [
+    { title: 'Your board is waiting', body: 'A calm five-minute game?' },
+    { title: 'Fresh wood on the table', body: 'Three new pieces are ready when you are.' },
+    { title: 'Time for a quick clear?', body: 'Line them up, clear them out.' },
+  ],
+} as const;
+
+/** Game Center ids (must match App Store Connect). */
+export const GAME_CENTER = {
+  leaderboard: 'grain.best',
+  achievementPrefix: 'grain.',
 } as const;

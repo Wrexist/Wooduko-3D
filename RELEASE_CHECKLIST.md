@@ -48,10 +48,10 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [ ] **[nice]** Daily streak reward
 
 ## Phase 5 — Retention & live ops
-- [ ] **[should]** Game Center: leaderboard (best score) + achievements
-- [ ] **[should]** Local notifications (opt-in, after a few sessions): daily puzzle / streak reminder
-- [ ] **[should]** Review prompt after a strong moment (new best or board clear), never after a loss
-- [ ] **[nice]** Remote config for piece weights and ad frequency so balance can change without a release
+- [ ] **[should]** Game Center: leaderboard (best score) + achievements _(triggers + adapter done; native Swift plugin in phase 7; ids in `GAME_CENTER`)_
+- [ ] **[should]** Local notifications (opt-in, after a few sessions): daily puzzle / streak reminder _(soft-ask, timing, settings done; native plugin in phase 7)_
+- [ ] **[should]** Review prompt after a strong moment (new best or board clear), never after a loss _(rules + trigger done; native plugin in phase 7)_
+- [ ] **[nice]** Remote config for piece weights and ad frequency so balance can change without a release _(skipped: needs a server, v1 has no backend)_
 
 ## Phase 6 — UI / UX / animation
 - [ ] **[must]** Everything in `POLISH.md` marked [must]

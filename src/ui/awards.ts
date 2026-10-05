@@ -15,10 +15,15 @@ export class AwardsPanel extends Overlay {
   private readonly listEl = el('ul', { class: 'achievements' });
   private readonly countEl = el('span', { class: 'count' });
 
-  constructor(private readonly h: { onTheme(id: ThemeId): void; onClose(): void }) {
+  private readonly leaderboard = el('button', { class: 'ghost-btn', hidden: '' }, [
+    'Game Center leaderboard',
+  ]);
+
+  constructor(private readonly h: { onTheme(id: ThemeId): void; onClose(): void; onLeaderboard(): void }) {
     super('awards dialog-layer', 'awardsTitle');
     const done = el('button', { class: 'cta' }, ['Done']);
     done.addEventListener('click', h.onClose);
+    this.leaderboard.addEventListener('click', h.onLeaderboard);
     this.node.addEventListener('pointerdown', (e) => {
       if (e.target === this.node) h.onClose();
     });
@@ -30,11 +35,12 @@ export class AwardsPanel extends Overlay {
       this.themesEl,
       el('h3', {}, ['Achievements ', this.countEl]),
       this.listEl,
-      el('div', { class: 'stack' }, [done]),
+      el('div', { class: 'stack' }, [this.leaderboard, done]),
     );
   }
 
-  update(stats: Stats, best: number, unlocked: Unlocked, theme: ThemeId): void {
+  update(stats: Stats, best: number, unlocked: Unlocked, theme: ThemeId, leaderboard = false): void {
+    this.leaderboard.hidden = !leaderboard;
     const rows: [string, string][] = [
       ['Best', fmt(Math.max(best, stats.bestScore))],
       ['Games', fmt(stats.gamesPlayed)],

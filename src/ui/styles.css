@@ -400,9 +400,7 @@ button {
   z-index: 30;
 }
 .overlay.dialog-layer .card,
-.overlay.confirm-layer /* margin:auto centres the card when it fits and lets the overlay scroll from the top when not */
-.card {
-  margin: auto;
+.overlay.confirm-layer .card {
   background: var(--card-solid);
 }
 .cta.danger {
@@ -411,7 +409,9 @@ button {
     0 3px 0 #8f3f22,
     0 10px 20px rgba(0, 0, 0, 0.3);
 }
+/* margin:auto centres the card when it fits and lets the overlay scroll from the top when not */
 .card {
+  margin: auto;
   background: var(--card);
   border: 1px solid var(--card-line);
   border-radius: 22px;
@@ -651,6 +651,21 @@ button {
 .tutorial .hand svg {
   width: 100%;
   height: 100%;
+}
+
+.offer {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--card-line);
+}
+.offer p {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.cta.small,
+.ghost-btn.small {
+  height: 40px;
+  font-size: 14px;
 }
 
 /* ---------- awards ---------- */

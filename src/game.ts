@@ -13,6 +13,8 @@ import { Tweens } from './fx/tween';
 import { DragController } from './input/drag';
 import type { Haptics } from './platform/haptics';
 import { onLifecycle } from './platform/lifecycle';
+import type { Services } from './platform/services';
+import { nextReminder, reminderText, shouldAskReview, shouldOfferReminder } from './core/retention';
 import { Blocks } from './render/blocks';
 import type { BlockMesh } from './render/blocks';
 import { Preview } from './render/preview';
@@ -38,12 +40,14 @@ export interface GameDeps {
   readonly uiRoot: HTMLElement;
   readonly store: GameStore;
   readonly haptics: Haptics;
+  readonly services: Services;
 }
 
 /** Wires the store (rules + state) to the scene, effects, audio, UI and input. */
 export class Game {
   private readonly store: GameStore;
   private readonly haptics: Haptics;
+  private readonly services: Services;
   private readonly canvas: HTMLCanvasElement;
   private readonly renderer: Renderer;
   private readonly tex: Textures;
@@ -95,6 +99,7 @@ export class Game {
   constructor(d: GameDeps) {
     this.store = d.store;
     this.haptics = d.haptics;
+    this.services = d.services;
     this.canvas = d.canvas;
     this.renderer = createRenderer(d.canvas);
     this.theme = d.store.getState().settings.theme;
@@ -127,6 +132,7 @@ export class Game {
       onContinue: () => this.store.getState().continueGame(),
       onSettings: () => this.settingsPanel.show(),
       onAwards: () => this.showAwards(),
+      onReminder: (yes) => void this.answerReminder(yes),
     });
     this.pauseMenu = new PauseMenu({
       onResume: () => this.store.getState().resume(),
@@ -141,9 +147,11 @@ export class Game {
         this.sound.tick();
       },
       onClose: () => this.awards.hide(),
+      onLeaderboard: () => void this.services.gameCenter.showLeaderboard(),
     });
     this.settingsPanel = new SettingsPanel({
       onToggle: (k) => this.toggleSetting(k),
+      onReminder: () => void this.answerReminder(this.store.getState().meta.reminder !== 'on'),
       onReset: () => void this.onResetProgress(),
       onClose: () => this.settingsPanel.hide(),
     });
@@ -217,6 +225,8 @@ export class Game {
 
     this.prewarm();
 
+    this.syncReminderUi();
+    void this.bootServices();
     if (!s.tutorialDone) this.startTutorial();
     else this.onPhase(s);
 
@@ -239,6 +249,7 @@ export class Game {
       // just under the HUD so the score stays visible
       this.banner.node.style.top = `${this.hud.bottom + FX.bannerGap}px`;
       this.banner.push(s.recentUnlocks);
+      for (const id of s.recentUnlocks) void this.services.gameCenter.unlock(id);
       this.sound.achievement();
     }
     if (
@@ -248,6 +259,7 @@ export class Game {
       this.refreshAwards();
     if (s.best !== prev.best) this.hud.setBest(s.best);
     if (s.hasSave !== prev.hasSave || s.best !== prev.best) this.home.update(s.best, s.hasSave);
+    if (s.meta !== prev.meta) this.syncReminderUi();
   }
 
   /** Rebuild the scene from the store (new game, continue, tutorial step). */
@@ -309,6 +321,41 @@ export class Game {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.background);
   }
 
+  /** Launch-time native work: Game Center sign-in, re-schedule the reminder for tomorrow. */
+  private async bootServices(): Promise<void> {
+    const { gameCenter } = this.services;
+    if (gameCenter.available()) void gameCenter.signIn();
+    if (this.store.getState().meta.reminder === 'on') await this.scheduleReminder();
+  }
+
+  private async scheduleReminder(): Promise<void> {
+    const r = this.services.reminders;
+    if (!r.available()) return;
+    const at = nextReminder(this.store.getState().meta, new Date());
+    const text = reminderText(at);
+    await r.cancel();
+    await r.schedule(at, text.title, text.body);
+  }
+
+  private async answerReminder(yes: boolean): Promise<void> {
+    const st = this.store.getState();
+    if (!yes) {
+      st.setReminder('off');
+      await this.services.reminders.cancel();
+      return;
+    }
+    const granted = await this.services.reminders.enable();
+    st.setReminder(granted ? 'on' : 'off');
+    if (granted) await this.scheduleReminder();
+  }
+
+  private syncReminderUi(): void {
+    const m = this.store.getState().meta;
+    const available = this.services.reminders.available();
+    this.home.setOffer(available && shouldOfferReminder(m));
+    this.settingsPanel.setReminder(available, m.reminder === 'on');
+  }
+
   private showAwards(): void {
     this.refreshAwards();
     this.awards.show();
@@ -316,7 +363,7 @@ export class Game {
 
   private refreshAwards(): void {
     const s = this.store.getState();
-    this.awards.update(s.stats, s.best, s.unlocked, s.settings.theme);
+    this.awards.update(s.stats, s.best, s.unlocked, s.settings.theme, this.services.gameCenter.available());
   }
 
   private canInteract(): boolean {
@@ -457,6 +504,15 @@ export class Game {
       const s = this.store.getState();
       this.sound.gameOver();
       this.results.present(s.game.score, s.best, s.newBest, this.tweens);
+      void this.services.gameCenter.submitBest(s.best);
+      // a new best is a high: the only moment we ever ask for a review
+      if (
+        this.services.review.available() &&
+        shouldAskReview(s.meta, s.newBest, s.stats.gamesPlayed, new Date())
+      ) {
+        s.noteReviewAsked();
+        this.later(FX.reviewDelay, () => void this.services.review.request());
+      }
     });
   }
 

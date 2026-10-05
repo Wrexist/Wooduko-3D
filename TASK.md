@@ -1,7 +1,15 @@
 # TASK.md
 
 ## Active phase
-**Phase 4 — Economy / progression / balance** — complete. Rules reference: `DESIGN.md`.
+**Phase 5 — Retention & live ops** — logic + triggers complete; native implementations land in phase 7.
+
+## Phase 5 plan
+Native pieces arrive with Capacitor in phase 7; this phase builds the rules, the adapter and the triggers.
+1. [x] **Rules (pure `core/retention.ts`):** session count, review eligibility (strong moment only: a new best; ≥3 sessions, ≥5 games, ≥60 days apart, ≤3 asks), reminder offer (after 3 sessions, asked once), reminder time (tomorrow at the hour they usually play; re-scheduled every launch, so it never fires on a day they played)
+2. [x] **Platform adapter `platform/services.ts`:** Game Center (sign in, submit best, report achievement, show leaderboard), review prompt, local reminders. Web = unavailable/no-op. Native = phase 7 (official `@capacitor/local-notifications`, `@capacitor-community/in-app-review`, small in-repo Swift Game Center plugin — the only CAP 8 Game Center packages are single-maintainer forks).
+3. [x] **Triggers:** submit best on game over, report achievements on unlock, review on the results card of a new best, reminder soft-ask on home ("Not now" / "Yes"), Settings toggle when available, Leaderboard button in Awards when available
+4. [x] **Persistence + tests**
+- Skipped: remote config [nice] needs a server (no backend in v1).
 
 ## Phase 4 plan
 1. [x] **Scoring table final:** document the table, confirm with the bot sim that scores stay meaningful into the thousands (no change unless the numbers say so)

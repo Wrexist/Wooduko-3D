@@ -373,6 +373,116 @@ for (const [name, viewport] of Object.entries({
   await page.close();
 }
 
+// ---------------------------------------------------------------- native service triggers (fake services)
+{
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.on('pageerror', (e) => (errors++, console.log('pageerror:', e.message)));
+  const seed = { a: 1, s: 1, jx: 0, jy: 0, t: 0.9 };
+  const groups = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if ((r + c) % 2 === 1) groups.push({ cells: [[r, c]], center: [c + 0.5, r + 0.5], seed });
+  const save = {
+    version: 2,
+    score: 990,
+    streak: 0,
+    misses: 0,
+    sinceSmall: 0,
+    rng: 9,
+    groups,
+    tray: [{ shapeIndex: 0, seed }, { shapeIndex: 13, seed }, null],
+  };
+  await page.addInitScript((sv) => {
+    window.__calls = [];
+    const log =
+      (name) =>
+      async (...a) => {
+        window.__calls.push([name, ...a.map((x) => (x instanceof Date ? x.toISOString() : x))]);
+        return true;
+      };
+    window.__fakeServices = {
+      gameCenter: {
+        available: () => true,
+        signIn: log('signIn'),
+        submitBest: log('submitBest'),
+        unlock: log('unlock'),
+        showLeaderboard: log('leaderboard'),
+      },
+      review: { available: () => true, request: log('review') },
+      reminders: {
+        available: () => true,
+        enable: log('enable'),
+        schedule: log('schedule'),
+        cancel: log('cancel'),
+      },
+    };
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.clear();
+    localStorage.setItem('grain_tutorial_v1', '1');
+    localStorage.setItem('grain_best_v1', '500');
+    localStorage.setItem('grain_save_v1', sv);
+    localStorage.setItem(
+      'grain_meta_v1',
+      JSON.stringify({ sessions: 4, reminder: 'unasked', playHours: [20, 20] }),
+    );
+    localStorage.setItem('grain_stats_v1', JSON.stringify({ gamesPlayed: 9 }));
+  }, JSON.stringify(save));
+  await page.goto(url);
+  await page.waitForFunction(() => window.__grain);
+  const calls = () => page.evaluate(() => window.__calls);
+  check(
+    'Game Center signs in at launch',
+    (await calls()).some((c) => c[0] === 'signIn'),
+  );
+  check(
+    'reminder soft-ask shows on home after a few sessions',
+    await page.getByRole('button', { name: 'Yes, remind me' }).isVisible(),
+  );
+  await page.screenshot({ path: `${out}/flow-reminder-offer.png` });
+  await page.getByRole('button', { name: 'Yes, remind me' }).click();
+  await page.waitForTimeout(300);
+  const sched = (await calls()).find((c) => c[0] === 'schedule');
+  check(
+    'accepting schedules tomorrow’s reminder at their usual hour',
+    !!sched && new Date(sched[1]).getHours() === 20 && new Date(sched[1]) > new Date(),
+    JSON.stringify(sched),
+  );
+  check(
+    'the soft-ask goes away once answered',
+    !(await page.getByRole('button', { name: 'Yes, remind me' }).isVisible()),
+  );
+  await page.getByRole('button', { name: 'Settings' }).click();
+  check(
+    'settings show the reminder switch, on',
+    (await page.getByRole('switch', { name: 'Daily reminder' }).getAttribute('aria-checked')) === 'true',
+  );
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Awards' }).click();
+  check(
+    'awards offer the Game Center leaderboard',
+    await page.getByRole('button', { name: 'Game Center leaderboard' }).isVisible(),
+  );
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await wait(page, 0.6);
+  await drag(page, await slotScreen(page, 0), await worldScreen(page, -4, -4));
+  await page.waitForFunction(() => window.__grain.store.getState().phase === 'over', null, {
+    timeout: 60000,
+  });
+  await wait(page, 3.2);
+  const c = await calls();
+  check(
+    'game over submits the best score',
+    c.some((x) => x[0] === 'submitBest' && x[1] === 991),
+  );
+  check(
+    'a new best (eligible player) asks for a review once',
+    c.filter((x) => x[0] === 'review').length === 1,
+  );
+  await page.close();
+}
+
 // ---------------------------------------------------------------- reset race: drop lands after a restart
 {
   const page = await open({ width: 390, height: 844 }, { grain_tutorial_v1: '1' });

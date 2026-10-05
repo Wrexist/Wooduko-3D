@@ -1,5 +1,7 @@
 import { createStore } from 'zustand/vanilla';
-import { PROGRESS, SAVE, themeById, TUTORIAL_KEY } from '../config';
+import { PROGRESS, RETENTION, SAVE, themeById, TUTORIAL_KEY } from '../config';
+import { parseMeta, recordSession, reviewAsked } from '../core/retention';
+import type { Meta, ReminderChoice } from '../core/retention';
 import {
   emptyStats,
   newlyEarned,
@@ -42,6 +44,8 @@ export interface StoreState {
   /** Achievements earned by the latest event; `unlockSeq` increments each time some are earned. */
   readonly recentUnlocks: readonly AchievementId[];
   readonly unlockSeq: number;
+  /** Sessions, review prompt history, reminder choice. */
+  readonly meta: Meta;
 }
 
 export interface StoreActions {
@@ -61,6 +65,9 @@ export interface StoreActions {
   resume(): void;
   goHome(): void;
   setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void;
+  setReminder(choice: ReminderChoice): void;
+  /** Remember that the review prompt was shown. */
+  noteReviewAsked(): void;
   /** Wipe best score, saved game, stats and achievements. Settings are kept (theme back to default). */
   resetProgress(): void;
 }
@@ -80,20 +87,23 @@ export interface Persisted {
   tutorialDone: boolean;
   stats: Stats;
   unlocked: Unlocked;
+  meta: Meta;
 }
 
 /** Read best, settings and any saved game from storage. */
 export async function loadPersisted(deps: StoreDeps): Promise<Persisted> {
   const { storage } = deps;
-  const [bestRaw, settingsRaw, legacyMute, saveRaw, tutorialRaw, statsRaw, unlockedRaw] = await Promise.all([
-    storage.get(SAVE.bestKey),
-    storage.get(SAVE.settingsKey),
-    storage.get(SAVE.legacyMuteKey),
-    storage.get(SAVE.gameKey),
-    storage.get(TUTORIAL_KEY),
-    storage.get(PROGRESS.statsKey),
-    storage.get(PROGRESS.achievementsKey),
-  ]);
+  const [bestRaw, settingsRaw, legacyMute, saveRaw, tutorialRaw, statsRaw, unlockedRaw, metaRaw] =
+    await Promise.all([
+      storage.get(SAVE.bestKey),
+      storage.get(SAVE.settingsKey),
+      storage.get(SAVE.legacyMuteKey),
+      storage.get(SAVE.gameKey),
+      storage.get(TUTORIAL_KEY),
+      storage.get(PROGRESS.statsKey),
+      storage.get(PROGRESS.achievementsKey),
+      storage.get(RETENTION.metaKey),
+    ]);
   const parsed = parseSave(saveRaw, deps.randomSeed());
   const saved = parsed ? normalizeLoaded(parsed) : null;
   const usable = saved && !saved.over ? saved : null;
@@ -107,14 +117,19 @@ export async function loadPersisted(deps: StoreDeps): Promise<Persisted> {
     tutorialDone: tutorialRaw === '1' || best > 0 || usable !== null,
     stats: parseStats(statsRaw),
     unlocked: parseUnlocked(unlockedRaw),
+    meta: parseMeta(metaRaw),
   };
 }
 
-export function createGameStore(deps: StoreDeps, initial: Persisted) {
+export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => Date = () => new Date()) {
   const { storage } = deps;
   const persist = (fn: () => Promise<void>): void => {
     fn().catch(() => undefined);
   };
+  const saveMeta = (m: Meta): void => persist(() => storage.set(RETENTION.metaKey, JSON.stringify(m)));
+  // every store creation is one app launch
+  const initMeta = recordSession(initial.meta, now());
+  saveMeta(initMeta);
   /** The real game (kept aside while a tutorial board is shown). */
   let realGame: GameState | null = initial.saved;
 
@@ -186,6 +201,19 @@ export function createGameStore(deps: StoreDeps, initial: Persisted) {
       unlocked: initUnlocked,
       recentUnlocks: [],
       unlockSeq: 0,
+      meta: initMeta,
+
+      setReminder: (choice) => {
+        const meta = { ...get().meta, reminder: choice };
+        set({ meta });
+        saveMeta(meta);
+      },
+
+      noteReviewAsked: () => {
+        const meta = reviewAsked(get().meta, now());
+        set({ meta });
+        saveMeta(meta);
+      },
 
       startNew: () => {
         abandonCurrent();

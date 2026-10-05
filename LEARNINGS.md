@@ -24,6 +24,8 @@
 - Never stop the dev server with `taskkill /IM node.exe`: it kills every Node process on the machine. Stop the specific PID.
 - Wood themes redraw the existing canvas textures in place (`Textures.setTheme`) and flag `needsUpdate`: no new GPU objects, no material rewiring, nothing to dispose.
 - Dark woods need a light board (ebony): block/board contrast matters more than "realistic" pairings. Ridges need a per-theme tint or they stay orange on grey woods.
+- A CSS edit that inserts a comment must not land inside a selector list: `.a /* x */ .card` silently became a descendant selector and un-centred every menu card. The layout check now also catches stretched cards.
+- Game Center on Capacitor 8: only single-maintainer forks exist on npm; a ~100-line in-repo Swift plugin is safer than a supply-chain dependency.
 
 ## Playtests
 

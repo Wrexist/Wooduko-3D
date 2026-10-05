@@ -8,7 +8,16 @@ export class HomeMenu extends Overlay {
   private readonly cont = el('button', { class: 'cta' }, ['Continue']);
   private readonly play = el('button', { class: 'cta' }, ['Play']);
 
-  constructor(h: { onPlay(): void; onContinue(): void; onSettings(): void; onAwards(): void }) {
+  /** Soft ask for the daily reminder (shown once, after a few sessions, native only). */
+  private readonly offer: HTMLDivElement;
+
+  constructor(h: {
+    onPlay(): void;
+    onContinue(): void;
+    onSettings(): void;
+    onAwards(): void;
+    onReminder(yes: boolean): void;
+  }) {
     super('home', 'homeTitle');
     const best = el('div', { class: 'best' });
     best.innerHTML = ICONS.crown;
@@ -25,6 +34,19 @@ export class HomeMenu extends Overlay {
       best,
       el('div', { class: 'stack' }, [this.cont, this.play, el('div', { class: 'pair' }, [awards, settings])]),
     );
+    const yes = el('button', { class: 'cta small' }, ['Yes, remind me']);
+    const no = el('button', { class: 'ghost-btn small' }, ['Not now']);
+    yes.addEventListener('click', () => h.onReminder(true));
+    no.addEventListener('click', () => h.onReminder(false));
+    this.offer = el('div', { class: 'offer', hidden: '' }, [
+      el('p', {}, ['Want a gentle reminder on days you haven’t played?']),
+      el('div', { class: 'pair' }, [no, yes]),
+    ]);
+    this.card.append(this.offer);
+  }
+
+  setOffer(visible: boolean): void {
+    this.offer.hidden = !visible;
   }
 
   update(best: number, hasSave: boolean): void {
@@ -79,7 +101,10 @@ const LABELS: Record<ToggleKey, string> = {
 export class SettingsPanel extends Overlay {
   private readonly toggles = new Map<ToggleKey, HTMLButtonElement>();
 
-  constructor(h: { onToggle(key: ToggleKey): void; onReset(): void; onClose(): void }) {
+  private readonly reminderRow: HTMLDivElement;
+  private readonly reminderToggle: HTMLButtonElement;
+
+  constructor(h: { onToggle(key: ToggleKey): void; onReminder(): void; onReset(): void; onClose(): void }) {
     super('settings dialog-layer', 'settingsTitle');
     const list = el('div', { class: 'settings-list' });
     for (const key of Object.keys(LABELS) as ToggleKey[]) {
@@ -94,6 +119,18 @@ export class SettingsPanel extends Overlay {
       this.toggles.set(key, t);
       list.append(el('div', { class: 'setting' }, [el('span', { id }, [LABELS[key]]), t]));
     }
+    this.reminderToggle = el('button', {
+      class: 'toggle',
+      role: 'switch',
+      'aria-checked': 'false',
+      'aria-labelledby': 'set-reminder',
+    });
+    this.reminderToggle.addEventListener('click', h.onReminder);
+    this.reminderRow = el('div', { class: 'setting', hidden: '' }, [
+      el('span', { id: 'set-reminder' }, ['Daily reminder']),
+      this.reminderToggle,
+    ]);
+    list.append(this.reminderRow);
     const reset = el('button', { class: 'ghost-btn danger' }, ['Reset progress']);
     const done = el('button', { class: 'cta' }, ['Done']);
     reset.addEventListener('click', h.onReset);
@@ -106,6 +143,12 @@ export class SettingsPanel extends Overlay {
       list,
       el('div', { class: 'stack' }, [done, reset]),
     );
+  }
+
+  /** The reminder row only exists where the OS can deliver notifications. */
+  setReminder(available: boolean, on: boolean): void {
+    this.reminderRow.hidden = !available;
+    this.reminderToggle.setAttribute('aria-checked', String(on));
   }
 
   update(s: Settings): void {
