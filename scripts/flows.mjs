@@ -1,0 +1,333 @@
+// End-to-end flow check (needs `npm run dev` running).
+// Usage: node scripts/flows.mjs [url] [outDir]
+// Plays the tutorial, opens every menu, ends a game, and exercises touch / rotate / multi-touch.
+// Prints PASS/FAIL per check and any console errors; screenshots go to outDir.
+import { chromium } from 'playwright';
+
+const [url = 'http://localhost:5173/', out = 'shots'] = process.argv.slice(2);
+const BASE_Y = -0.94;
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+let errors = 0;
+let failed = 0;
+const check = (name, ok, detail = '') => {
+  if (!ok) failed++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`);
+};
+
+async function open(viewport, init = {}) {
+  const page = await browser.newPage({ viewport, hasTouch: true });
+  page.on('console', (m) => m.type() === 'error' && (errors++, console.log('console.error:', m.text())));
+  page.on('pageerror', (e) => (errors++, console.log('pageerror:', e.message)));
+  await page.addInitScript((kv) => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.clear();
+    for (const [k, v] of Object.entries(kv)) localStorage.setItem(k, v);
+  }, init);
+  await page.goto(url);
+  await page.waitForFunction(() => window.__grain);
+  return page;
+}
+const state = (page) =>
+  page.evaluate(() => {
+    const s = window.__grain.store.getState();
+    return {
+      phase: s.phase,
+      score: s.game.score,
+      tutorial: s.tutorial,
+      tutorialDone: s.tutorialDone,
+      moveSeq: s.moveSeq,
+      over: s.game.over,
+      best: s.best,
+      tray: s.game.tray.map((p) => p && p.shapeIndex),
+    };
+  });
+const clock = (page) => page.evaluate(() => window.__grain.game.debug.clock);
+async function wait(page, seconds) {
+  const t0 = await clock(page);
+  await page.waitForFunction((t) => window.__grain.game.debug.clock >= t, t0 + seconds, { timeout: 120000 });
+}
+const slotScreen = (page, slot) =>
+  page.evaluate((i) => {
+    const w = window.__grain.game.world;
+    const p = w.slotPos(i, w.camBase.clone());
+    return w.toScreen(p.x, 0, p.z, innerWidth, innerHeight);
+  }, slot);
+const worldScreen = (page, x, z) =>
+  page.evaluate(
+    ([x, z, y]) => window.__grain.game.world.toScreen(x, y, z, innerWidth, innerHeight),
+    [x, z, BASE_Y],
+  );
+
+/** Synthetic pointer drag (mouse or touch). Returns before release if `hold`. */
+async function drag(page, from, to, { type = 'mouse', id = 1, hold = false, steps = 8 } = {}) {
+  const fire = (t, p) =>
+    page.evaluate(
+      ([t, x, y, type, id]) => {
+        const c = document.getElementById('c');
+        c.dispatchEvent(
+          new PointerEvent(t, {
+            clientX: x,
+            clientY: y,
+            pointerType: type,
+            pointerId: id,
+            isPrimary: id === 1,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      },
+      [t, p.x, p.y, type, id],
+    );
+  await fire('pointerdown', from);
+  for (let i = 1; i <= steps; i++) {
+    await fire('pointermove', {
+      x: from.x + ((to.x - from.x) * i) / steps,
+      y: from.y + ((to.y - from.y) * i) / steps,
+    });
+    await wait(page, 0.02);
+  }
+  if (!hold) await fire('pointerup', to);
+  return fire;
+}
+
+// ---------------------------------------------------------------- tutorial (first run)
+{
+  const page = await open({ width: 390, height: 844 });
+  let s = await state(page);
+  check('first run opens the tutorial', s.tutorial && s.phase === 'playing');
+  await wait(page, 0.8);
+  await page.screenshot({ path: `${out}/flow-tutorial-1.png` });
+
+  // a wrong spot is rejected in the tutorial
+  await drag(page, await slotScreen(page, 1), await worldScreen(page, -3.5, -3.5));
+  await wait(page, 0.6);
+  s = await state(page);
+  check('tutorial rejects a drop outside the target', s.moveSeq === 0);
+
+  const targets = [
+    [-0.5, 0],
+    [2, -1],
+    [-0.5, -0.5],
+  ];
+  for (let i = 0; i < targets.length; i++) {
+    const [x, z] = targets[i];
+    // the tutorial board loads after the previous step's delay
+    await page.waitForFunction(
+      () => window.__grain.store.getState().tutorial && window.__grain.game.world.tray[1],
+    );
+    await wait(page, 0.3);
+    if (i === 1) await page.screenshot({ path: `${out}/flow-tutorial-2.png` });
+    const seq = (await state(page)).moveSeq;
+    await drag(page, await slotScreen(page, 1), await worldScreen(page, x, z));
+    await page.waitForFunction((q) => window.__grain.store.getState().moveSeq > q, seq, { timeout: 60000 });
+    if (i === 2) {
+      await wait(page, 0.3);
+      await page.screenshot({ path: `${out}/flow-tutorial-3-clear.png` });
+    }
+    await wait(page, 1.4);
+  }
+  s = await state(page);
+  check(
+    'tutorial completes into a real game',
+    s.tutorialDone && !s.tutorial && s.phase === 'playing' && s.score === 0,
+    JSON.stringify(s),
+  );
+  check(
+    'tutorial completion is remembered',
+    (await page.evaluate(() => localStorage.getItem('grain_tutorial_v1'))) === '1',
+  );
+  await page.close();
+}
+
+// ---------------------------------------------------------------- skip tutorial
+{
+  const page = await open({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Skip' }).click();
+  await wait(page, 0.5);
+  const s = await state(page);
+  check('Skip starts a real game', s.tutorialDone && !s.tutorial && s.phase === 'playing');
+  await page.close();
+}
+
+// ---------------------------------------------------------------- menus
+for (const [name, viewport] of Object.entries({
+  portrait: { width: 390, height: 844 },
+  landscape: { width: 1280, height: 800 },
+})) {
+  const page = await open(viewport, { grain_tutorial_v1: '1', grain_best_v1: '1234' });
+  await wait(page, 0.6);
+  await page.screenshot({ path: `${out}/flow-${name}-home.png` });
+  check(
+    `${name}: home shows Play + best`,
+    (await page.getByRole('button', { name: 'Play' }).isVisible()) &&
+      (await page.locator('.home .best').innerText()).includes('1234'),
+  );
+  await page.getByRole('button', { name: 'Play' }).click();
+  await wait(page, 1.0);
+  // place one piece to get a score
+  const tray = await state(page);
+  let placed = false;
+  for (let slot = 0; slot < 3 && !placed; slot++) {
+    if (tray.tray[slot] === null) continue;
+    const seq = (await state(page)).moveSeq;
+    await drag(page, await slotScreen(page, slot), await worldScreen(page, 0, 0));
+    await wait(page, 0.6);
+    placed = (await state(page)).moveSeq > seq;
+  }
+  check(`${name}: a piece can be placed`, placed);
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await wait(page, 0.4);
+  await page.screenshot({ path: `${out}/flow-${name}-pause.png` });
+  check(`${name}: pause menu`, (await state(page)).phase === 'paused');
+  await page.locator('.pause').getByRole('button', { name: 'Settings' }).click();
+  await wait(page, 0.4);
+  await page.screenshot({ path: `${out}/flow-${name}-settings.png` });
+  await page.getByRole('switch', { name: 'Reduce motion' }).click();
+  const rm = await page.evaluate(() => window.__grain.store.getState().settings.reduceMotion);
+  check(
+    `${name}: settings toggle persists`,
+    rm && (await page.evaluate(() => JSON.parse(localStorage.getItem('grain_settings_v1')).reduceMotion)),
+  );
+  await page.getByRole('switch', { name: 'Reduce motion' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.locator('.pause').getByRole('button', { name: 'Restart' }).click();
+  await wait(page, 0.4);
+  await page.screenshot({ path: `${out}/flow-${name}-confirm.png` });
+  check(
+    `${name}: restart asks to confirm`,
+    await page.getByRole('heading', { name: 'Start over?' }).isVisible(),
+  );
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Resume' }).click();
+  check(
+    `${name}: cancel keeps the game`,
+    (await state(page)).score > 0 && (await state(page)).phase === 'playing',
+  );
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.locator('.pause').getByRole('button', { name: 'Home' }).click();
+  await wait(page, 0.4);
+  check(`${name}: home offers Continue`, await page.getByRole('button', { name: 'Continue' }).isVisible());
+  await page.reload();
+  await page.waitForFunction(() => window.__grain);
+  check(
+    `${name}: save survives reload`,
+    (await state(page)).score > 0 && (await page.getByRole('button', { name: 'Continue' }).isVisible()),
+  );
+  await page.close();
+}
+
+// ---------------------------------------------------------------- game over
+{
+  const seed = { a: 1, s: 1, jx: 0, jy: 0, t: 0.9 };
+  const groups = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if ((r + c) % 2 === 1) groups.push({ cells: [[r, c]], center: [c + 0.5, r + 0.5], seed });
+  const save = {
+    version: 1,
+    score: 990,
+    streak: 0,
+    rng: 9,
+    groups,
+    tray: [{ shapeIndex: 0, seed }, { shapeIndex: 13, seed }, null],
+  };
+  const page = await open(
+    { width: 390, height: 844 },
+    { grain_tutorial_v1: '1', grain_best_v1: '500', grain_save_v1: JSON.stringify(save) },
+  );
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await wait(page, 0.6);
+  await drag(page, await slotScreen(page, 0), await worldScreen(page, -4, -4));
+  await page.waitForFunction(() => window.__grain.store.getState().phase === 'over', null, {
+    timeout: 60000,
+  });
+  await wait(page, 2.2);
+  await page.screenshot({ path: `${out}/flow-gameover.png` });
+  const s = await state(page);
+  check('game over shows results', await page.getByRole('heading', { name: 'No room left' }).isVisible());
+  check(
+    'new best on results',
+    (await page.locator('.bestline').innerText()).includes('New best') && s.best === 991,
+  );
+  check(
+    'save deleted on game over',
+    (await page.evaluate(() => localStorage.getItem('grain_save_v1'))) === null,
+  );
+  await page.getByRole('button', { name: 'Play again' }).click();
+  await wait(page, 0.5);
+  check(
+    'play again starts fresh',
+    (await state(page)).score === 0 && (await state(page)).phase === 'playing',
+  );
+  await page.close();
+}
+
+// ---------------------------------------------------------------- touch, rotate mid-drag, second finger
+{
+  const page = await open({ width: 390, height: 844 }, { grain_tutorial_v1: '1' });
+  await page.getByRole('button', { name: 'Play' }).click();
+  await wait(page, 1.0);
+  const from = await slotScreen(page, 0);
+  const to = await worldScreen(page, 0, 0);
+  const fire = await drag(page, from, to, { type: 'touch', id: 7, hold: true });
+  await wait(page, 0.4);
+  const d = await page.evaluate(() => {
+    const dd = window.__grain.game.drag.drag;
+    return dd && { offZ: dd.offZ, z: dd.tp.pivot.position.z };
+  });
+  check('touch drag floats the piece above the finger', d && d.offZ < 0, JSON.stringify(d));
+  // second finger: ignored
+  await page.evaluate(() =>
+    document.getElementById('c').dispatchEvent(
+      new PointerEvent('pointerdown', {
+        clientX: 50,
+        clientY: 700,
+        pointerType: 'touch',
+        pointerId: 8,
+        bubbles: true,
+      }),
+    ),
+  );
+  const still = await page.evaluate(() => window.__grain.game.drag.drag?.pointerId);
+  check('second finger is ignored', still === 7);
+  // rotate mid-drag
+  await page.setViewportSize({ width: 844, height: 390 });
+  await wait(page, 0.4);
+  await fire('pointermove', await worldScreen(page, 1, 1));
+  await wait(page, 0.4);
+  await page.screenshot({ path: `${out}/flow-rotate-middrag.png` });
+  await fire('pointercancel', { x: 0, y: 0 });
+  await wait(page, 0.8);
+  const back = await page.evaluate(() => {
+    const w = window.__grain.game.world;
+    const t = w.tray[0];
+    const p = w.slotPos(0, t.pivot.position.clone());
+    return { dx: Math.abs(t.pivot.position.x - p.x), dz: Math.abs(t.pivot.position.z - p.z), anim: t.anim };
+  });
+  check(
+    'cancelled piece returns to its (new) slot',
+    back.dx < 0.01 && back.dz < 0.01 && !back.anim,
+    JSON.stringify(back),
+  );
+  // background mid-drag
+  await drag(page, await slotScreen(page, 1), await worldScreen(page, 0, 0), { hold: true, id: 9 });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await wait(page, 0.1);
+  const s = await state(page);
+  check(
+    'backgrounding mid-drag pauses and drops nothing',
+    s.phase === 'paused' &&
+      s.moveSeq === 0 &&
+      !(await page.evaluate(() => window.__grain.game.drag.dragging)),
+  );
+  await page.close();
+}
+
+await browser.close();
+console.log(errors ? `${errors} console error(s)` : 'no console errors');
+console.log(failed ? `${failed} check(s) FAILED` : 'all checks passed');
+process.exit(failed || errors ? 1 : 0);

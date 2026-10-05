@@ -8,8 +8,9 @@ export type BlockMesh = THREE.Mesh<THREE.ExtrudeGeometry, THREE.MeshStandardMate
 
 /** Light maple tint per block; dimmed blocks go grey. */
 export function tintFor(seed: WoodSeed, dim: boolean, out: THREE.Color): THREE.Color {
-  if (dim) return out.setRGB(COLORS.noFit, COLORS.noFit * 0.97, COLORS.noFit * 0.93);
-  return out.setRGB(seed.t, seed.t * 0.992, seed.t * 0.975);
+  const t = dim ? COLORS.noFit : seed.t;
+  const k = dim ? COLORS.noFitRatio : COLORS.tintRatio;
+  return out.setRGB(t * k[0], t * k[1], t * k[2]);
 }
 
 export class Blocks {

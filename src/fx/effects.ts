@@ -118,9 +118,9 @@ export class Effects {
             FX_Y,
             z,
             u.kind === 'box' ? FX.sweepSparksPerBoxCell : FX.sweepSparksPerCell,
-            2.2,
-            3.2,
-            0.7,
+            FX.sweepSparkSpeed,
+            FX.sweepSparkUp,
+            FX.sweepSparkSpread,
           );
         }
       },
@@ -137,11 +137,11 @@ export class Effects {
     dur: number = FX.shockDuration,
   ): void {
     const m = this.plane(this.unitPlane, this.d.tex.halo, color);
-    m.position.set(x, FX_Y - 0.02, z);
+    m.position.set(x, FX_Y - FX.shockDrop, z);
     this.d.tweens.add({
       dur,
       update: (_e, k) => {
-        const s = 0.4 + size * easeOutCubic(k);
+        const s = FX.shockStartScale + size * easeOutCubic(k);
         m.scale.set(s, 1, s);
         m.material.opacity = peak * (1 - k) * (1 - k);
       },
@@ -153,12 +153,13 @@ export class Effects {
     const m = this.plane(this.unitPlane, this.d.tex.halo, COLORS.landing, false);
     m.position.set(x, WORLD.baseY + FX.landingY, z);
     m.renderOrder = 4;
-    const base = Math.max(w, h) + 0.8;
+    const pad = FX.landingPad;
+    const base = Math.max(w, h) + pad;
     this.d.tweens.add({
       dur: FX.landingDuration,
       update: (_e, k) => {
-        const s = base * (0.85 + 0.45 * easeOutCubic(k));
-        m.scale.set((s * (w + 0.8)) / base, 1, (s * (h + 0.8)) / base);
+        const s = base * (FX.landingScaleFrom + FX.landingScaleGrow * easeOutCubic(k));
+        m.scale.set((s * (w + pad)) / base, 1, (s * (h + pad)) / base);
         m.material.opacity = FX.landingOpacity * (1 - k);
       },
       done: () => Effects.kill(m),
@@ -256,13 +257,20 @@ export class Effects {
           FX_Y,
           WORLD.z0 + Math.random() * N,
           FX.boardClearSparks,
-          3,
-          4.5,
-          1,
+          FX.boardClearSparkSpeed,
+          FX.boardClearSparkUp,
+          FX.boardClearSparkSpread,
         ),
       );
     }
-    this.shockRing(0, 0, FX.boardClearRing, COLORS.shockBoard, 0.9, 1);
+    this.shockRing(
+      0,
+      0,
+      FX.boardClearRing,
+      COLORS.shockBoard,
+      FX.boardClearRingPeak,
+      FX.boardClearRingDuration,
+    );
   }
 
   /** One frame of shake decay. Returns the current amplitude. */
@@ -276,11 +284,10 @@ export class Effects {
   warmup(): () => void {
     const a = this.plane(this.barPlane, this.d.tex.bar, COLORS.sweep);
     const b = this.plane(this.unitPlane, this.d.tex.halo, COLORS.landing, false);
-    a.position.y = b.position.y = WORLD.baseY - 1;
-    return () => {
-      Effects.kill(a);
-      Effects.kill(b);
-    };
+    const c = this.plane(this.boxPlane, this.d.tex.boxGlow, COLORS.sweep);
+    const all = [a, b, c];
+    for (const m of all) m.position.y = WORLD.baseY - 1;
+    return () => all.forEach((m) => Effects.kill(m));
   }
 
   dispose(): void {

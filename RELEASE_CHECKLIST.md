@@ -8,29 +8,29 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 ---
 
 ## Phase 1 — Codebase / feature completion
-- [ ] **[must]** Split `src/game.js` into modules (board logic / render / fx / audio / input / ui / config)
-- [ ] **[must]** Convert to TypeScript (strict), add `npm run typecheck`
-- [ ] **[must]** Pure, tested board logic: placement, clear detection (rows/cols/boxes), scoring, combo rules, game-over check
-- [ ] **[must]** One `config` object for every tunable (heights, camera tilt, lift, timings, scoring, colours)
-- [ ] **[must]** Home screen: Play, Continue, Settings, best score
-- [ ] **[must]** Pause menu (resume, restart, settings, home)
-- [ ] **[must]** Settings: sound, music, haptics, reduce motion, reset progress (with confirm)
-- [ ] **[must]** First-time tutorial: 2–3 guided placements with a pointing hand, skippable
-- [ ] **[must]** Game-over screen v2: score, best, "new best" celebration, play again, (later) revive
+- [x] **[must]** Split `src/game.js` into modules (board logic / render / fx / audio / input / ui / config)
+- [x] **[must]** Convert to TypeScript (strict), add `npm run typecheck`
+- [x] **[must]** Pure, tested board logic: placement, clear detection (rows/cols/boxes), scoring, combo rules, game-over check
+- [x] **[must]** One `config` object for every tunable (heights, camera tilt, lift, timings, scoring, colours)
+- [x] **[must]** Home screen: Play, Continue, Settings, best score
+- [x] **[must]** Pause menu (resume, restart, settings, home)
+- [x] **[must]** Settings: sound, music, haptics, reduce motion, reset progress (with confirm)
+- [x] **[must]** First-time tutorial: 2–3 guided placements with a pointing hand, skippable
+- [x] **[must]** Game-over screen v2: score, best, "new best" celebration, play again, (later) revive _(revive comes with ads)_
 - [ ] **[should]** Stats screen: games played, best, average, lines cleared, best combo
-- [ ] **[should]** Music: 2–3 calm loops, separate volume from sound effects
-- [ ] **[should]** Self-host fonts (Fraunces, DM Sans) so the app works fully offline
+- [ ] **[should]** Music: 2–3 calm loops, separate volume from sound effects _(one quiet generative WebAudio loop with its own toggle for now)_
+- [x] **[should]** Self-host fonts (Fraunces, DM Sans) so the app works fully offline
 - [ ] **[nice]** Undo last move (limited uses — could be a rewarded-ad reward)
 
 ## Phase 2 — Bug hunt / hardening
 - [ ] **[must]** Resize / rotate mid-drag doesn't break the piece or the preview
-- [ ] **[must]** Second finger touching the screen mid-drag is ignored (multi-touch)
+- [x] **[must]** Second finger touching the screen mid-drag is ignored (multi-touch)
 - [ ] **[must]** App backgrounded mid-animation: state saved, no half-placed pieces on return
-- [ ] **[must]** Save file versioning + migration; corrupted save falls back to a new game instead of a blank board
+- [x] **[must]** Save file versioning + migration; corrupted save falls back to a new game instead of a blank board
 - [ ] **[must]** Verify tray pieces never render off-screen on narrow phones (iPhone SE) and wide iPads
 - [ ] **[must]** Memory: play 30+ minutes, confirm geometry/material counts stay flat (`renderer.info`)
 - [ ] **[must]** Game-over check covers every tray piece, including after loading a save
-- [ ] **[should]** Restart button: replace the "tap twice" toast with a real confirm dialog
+- [x] **[should]** Restart button: replace the "tap twice" toast with a real confirm dialog
 - [ ] **[should]** Error tracking (Sentry) wired before TestFlight
 
 ## Phase 3 — Core gameplay & design

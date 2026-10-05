@@ -7,3 +7,11 @@
 - Headless Chromium + SwiftShader runs at a few fps: screenshot timing there is not real timing.
 - TypeScript 7 (native port) is npm `latest` but typescript-eslint only supports `<6.1`. Pinned TS 6.0.3.
 - Playwright needs `--use-angle=swiftshader --enable-unsafe-swiftshader` for WebGL screenshots headless (see `scripts/shot.mjs`).
+- Three r186: `PCFSoftShadowMap` is gone (falls back to PCF with a warning). PCF now blurs with per-pixel noise using `shadow.radius`; radius 1 gives dashed edges under the ridges, 3 looks soft.
+- Three r152+ colour management: hex colours are treated as sRGB and converted to linear. The r128 prototype treated them as linear. `linearColor()` (`render/color.ts`) keeps the old look for material tints; signal colours (clear glow, gold ghost) use true sRGB so they read clearly over light maple.
+- Light intensities: legacy r128 numbers × π are a good starting point for physical units.
+- Canvas textures upload (and count in `renderer.info`) on first render, so a once-per-game effect looks like a leak in a soak. Pre-warm it instead: that also removes the first-use hitch.
+- Pointer drag: never clear the drag state before the final fit check on release (it made every drop fly back).
+- Tutorial boards must leave other blocks on the board, otherwise every lesson ends in "Board clear!" (+150).
+- Dialogs stacked over menus need solid cards; translucent cards let the menu text bleed through.
+- Art recipes (synth voices in `audio/sound.ts`, brush strokes in `render/textures.ts`) stay inline: they get replaced by recorded foley and scanned textures in phase 6. Everything gameplay, feel, layout and timing is in `config.ts`.

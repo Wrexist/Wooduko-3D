@@ -579,7 +579,7 @@ export class Game {
     if (shake > 0) {
       cam.position.set(
         cb.x + (Math.random() - 0.5) * shake,
-        cb.y + (Math.random() - 0.5) * shake * 0.5,
+        cb.y + (Math.random() - 0.5) * shake * FX.shakeVertical,
         cb.z + (Math.random() - 0.5) * shake,
       );
     } else cam.position.copy(cb);

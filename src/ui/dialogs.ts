@@ -58,7 +58,7 @@ export class ConfirmDialog extends Overlay {
   private readonly no = el('button', { class: 'ghost-btn' });
 
   constructor() {
-    super('dialog-layer', 'confirmTitle');
+    super('confirm-layer', 'confirmTitle');
     this.card.append(this.title, this.body, el('div', { class: 'row2' }, [this.no, this.ok]));
     this.ok.addEventListener('click', () => this.finish(true));
     this.no.addEventListener('click', () => this.finish(false));

@@ -62,7 +62,7 @@ export function buildTable(scene: THREE.Scene, tex: Textures): () => void {
     roughness: TABLE.underRoughness,
   });
   const under = new THREE.Mesh(underGeo, underMat);
-  under.position.y = WORLD.baseY - 0.002;
+  under.position.y = WORLD.baseY - TABLE.underDrop;
   under.receiveShadow = true;
   group.add(under);
   geos.push(underGeo);

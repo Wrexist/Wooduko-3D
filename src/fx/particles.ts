@@ -86,7 +86,7 @@ export class Sparkles {
       pos[i3 + 1] = (pos[i3 + 1] ?? 0) + vy * dt;
       pos[i3 + 2] = (pos[i3 + 2] ?? 0) + vz * dt;
       const f = Math.max(0, 1 - na / l);
-      const tw = f * f * (0.75 + 0.25 * Math.sin(na * SPARKS.twinkle + i));
+      const tw = f * f * (1 - SPARKS.twinkleDepth + SPARKS.twinkleDepth * Math.sin(na * SPARKS.twinkle + i));
       col[i3] = (rgb[i3] ?? 0) * tw;
       col[i3 + 1] = (rgb[i3 + 1] ?? 0) * tw;
       col[i3 + 2] = (rgb[i3 + 2] ?? 0) * tw;
@@ -132,7 +132,7 @@ export class Chips {
     this.mat = new THREE.MeshStandardMaterial({
       map: tex.side,
       color: linearColor(COLORS.chip),
-      roughness: 0.7,
+      roughness: FX.chipRoughness,
     });
     for (let i = 0; i < FX.chipPool; i++) {
       const mesh = new THREE.Mesh(this.geo, this.mat);
@@ -151,16 +151,24 @@ export class Chips {
       if (!c.on) this.active++;
       c.on = true;
       c.mesh.visible = true;
-      c.mesh.position.set(x + (Math.random() - 0.5) * 0.6, y + 0.55, z + (Math.random() - 0.5) * 0.6);
-      c.mesh.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+      c.mesh.position.set(
+        x + (Math.random() - 0.5) * FX.chipSpawnSpread,
+        y + FX.chipSpawnLift,
+        z + (Math.random() - 0.5) * FX.chipSpawnSpread,
+      );
+      c.mesh.rotation.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+      );
       c.mesh.scale.setScalar(1);
       const a = Math.random() * Math.PI * 2;
-      const sp = 1.4 + Math.random() * 2.6;
+      const sp = FX.chipSpeedMin + Math.random() * FX.chipSpeedRand;
       c.vx = Math.cos(a) * sp;
       c.vz = Math.sin(a) * sp;
-      c.vy = 3 + Math.random() * 3.2;
-      c.sx = (Math.random() - 0.5) * 16;
-      c.sy = (Math.random() - 0.5) * 16;
+      c.vy = FX.chipUpMin + Math.random() * FX.chipUpRand;
+      c.sx = (Math.random() - 0.5) * FX.chipSpinMax;
+      c.sy = (Math.random() - 0.5) * FX.chipSpinMax;
       c.life = FX.chipLifeMin + Math.random() * FX.chipLifeRand;
       c.age = 0;
     }
@@ -181,8 +189,8 @@ export class Chips {
         c.vy *= -FX.chipBounce;
         c.vx *= FX.chipFriction;
         c.vz *= FX.chipFriction;
-        c.sx *= 0.5;
-        c.sy *= 0.5;
+        c.sx *= FX.chipSpinBounce;
+        c.sy *= FX.chipSpinBounce;
       }
       c.mesh.rotation.x += c.sx * dt;
       c.mesh.rotation.y += c.sy * dt;

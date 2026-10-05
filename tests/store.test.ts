@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, SAVE } from '../src/config';
+import { DEFAULT_SETTINGS, SAVE, TUTORIAL_KEY } from '../src/config';
+import { tutorialSteps } from '../src/core/tutorial';
 import { newGame } from '../src/core/rules';
 import { serializeSave } from '../src/core/save';
 import { memoryStorage } from '../src/platform/storage';
@@ -94,5 +95,34 @@ describe('store', () => {
     expect(store.getState().hasSave).toBe(false);
     expect(storage.data.has(SAVE.bestKey)).toBe(false);
     expect(storage.data.has(SAVE.gameKey)).toBe(false);
+  });
+});
+
+describe('store tutorial mode', () => {
+  it('boots into tutorial-needed state on a fresh install only', async () => {
+    expect((await setup()).store.getState().tutorialDone).toBe(false);
+    expect((await setup({ [SAVE.bestKey]: '10' })).store.getState().tutorialDone).toBe(true);
+  });
+
+  it('tutorial moves never touch the save or best, and finishing restores the real game', async () => {
+    const real = newGame(77);
+    const { store, storage } = await setup({ [SAVE.gameKey]: serializeSave(real) });
+    const before = storage.data.get(SAVE.gameKey);
+    const step = tutorialSteps()[0];
+    if (!step) throw new Error('no tutorial');
+    store.getState().loadTutorial(step.game);
+    expect(store.getState().tutorial).toBe(true);
+    expect(store.getState().place(step.slot, ...step.target)).not.toBeNull();
+    await flush();
+    expect(store.getState().best).toBe(0);
+    expect(storage.data.get(SAVE.gameKey)).toBe(before);
+    store.getState().finishTutorial();
+    await flush();
+    const s = store.getState();
+    expect(s.tutorial).toBe(false);
+    expect(s.tutorialDone).toBe(true);
+    expect(s.phase).toBe('home');
+    expect(s.game.tray).toEqual(real.tray);
+    expect(storage.data.get(TUTORIAL_KEY)).toBe('1');
   });
 });

@@ -41,7 +41,7 @@ Everything that makes it feel premium. Mostly phase 6, some phase 7.
 
 ## UI
 - [ ] **[must]** Consistent icon set and button style across HUD, menus and dialogs
-- [ ] **[must]** Replace the "Restart?" toast with a proper dialog
+- [x] **[must]** Replace the "Restart?" toast with a proper dialog
 - [ ] **[should]** Menu transitions (fade + slight scale), no hard cuts
 - [ ] **[should]** Toasts never cover the piece you're about to place
 - [ ] **[nice]** Board-shaped loading reveal on cold start
@@ -49,4 +49,4 @@ Everything that makes it feel premium. Mostly phase 6, some phase 7.
 ## Performance feel
 - [ ] **[must]** Zero dropped frames during the biggest clear (4 lines + board clear) on a 3-year-old iPhone
 - [ ] **[must]** Input latency: piece follows the finger the same frame (check WKWebView touch handling)
-- [ ] **[should]** Pre-warm shaders on the loading screen so the first clear doesn't hitch
+- [x] **[should]** Pre-warm shaders on the loading screen so the first clear doesn't hitch

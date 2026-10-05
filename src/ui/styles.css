@@ -29,6 +29,7 @@
   --ink-soft: rgba(255, 246, 230, 0.7);
   --ink-faint: rgba(255, 246, 230, 0.45);
   --card: rgba(46, 27, 15, 0.92);
+  --card-solid: #2e1b0f;
   --card-line: rgba(255, 246, 230, 0.12);
   --scrim: rgba(20, 10, 4, 0.45);
   --honey: #f0b94a;
@@ -59,6 +60,7 @@
   :root {
     --bg: #26170d;
     --card: rgba(28, 17, 9, 0.94);
+    --card-solid: #1f130a;
   }
 }
 
@@ -371,8 +373,22 @@ button {
     opacity 0.3s ease,
     visibility 0s 0.3s;
 }
+/* dialogs stack over menus: solid cards so nothing bleeds through */
 .overlay.dialog-layer {
   z-index: 20;
+}
+.overlay.confirm-layer {
+  z-index: 30;
+}
+.overlay.dialog-layer .card,
+.overlay.confirm-layer .card {
+  background: var(--card-solid);
+}
+.cta.danger {
+  background: linear-gradient(#f3a07c, #d9714d);
+  box-shadow:
+    0 3px 0 #8f3f22,
+    0 10px 20px rgba(0, 0, 0, 0.3);
 }
 .card {
   background: var(--card);

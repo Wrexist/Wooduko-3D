@@ -129,7 +129,7 @@ export class Preview {
     const g = this.ghost;
     if (!g) return;
     g.target.set(WORLD.x0 + c0 + w / 2, WORLD.ghostY, WORLD.z0 + r0 + h / 2);
-    if (g.mesh.material.opacity < 0.04) g.pivot.position.copy(g.target);
+    if (g.mesh.material.opacity < PREVIEW.ghostJumpOpacity) g.pivot.position.copy(g.target);
     g.show = true;
     g.clears = clears;
   }
@@ -166,7 +166,7 @@ export class Preview {
       const m = g.material;
       const tgt = (this.glowTarget[i] ?? 0) * PREVIEW.glowOpacity * pulse;
       m.opacity += (tgt - m.opacity) * a;
-      g.visible = m.opacity > 0.01;
+      g.visible = m.opacity > PREVIEW.hiddenOpacity;
     }
     const gh = this.ghost;
     if (gh) {
@@ -175,8 +175,8 @@ export class Preview {
       mat.opacity += (tgtO - mat.opacity) * damp(gh.show ? PREVIEW.ghostFadeIn : PREVIEW.ghostFadeOut, dt);
       gh.pivot.position.lerp(gh.target, damp(PREVIEW.ghostGlide, dt));
       mat.color.lerp(gh.clears ? this.ghostGold : this.ghostColor, a);
-      gh.pivot.visible = mat.opacity > 0.01;
-      if (gh.dead && mat.opacity < 0.01) this.disposeGhost();
+      gh.pivot.visible = mat.opacity > PREVIEW.hiddenOpacity;
+      if (gh.dead && mat.opacity < PREVIEW.hiddenOpacity) this.disposeGhost();
     }
   }
 

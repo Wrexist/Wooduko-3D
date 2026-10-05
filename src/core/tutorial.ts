@@ -80,21 +80,43 @@ export function tutorialSteps(): TutorialStep[] {
       o.cells.some(([r, c]) => r === 1 && c === 0),
   );
   if (!l3) throw new Error('tutorial l3 missing');
+  // A few blocks off to the side so each step looks like a real board (and is not a board clear).
+  const rowExtras: Cell[] = [
+    [1, 1],
+    [1, 2],
+    [2, 1],
+    [7, 6],
+    [7, 7],
+  ];
+  const colExtras: Cell[] = [
+    [0, 1],
+    [1, 1],
+    [7, 2],
+    [8, 2],
+    [8, 3],
+  ];
+  const boxExtras: Cell[] = [
+    [0, 7],
+    [0, 8],
+    [7, 0],
+    [8, 0],
+    [8, 1],
+  ];
   return [
     step(
       'Drag the block into the gap to fill the row.',
-      rowCells,
+      [...rowCells, ...rowExtras],
       findShape('i2', 2, 1),
       [row, 3],
       TUTORIAL_SEED,
     ),
     step(
       'Columns clear too. Drop it in the column.',
-      colCells,
+      [...colCells, ...colExtras],
       findShape('i3', 1, 3),
       [2, col],
       TUTORIAL_SEED + 10,
     ),
-    step('Fill a 3×3 square to clear it.', boxCells, l3.index, [3, 3], TUTORIAL_SEED + 20),
+    step('Fill a 3×3 square to clear it.', [...boxCells, ...boxExtras], l3.index, [3, 3], TUTORIAL_SEED + 20),
   ];
 }
