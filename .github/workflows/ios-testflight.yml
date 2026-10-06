@@ -1,0 +1,206 @@
+name: iOS TestFlight
+
+# Mac-less release: GitHub's macOS runner builds the web app, wraps it with Capacitor, archives with
+# Xcode automatic (cloud-managed) signing driven by an App Store Connect API key, and uploads the
+# IPA to TestFlight. Same pipeline as Silicon Tech Tycoon / Singularity, tuned for Grain.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   ASC_KEY_ID      App Store Connect API key id. The key MUST have the Admin role: only Admin keys
+#                   can do the cloud-managed distribution signing the export step needs.
+#   ASC_ISSUER_ID   the issuer id (a UUID)
+#   ASC_KEY_P8      the AuthKey_XXXX.p8 text (or its base64)
+# The Apple Team ID is public (ios/ExportOptions.plist) and set as TEAM_ID below.
+#
+# Run it from the Actions tab ("Run workflow") or push a tag like ios-v1.0.0.
+# Before building it runs the same gates as `npm run release-check`, so a build with test ad ids
+# or a missing RevenueCat key can never reach TestFlight.
+on:
+  workflow_dispatch:
+    inputs:
+      marketing_version:
+        description: "App version (e.g. 1.0.0). Default: package.json version"
+        required: false
+        type: string
+      upload:
+        description: "Upload the build to TestFlight (off = just build the IPA artifact)"
+        required: false
+        default: true
+        type: boolean
+  push:
+    tags: ["ios-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+env:
+  TEAM_ID: S3U8B8HH96
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - name: Ship blockers (test ads, RevenueCat key, privacy policy, Info.plist)
+        run: npm run release-check
+
+  testflight:
+    needs: gates
+    runs-on: macos-26 # Xcode 26 / iOS 26 SDK is mandatory for App Store uploads
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Verify required secrets
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=()
+          [ -n "$ASC_KEY_ID" ]    || missing+=("ASC_KEY_ID")
+          [ -n "$ASC_ISSUER_ID" ] || missing+=("ASC_ISSUER_ID")
+          [ -n "$ASC_KEY_P8" ]    || missing+=("ASC_KEY_P8")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Missing secret(s): ${missing[*]} (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Resolve version and build number
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.marketing_version }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          MKT="$INPUT_VERSION"
+          if [ -z "$MKT" ]; then
+            case "$GITHUB_REF" in
+              refs/tags/ios-v*) MKT="${GITHUB_REF_NAME#ios-v}" ;;
+              *) MKT="$(node -p "require('./package.json').version")" ;;
+            esac
+          fi
+          # dotted numeric only: App Store Connect rejects anything else at the very end of the build
+          if ! printf '%s' "$MKT" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}$'; then
+            echo "::error::Version must look like 1.0 or 1.0.1. Got '$MKT'."
+            exit 1
+          fi
+          echo "MARKETING_VERSION=$MKT" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$RUN_NUMBER" >> "$GITHUB_ENV"
+          echo "Shipping $MKT (build $RUN_NUMBER)"
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor and apply Grain's native setup
+        # copies dist/ → ios/App/App/public, then Swift plugin, entitlements, Info.plist keys,
+        # privacy manifest, icon and launch images (idempotent)
+        run: |
+          npx cap sync ios
+          node scripts/ios-setup.mjs
+
+      - name: Check Xcode
+        run: |
+          xcodebuild -version
+          SDK_MAJOR=$(xcrun --sdk iphoneos --show-sdk-version | cut -d. -f1)
+          test "$SDK_MAJOR" -ge 26 || { echo "::error::iOS SDK 26 or later required"; exit 1; }
+
+      - name: Install App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/private_keys"
+          KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s' "$ASC_KEY_P8" | tr -d '\r' > "$KEY_PATH.in"
+          if grep -q "BEGIN PRIVATE KEY" "$KEY_PATH.in"; then
+            mv "$KEY_PATH.in" "$KEY_PATH"
+          else
+            tr -d ' \t\r\n' < "$KEY_PATH.in" | openssl base64 -d -A > "$KEY_PATH"
+            rm -f "$KEY_PATH.in"
+          fi
+          grep -q "BEGIN PRIVATE KEY" "$KEY_PATH" || { echo "::error::ASC_KEY_P8 is not a valid .p8 key"; exit 1; }
+          chmod 600 "$KEY_PATH"
+          echo "API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$API_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            clean archive
+
+      - name: Export IPA
+        id: export_ipa
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$API_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Upload to TestFlight
+        # tag pushes always upload; manual runs can switch it off
+        if: github.event_name == 'push' || github.event.inputs.upload != 'false'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          IPA="$(ls "$RUNNER_TEMP"/export/*.ipa | head -n1)"
+          [ -n "$IPA" ] || { echo "::error::No .ipa produced by export."; exit 1; }
+          xcrun altool --upload-app --type ios --file "$IPA" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Upload IPA artifact
+        if: always() && steps.export_ipa.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: grain-ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Clean up API key
+        if: always()
+        run: rm -f "$HOME"/private_keys/AuthKey_*.p8
