@@ -864,7 +864,7 @@ export const ADS = {
 
 export const PURCHASES = {
   /** RevenueCat public iOS SDK key (appl_…). Empty = purchases unavailable. */
-  revenueCatKey: '',
+  revenueCatKey: 'appl_PgaDZBBRgqNxhFJoyblbOBUOdvW',
   entitlement: 'no_ads',
   productId: 'grain_remove_ads',
   /** Cached ownership, so Remove ads works offline. */
