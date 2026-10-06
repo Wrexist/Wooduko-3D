@@ -1,7 +1,7 @@
 // App Store screenshots from the real game (needs `npm run dev` running).
 // Usage: node scripts/store-shots.mjs [url]
 // Writes store/<lang>/<device>-<n>.png at Apple's sizes (opaque RGB):
-//   iphone69 1320×2868 · iphone65 1242×2688 · ipad13 2064×2752
+//   iphone69 1320×2868 · iphone63 1206×2622 · iphone65 1242×2688 · ipad13 2064×2752
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { pngToRgb } from './png-rgb.mjs';
@@ -9,6 +9,7 @@ import { pngToRgb } from './png-rgb.mjs';
 const url = process.argv[2] ?? 'http://localhost:5173/';
 const DEVICES = {
   iphone69: { size: [1320, 2868], game: [390, 760], scale: 3 },
+  iphone63: { size: [1206, 2622], game: [390, 760], scale: 3 },
   iphone65: { size: [1242, 2688], game: [390, 760], scale: 3 },
   ipad13: { size: [2064, 2752], game: [860, 1000], scale: 2 },
 };
@@ -17,14 +18,14 @@ const CAPTIONS = {
     'Satisfying clears',
     'See every clear before you drop',
     'Chain combos, clear the board',
-    'Unlock six woods',
+    'Unlock eight woods',
     'Calm. Offline. No timers.',
   ],
   sv: [
     'Rensningar som känns',
     'Se rensningen innan du släpper',
     'Bygg kombos, töm brädan',
-    'Lås upp sex träslag',
+    'Lås upp åtta träslag',
     'Lugnt. Offline. Ingen stress.',
   ],
 };
