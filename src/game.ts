@@ -7,6 +7,8 @@ import {
   HAPTICS,
   LADDER,
   CAMERA_VIEW_ORDER,
+  JOURNEY,
+  JOURNEY_FX,
   MODES,
   PROGRESS,
   UPSELL,
@@ -39,6 +41,9 @@ import { canRevive, shouldShowInterstitial } from './core/revive';
 import { shouldOfferRemoveAds } from './core/upsell';
 import type { OfferTrigger } from './core/upsell';
 import { RemoveAdsOffer } from './ui/offer';
+import { GOAL_ICON, goalLabel, JourneyMap } from './ui/journey';
+import { LevelDecor } from './render/levelDecor';
+import { goalProgress, levelSpec, unlockedLevel } from './core/journey';
 import { nextReminder, reminderIndex, shouldAskReview, shouldOfferReminder } from './core/retention';
 import { num, t } from './i18n';
 import type { Key } from './i18n';
@@ -106,6 +111,14 @@ export class Game {
   private readonly safeProbe = el('div', { 'aria-hidden': 'true' });
   private readonly home: HomeMenu;
   private readonly questsPanel = new QuestsPanel(() => this.questsPanel.hide());
+  private readonly journeyMap = new JourneyMap({
+    onPlay: (n) => {
+      this.journeyMap.hide();
+      this.store.getState().playLevel(n);
+    },
+    onClose: () => this.journeyMap.hide(),
+  });
+  private levelDecor!: LevelDecor;
   private readonly offer = new RemoveAdsOffer({
     onBuy: () => this.buyRemoveAds(),
     onRestore: async () => {
@@ -171,6 +184,7 @@ export class Game {
     this.sparkles = new Sparkles(scene, this.tex);
     this.comboGlow = new ComboGlow(scene);
     this.chips = new Chips(scene, this.tex);
+    this.levelDecor = new LevelDecor(scene, this.tweens, this.sparkles);
     this.fx = new Effects({
       scene,
       camera,
@@ -200,6 +214,7 @@ export class Game {
       onDaily: () => this.store.getState().play('daily'),
       onZen: () => this.store.getState().play('zen'),
       onBlitz: () => this.store.getState().play('blitz'),
+      onJourney: () => this.openJourney(),
       onQuests: () => {
         this.refreshHome(this.store.getState());
         this.questsPanel.show();
@@ -239,7 +254,11 @@ export class Game {
     this.results = new ResultsCard({
       onAgain: () => void this.newGameAfterAd(),
       onRevive: () => void this.tryRevive(),
-      onHome: () => this.store.getState().goHome(),
+      onHome: () => {
+        const journey = this.store.getState().mode === 'journey';
+        this.store.getState().goHome();
+        if (journey) this.openJourney();
+      },
       onShare: () => void this.shareDaily(),
       onRemoveAds: () => void this.presentOffer(false),
     });
@@ -263,6 +282,7 @@ export class Game {
       this.settingsPanel.node,
       this.awards.node,
       this.questsPanel.node,
+      this.journeyMap.node,
       this.offer.node,
       this.confirm.node,
       this.safeProbe,
@@ -417,6 +437,13 @@ export class Game {
     this.bestCelebrated = s.game.score > 0 && s.game.score >= s.best;
     this.results.hide();
     this.fx.shake = 0;
+    // Journey decor first: crate stain is applied as the board's groups are built
+    this.world.crates.clear();
+    if (s.mode === 'journey' && s.run && !s.tutorial) {
+      for (const k of s.run.crates) this.world.crates.add(k);
+      this.levelDecor.setGems(s.run.gems);
+      this.levelDecor.setCrates(s.run.crates);
+    } else this.levelDecor.clear();
     this.world.syncAll(s.game.board, s.game.tray, s.fits);
     if (deal) {
       this.world.dealIn(this.tweens);
@@ -440,6 +467,17 @@ export class Game {
 
   /** Mode info in the HUD: Blitz clock, Daily goal, Zen label. */
   private refreshHudInfo(s: StoreState): void {
+    this.hud.setGoals(s.mode === 'journey' && s.run && !s.tutorial ? this.goalPills(s) : null);
+    if (s.mode === 'journey' && s.run && !s.tutorial) {
+      const left = s.run.movesLeft;
+      return this.hud.setInfo({
+        best: false,
+        chip: String(left),
+        icon: ICONS.moves,
+        urgent: left <= 3 && s.outcome === 'playing',
+        label: t('journey.movesLeft', { n: left }),
+      });
+    }
     if (s.tutorial || s.mode === 'classic') return this.hud.setInfo({ best: true, chip: null });
     if (s.mode === 'zen') return this.hud.setInfo({ best: false, chip: t('mode.zen'), icon: ICONS.leaf });
     if (s.mode === 'blitz') {
@@ -458,6 +496,28 @@ export class Game {
       icon: s.daily.done ? ICONS.check : ICONS.calendar,
       done: s.daily.done,
     });
+  }
+
+  /** Journey goal pills for the HUD. */
+  private goalPills(s: StoreState): { icon: string; text: string; done: boolean; label: string }[] {
+    if (!s.run) return [];
+    const spec = levelSpec(s.run.n);
+    return goalProgress(spec, s.run, s.game.score).map((g, i) => {
+      const goal = spec.goals[i] ?? { kind: g.kind, target: g.target };
+      const text = g.kind === 'score' ? `${num(g.current)}/${num(g.target)}` : `${g.current}/${g.target}`;
+      return {
+        icon: GOAL_ICON[g.kind],
+        text,
+        done: g.done,
+        label: t('goal.progress', { label: goalLabel(goal), current: g.current, target: g.target }),
+      };
+    });
+  }
+
+  private openJourney(): void {
+    this.journeyMap.update(this.store.getState().journey);
+    this.journeyMap.openMap();
+    this.sound.tick();
   }
 
   private homeView(s: StoreState): HomeView {
@@ -480,6 +540,8 @@ export class Game {
       })),
       questsDone: s.quests.done,
       questStreak: streakAlive(s.questStreak, s.today) ? s.questStreak.count : 0,
+      journeyLevel: unlockedLevel(s.journey),
+      journeyStars: s.journey.stars.reduce((a, b) => a + b, 0),
     };
   }
 
@@ -704,7 +766,12 @@ export class Game {
   /** What the results card can offer: a free revive (Remove ads), one for a rewarded ad, or none. */
   private reviveOffer(): 'ad' | 'free' | null {
     const s = this.store.getState();
-    if (s.tutorial || s.mode !== 'classic' || !canRevive(s.game)) return null;
+    if (s.tutorial) return null;
+    if (s.mode === 'journey') {
+      const more = s.outcome === 'outOfMoves' && (s.run?.extras ?? 0) < JOURNEY.maxExtras;
+      const room = s.outcome === 'noRoom' && canRevive(s.game);
+      if (!more && !room) return null;
+    } else if (s.mode !== 'classic' || !canRevive(s.game)) return null;
     if (s.removeAds) return 'free';
     return this.money.ads.rewardedReady() ? 'ad' : null;
   }
@@ -731,7 +798,20 @@ export class Game {
         this.results.setBusy(false);
       }
     }
-    this.store.getState().revive();
+    const st = this.store.getState();
+    if (st.mode === 'journey' && st.outcome === 'outOfMoves') {
+      if (st.extraMoves()) this.onMoreMoves();
+      return;
+    }
+    st.revive();
+  }
+
+  /** +5 moves: the board comes back to life (blocks un-dim) and play goes on. */
+  private onMoreMoves(): void {
+    this.syncFromStore(false);
+    const a = this.world.toScreen(...FX.toastAnchor, this.width, this.height);
+    this.toast.show(t('journey.moreMovesFree'), '', a.y, 3);
+    this.sound.newBest();
   }
 
   /** Board rebuilt after a revive: show the cleared square as a sweep and celebrate a little. */
@@ -773,7 +853,13 @@ export class Game {
       await this.presentOffer();
       this.results.setBusy(false);
     }
-    this.store.getState().startNew();
+    const cur = this.store.getState();
+    if (cur.mode === 'journey' && cur.run && cur.outcome === 'won') {
+      if (cur.run.n >= JOURNEY.levels) {
+        cur.goHome();
+        this.openJourney();
+      } else cur.playLevel(cur.run.n + 1);
+    } else this.store.getState().startNew();
     // after startNew (which counts the game that just ended), so pacing restarts from zero
     if (shown) this.store.getState().noteInterstitial();
     await this.maybeStartAds();
@@ -912,8 +998,21 @@ export class Game {
       this.later(TRAY.dealSoundDelay, () => this.sound.deal());
     }
     this.world.setFits(s.fits);
+    if (before.mode === 'journey' && before.run && s.run && !tutorial) {
+      const gone = before.run.gems.filter((k) => !s.run?.gems.includes(k));
+      if (gone.length) {
+        this.levelDecor.collect(gone, JOURNEY_FX.gemDelay);
+        this.later(JOURNEY_FX.gemDelay + JOURNEY_FX.gemFly, () => this.sound.gem());
+        const gi = levelSpec(s.run.n).goals.findIndex((g) => g.kind === 'gems');
+        if (gi >= 0) this.later(JOURNEY_FX.gemDelay + JOURNEY_FX.gemFly, () => this.hud.kickGoal(gi));
+      }
+      this.levelDecor.setCrates(s.run.crates);
+      const ci = levelSpec(s.run.n).goals.findIndex((g) => g.kind === 'crates');
+      if (ci >= 0 && s.run.crates.length < before.run.crates.length) this.hud.kickGoal(ci);
+      this.refreshHudInfo(s);
+    }
     if (s.zenStuck) this.zenStuck();
-    else if (s.game.over) this.gameOver();
+    else if (s.phase === 'over') this.gameOver();
   }
 
   /** Zen: no room left. Hold the board a moment, then the fullest square clears (store → onRevived). */
@@ -999,12 +1098,14 @@ export class Game {
     this.ending = true;
     this.drag.cancel();
     this.hud.combo.set(0);
-    for (const [id, mesh] of this.world.groups) this.dimGroup(id, mesh);
-    this.later(FX.overCardDelay, () => {
+    const won = this.store.getState().outcome === 'won';
+    if (won) this.celebrateLevel();
+    else for (const [id, mesh] of this.world.groups) this.dimGroup(id, mesh);
+    this.later(won ? FX.overCardDelay * 1.6 : FX.overCardDelay, () => {
       const s = this.store.getState();
       if (s.mode === 'blitz' && s.timeLeft <= 0) this.sound.timeUp();
-      else this.sound.gameOver();
-      this.results.setRevive(this.reviveOffer());
+      else if (!won) this.sound.gameOver();
+      this.results.setRevive(this.reviveOffer(), this.reviveLabels(s));
       this.results.setRemoveAds(this.adsStarted && !s.removeAds && this.money.purchases.available());
       this.results.present(s.game.score, modeBest(s), s.newBest, this.tweens, this.resultsInfo(s));
       if (s.mode !== 'classic') return;
@@ -1024,7 +1125,61 @@ export class Game {
     });
   }
 
+  /** A won Journey level: sparkles across the board, a fanfare and the moves bonus. */
+  private celebrateLevel(): void {
+    const s = this.store.getState();
+    this.sound.boardClear();
+    this.later(0.25, () => this.sound.newBest());
+    this.haptics.pulse(HAPTICS.newBest);
+    if (!this.reduced)
+      for (let i = 0; i < 14; i++)
+        this.later(i * 0.06, () =>
+          this.sparkles.emit(
+            WORLD.x0 + 0.5 + Math.random() * 8,
+            WORLD.topY + 0.2,
+            WORLD.z0 + 0.5 + Math.random() * 8,
+            1.6,
+            0,
+            0,
+            0,
+          ),
+        );
+    const a = this.world.toScreen(...FX.toastAnchor, this.width, this.height);
+    const sub = s.runBonus > 0 ? t('journey.bonus', { n: num(s.runBonus) }) : '';
+    this.toast.show(t('journey.won', { n: s.run?.n ?? 1 }), sub, a.y, 4);
+    this.hud.setScore(s.game.score);
+  }
+
+  /** The second-chance button's wording for the current mode. */
+  private reviveLabels(s: StoreState): { ad: string; free: string } | undefined {
+    if (s.mode === 'journey' && s.outcome === 'outOfMoves')
+      return { ad: t('journey.moreMoves'), free: t('journey.moreMovesFree') };
+    return undefined;
+  }
+
   private resultsInfo(s: StoreState): ResultsInfo | undefined {
+    if (s.mode === 'journey' && s.run) {
+      const n = s.run.n;
+      if (s.outcome === 'won')
+        return {
+          title: t('journey.won', { n }),
+          stars: s.runStars,
+          line: s.runBonus > 0 ? t('journey.bonus', { n: num(s.runBonus) }) : undefined,
+          good: true,
+          againLabel: n < JOURNEY.levels ? t('journey.next') : t('journey.map'),
+          homeLabel: t('journey.map'),
+        } as ResultsInfo;
+      const left = goalProgress(levelSpec(n), s.run, s.game.score)
+        .map((g) => `${g.current}/${g.target}`)
+        .join(' · ');
+      return {
+        title: s.outcome === 'outOfMoves' ? t('journey.outOfMoves') : t('journey.noRoom'),
+        stars: 0,
+        line: left,
+        againLabel: t('journey.retry'),
+        homeLabel: t('journey.map'),
+      };
+    }
     if (s.mode === 'blitz') return { title: s.timeLeft <= 0 ? t('results.timeUp') : t('results.title') };
     if (s.mode !== 'daily') return undefined;
     return {
@@ -1276,6 +1431,7 @@ export class Game {
     if (!this.ending && !this.confirm.open && !this.drag.dropping && this.freeze <= 0)
       this.store.getState().tick(dt);
     this.chips.update(fxDt);
+    this.levelDecor.update(this.time);
     this.updateHints();
     this.preview.update(dt, this.time);
     this.hud.update(dt);
@@ -1337,6 +1493,7 @@ export class Game {
     this.drag.dispose();
     this.sound.dispose();
     this.preview.dispose();
+    this.levelDecor.dispose();
     this.sparkles.dispose();
     this.chips.dispose();
     this.comboGlow.dispose();

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAMERA, CAMERA_VIEWS, RENDER, TRAY, WORLD } from '../config';
+import { BOARD, CAMERA, CAMERA_VIEWS, COLORS, RENDER, TRAY, WORLD } from '../config';
 import type { CameraView, LayoutSpec } from '../config';
 import { getShape, shapeCenter } from '../core/shapes';
 import type { BoardState, Group, Piece, Shape, Tray, UvCenter } from '../core/types';
@@ -38,6 +38,8 @@ export class World {
   layout: LayoutSpec;
   readonly groups = new Map<number, BlockMesh>();
   readonly tray: (TrayPiece | null)[] = [null, null, null];
+  /** Journey: board keys (r·9+c) holding crates. A one-cell group there is drawn as a crate. */
+  readonly crates = new Set<number>();
   private readonly table: Table;
   private readonly disposeLights: () => void;
   private readonly tmp = new THREE.Vector3();
@@ -118,6 +120,12 @@ export class World {
   addGroup(g: Group): BlockMesh {
     this.removeGroup(g.id);
     const m = this.blocks.make(g.cells, g.center, g.seed);
+    const only = g.cells.length === 1 ? g.cells[0] : undefined;
+    if (only && this.crates.has(only[0] * BOARD.size + only[1]))
+      for (const mat of m.material) {
+        const [r, gg, b] = COLORS.crateStain;
+        mat.color.multiply(new THREE.Color(r, gg, b));
+      }
     m.position.set(WORLD.x0, WORLD.baseY, WORLD.z0);
     this.scene.add(m);
     this.groups.set(g.id, m);

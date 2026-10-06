@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla';
-import { MODES, PROGRESS, PURCHASES, RETENTION, SAVE, themeById, TUTORIAL_KEY } from '../config';
+import { JOURNEY, MODES, PROGRESS, PURCHASES, RETENTION, SAVE, themeById, TUTORIAL_KEY } from '../config';
 import type { Mode } from '../config';
 import {
   dailyGoal,
@@ -31,6 +31,20 @@ import {
 import type { AchievementId, Stats, Unlocked } from '../core/progress';
 import { newGame, normalizeLoaded, playMove, trayFits } from '../core/rules';
 import type { MoveResult } from '../core/rules';
+import {
+  addMoves,
+  applyRunMove,
+  emptyJourney,
+  levelGame,
+  levelSpec,
+  movesBonus,
+  parseJourney,
+  recordWin,
+  runOutcome,
+  starsFor,
+  startRun,
+} from '../core/journey';
+import type { JourneyProgress, LevelRun, RunOutcome } from '../core/journey';
 import { parseBest, parseSave, parseSettings, serializeSave } from '../core/save';
 import type { GameState, Settings } from '../core/types';
 import type { KeyValueStore } from '../platform/storage';
@@ -38,9 +52,9 @@ import type { KeyValueStore } from '../platform/storage';
 export type Phase = 'home' | 'playing' | 'paused' | 'over';
 
 /** Modes whose game survives closing the app. Blitz is one short sitting. */
-export type SaveMode = Exclude<Mode, 'blitz'>;
+export type SaveMode = Exclude<Mode, 'blitz' | 'journey'>;
 const SAVE_MODES: readonly SaveMode[] = ['classic', 'zen', 'daily'];
-const isSaveMode = (m: Mode): m is SaveMode => m !== 'blitz';
+const isSaveMode = (m: Mode): m is SaveMode => m !== 'blitz' && m !== 'journey';
 
 export interface StoreState {
   readonly phase: Phase;
@@ -93,6 +107,15 @@ export interface StoreState {
   readonly questStreak: Streak;
   /** Increments when every quest of the day is done. */
   readonly questSeq: number;
+  /** Journey: best stars per level. */
+  readonly journey: JourneyProgress;
+  /** Journey: the level being played (null outside Journey). */
+  readonly run: LevelRun | null;
+  /** Journey: how the attempt ended ('playing' while it runs). */
+  readonly outcome: RunOutcome;
+  /** Journey: stars earned and the moves-left bonus of a won level. */
+  readonly runStars: number;
+  readonly runBonus: number;
 }
 
 export interface StoreActions {
@@ -124,8 +147,12 @@ export interface StoreActions {
   /** The app came back after a long break: counts as a new session. */
   noteSession(): void;
   setRemoveAds(on: boolean): void;
-  /** Second chance after game over (Classic, once per game). Returns false if not allowed. */
+  /** Second chance after game over (Classic and Journey, once per game). Returns false if not allowed. */
   revive(): boolean;
+  /** Journey: start level `n` (fresh attempt). */
+  playLevel(n: number): void;
+  /** Journey: out of moves → +5 moves and play on. Returns false if not allowed. */
+  extraMoves(): boolean;
   /** An interstitial was shown: reset the pacing. */
   noteInterstitial(): void;
   /** The Remove-ads offer was shown (for its pacing). */
@@ -162,6 +189,7 @@ export interface Persisted {
   dailyStreak: Streak;
   quests: QuestDay | null;
   questStreak: Streak;
+  journey: JourneyProgress;
 }
 
 /** Load a saved game; corrupt or finished saves are removed (never show a broken board). */
@@ -191,6 +219,7 @@ export async function loadPersisted(deps: StoreDeps, today = dateKey(new Date())
     MODES.dailyKey,
     MODES.blitzBestKey,
     MODES.questsKey,
+    JOURNEY.progressKey,
   ] as const;
   const [
     bestRaw,
@@ -207,6 +236,7 @@ export async function loadPersisted(deps: StoreDeps, today = dateKey(new Date())
     dailyRaw,
     blitzRaw,
     questsRaw,
+    journeyRaw,
   ] = await Promise.all(keys.map((k) => storage.get(k)));
   const usable = await loadGame(storage, SAVE.gameKey, saveRaw ?? null, deps.randomSeed());
   const zenSaved = await loadGame(storage, MODES.saveKeys.zen, zenRaw ?? null, deps.randomSeed());
@@ -252,6 +282,7 @@ export async function loadPersisted(deps: StoreDeps, today = dateKey(new Date())
     daily: record,
     dailyStreak: streak,
     quests: questDay,
+    journey: parseJourney(journeyRaw ?? null),
     questStreak,
   };
 }
@@ -386,10 +417,19 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
         saveMeta(meta);
       }
     };
-    const freshGame = (mode: Mode): GameState =>
-      newGame(mode === 'daily' ? dailySeed(get().today) : deps.randomSeed());
+    /** Journey level being played (the next attempt of `startNew` replays it). */
+    let levelN = 1;
+    const freshGame = (mode: Mode): GameState => {
+      if (mode === 'journey') {
+        const spec = levelSpec(levelN);
+        set({ run: startRun(spec), outcome: 'playing', runStars: 0, runBonus: 0 });
+        return levelGame(spec, deps.randomSeed());
+      }
+      return newGame(mode === 'daily' ? dailySeed(get().today) : deps.randomSeed());
+    };
     const enterGame = (mode: Mode, game: GameState): void => {
       current = game;
+      if (mode !== 'journey') set({ run: null, outcome: 'playing' });
       pendingRescue = null;
       clock = mode === 'blitz' ? MODES.blitzSeconds : 0;
       if (mode === 'daily') dailyDate = get().today;
@@ -453,6 +493,11 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
       quests: questDayFor(initial.quests, today0),
       questStreak: initial.questStreak,
       questSeq: 0,
+      journey: initial.journey,
+      run: null,
+      outcome: 'playing',
+      runStars: 0,
+      runBonus: 0,
 
       setRemoveAds: (on) => {
         set({ removeAds: on });
@@ -461,7 +506,8 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
 
       revive: () => {
         const s = get();
-        if (s.tutorial || s.mode !== 'classic' || s.phase !== 'over' || !canRevive(s.game)) return false;
+        const allowed = s.mode === 'classic' || (s.mode === 'journey' && s.outcome === 'noRoom');
+        if (s.tutorial || !allowed || s.phase !== 'over' || !canRevive(s.game)) return false;
         const { state: game, cleared } = reviveGame(s.game);
         current = game;
         // the game didn't end after all: it is counted again when it really ends
@@ -469,6 +515,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
         set((x) => ({
           game,
           phase: 'playing',
+          outcome: 'playing',
           fits: trayFits(game.board, game.tray),
           stats,
           lastMove: null,
@@ -476,7 +523,27 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
           reviveSeq: x.reviveSeq + 1,
         }));
         saveProgress(stats, get().unlocked);
-        storeGame('classic', game);
+        storeGame(s.mode, game);
+        return true;
+      },
+
+      playLevel: (n) => {
+        rollDay(true);
+        const s = get();
+        if (s.mode === 'blitz' && current && !current.over) abandon(current, 'blitz');
+        if (s.mode === 'journey' && s.phase !== 'over') abandon(current, 'journey');
+        levelN = Math.max(1, Math.min(JOURNEY.levels, n));
+        enterGame('journey', freshGame('journey'));
+      },
+
+      extraMoves: () => {
+        const s = get();
+        if (s.mode !== 'journey' || s.phase !== 'over' || s.outcome !== 'outOfMoves' || !s.run) return false;
+        if (s.run.extras >= JOURNEY.maxExtras) return false;
+        // the attempt didn't end after all: it is counted again when it really ends
+        const stats = statsRevived(s.stats, s.game.score);
+        set({ run: addMoves(s.run), phase: 'playing', outcome: 'playing', stats });
+        saveProgress(stats, get().unlocked);
         return true;
       },
 
@@ -614,7 +681,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
           pendingRescue = zenRescue(game);
           current = pendingRescue.state;
         }
-        const over = game.over && !stuck;
+        let over = game.over && !stuck;
         const patch: { -readonly [K in keyof StoreState]?: StoreState[K] } = {
           game,
           fits: trayFits(game.board, game.tray),
@@ -649,12 +716,31 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
             saveDaily(daily, dailyStreak);
           }
         }
+        let finalGame = game;
+        if (mode === 'journey' && s.run) {
+          const run = applyRunMove(s.run, move);
+          const spec = levelSpec(run.n);
+          const outcome = runOutcome(spec, run, game);
+          Object.assign(patch, { run, outcome });
+          if (outcome === 'won') {
+            // moves left over turn into points, then stars
+            const bonus = movesBonus(run.movesLeft);
+            finalGame = { ...game, score: game.score + bonus, over: true };
+            current = finalGame;
+            const stars = starsFor(spec, finalGame.score);
+            const journey = recordWin(s.journey, run.n, stars);
+            Object.assign(patch, { game: finalGame, runStars: stars, runBonus: bonus, journey });
+            persist(() => storage.set(JOURNEY.progressKey, JSON.stringify(journey)));
+          }
+          over = outcome !== 'playing';
+          patch.phase = over ? 'over' : 'playing';
+        }
         set(patch);
         storeGame(mode, stuck ? (pendingRescue?.state ?? null) : game);
         let stats = statsFor(s.stats, mode, move, null);
         stats = quest({ mode, move, gameScore: game.score, dailyDone: goalNow }, stats);
-        if (over) stats = finish(mode, game, stats);
-        progress(stats, mode === 'zen' ? 0 : game.score);
+        if (over) stats = finish(mode, finalGame, stats);
+        progress(stats, mode === 'zen' ? 0 : finalGame.score);
         return move;
       },
 
@@ -708,6 +794,9 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
           dailyStreak: parseStreak(null),
           quests: questDayFor(null, today),
           questStreak: parseStreak(null),
+          journey: emptyJourney(),
+          run: null,
+          outcome: 'playing',
         }));
         persist(async () => {
           for (const key of [
@@ -720,6 +809,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
             MODES.dailyKey,
             MODES.blitzBestKey,
             MODES.questsKey,
+            JOURNEY.progressKey,
           ])
             await storage.remove(key);
           await storage.set(SAVE.settingsKey, JSON.stringify(settings));

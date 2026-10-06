@@ -12,6 +12,13 @@ export interface ResultsInfo {
   /** The line is good news (gold, animated). */
   readonly good?: boolean;
   readonly share?: boolean;
+  /** Journey: stars earned (0 = attempt lost, shown greyed). */
+  readonly stars?: number;
+  /** Relabel the main buttons (Journey: Next level / Try again, Map). */
+  readonly againLabel?: string;
+  readonly homeLabel?: string;
+  /** Relabel the second-chance button (Journey: +5 moves). */
+  readonly reviveLabels?: { readonly ad: string; readonly free: string };
 }
 
 /** Full-screen scrim with a centred card. */
@@ -116,6 +123,10 @@ export class ResultsCard extends Overlay {
   private readonly share = el('button', { class: 'ghost-btn share', hidden: '' });
   private readonly noAds = el('button', { class: 'link-btn no-ads', hidden: '' });
   private readonly note = el('p', { class: 'note', 'aria-live': 'polite' });
+  private readonly stars = el('div', { class: 'result-stars', hidden: '' });
+  private readonly again = el('button', { class: 'cta' }, [t('results.again')]);
+  private readonly home = el('button', { class: 'ghost-btn' }, [t('results.home')]);
+  private reviveLabels = { ad: t('results.reviveAd'), free: t('results.reviveFree') };
 
   constructor(handlers: {
     onAgain(): void;
@@ -125,10 +136,10 @@ export class ResultsCard extends Overlay {
     onRemoveAds(): void;
   }) {
     super('results', 'overTitle');
-    const again = el('button', { class: 'cta' }, [t('results.again')]);
-    const home = el('button', { class: 'ghost-btn' }, [t('results.home')]);
+    const { again, home } = this;
     again.addEventListener('click', handlers.onAgain);
     home.addEventListener('click', handlers.onHome);
+    for (let i = 0; i < 3; i++) this.stars.append(el('i', { html: ICONS.star }));
     this.revive.addEventListener('click', handlers.onRevive);
     this.share.innerHTML = ICONS.share;
     this.share.append(t('results.share'));
@@ -138,6 +149,7 @@ export class ResultsCard extends Overlay {
     this.noAds.addEventListener('click', handlers.onRemoveAds);
     this.card.append(
       this.title,
+      this.stars,
       this.finalEl,
       this.bestEl,
       el('div', { class: 'stack' }, [this.revive, again, this.share, home]),
@@ -157,10 +169,11 @@ export class ResultsCard extends Overlay {
   }
 
   /** Second-chance button: 'ad' = watch a rewarded ad, 'free' = owns Remove ads, null = hidden. */
-  setRevive(offer: 'ad' | 'free' | null): void {
+  setRevive(offer: 'ad' | 'free' | null, labels?: { ad: string; free: string }): void {
+    this.reviveLabels = labels ?? { ad: t('results.reviveAd'), free: t('results.reviveFree') };
     this.revive.hidden = offer === null;
     this.revive.disabled = false;
-    this.revive.textContent = offer === 'free' ? t('results.reviveFree') : t('results.reviveAd');
+    this.revive.textContent = offer === 'free' ? this.reviveLabels.free : this.reviveLabels.ad;
     // the revive button is the hero action when offered; Play again steps back
     const again = this.revive.nextElementSibling;
     if (again) again.className = offer ? 'ghost-btn' : 'cta';
@@ -174,6 +187,15 @@ export class ResultsCard extends Overlay {
   present(score: number, best: number, newBest: boolean, tweens: Tweens, info?: ResultsInfo): void {
     this.finalEl.textContent = '0';
     this.title.textContent = info?.title ?? t('results.title');
+    this.again.textContent = info?.againLabel ?? t('results.again');
+    this.home.textContent = info?.homeLabel ?? t('results.home');
+    this.stars.hidden = info?.stars === undefined;
+    const earned = info?.stars ?? 0;
+    [...this.stars.children].forEach((s, i) => {
+      s.className = i < earned ? 'on' : '';
+      (s as HTMLElement).style.animationDelay = `${0.35 + i * 0.28}s`;
+    });
+    this.stars.setAttribute('aria-label', t('journey.stars', { n: earned }));
     this.share.hidden = info?.share !== true;
     this.note.textContent = '';
     const good = info?.line !== undefined ? info.good === true : newBest && score > 0;

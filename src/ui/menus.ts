@@ -26,6 +26,8 @@ export interface HomeView {
   readonly quests: readonly QuestView[];
   readonly questsDone: boolean;
   readonly questStreak: number;
+  readonly journeyLevel: number;
+  readonly journeyStars: number;
 }
 
 /** Quest rows with progress bars. */
@@ -72,6 +74,9 @@ export class HomeMenu extends Overlay {
   private readonly dailyStreak = el('span', { class: 'streak', hidden: '' });
   private readonly blitzSub = el('small', {}, [t('mode.blitzDesc')]);
   private readonly questsBtn = el('button', { class: 'ghost-btn quests-btn' });
+  private readonly journeyBtn = el('button', { class: 'journey-btn' });
+  private readonly journeyText = el('strong');
+  private readonly journeyStars = el('span', { class: 'jstars' });
   private readonly questsCount = el('span', { class: 'count' });
 
   /** Soft ask for the daily reminder (shown once, after a few sessions, native only). */
@@ -83,6 +88,7 @@ export class HomeMenu extends Overlay {
     onDaily(): void;
     onZen(): void;
     onBlitz(): void;
+    onJourney(): void;
     onQuests(): void;
     onSettings(): void;
     onAwards(): void;
@@ -106,6 +112,12 @@ export class HomeMenu extends Overlay {
     settings.addEventListener('click', h.onSettings);
     this.cont.addEventListener('click', h.onContinue);
     this.play.addEventListener('click', h.onPlay);
+    this.journeyBtn.append(
+      el('span', { class: 'icon', html: ICONS.map }),
+      this.journeyText,
+      this.journeyStars,
+    );
+    this.journeyBtn.addEventListener('click', h.onJourney);
     this.questsBtn.innerHTML = ICONS.list;
     this.questsBtn.append(el('span', {}, [t('quests.short')]), this.questsCount);
     this.questsBtn.addEventListener('click', h.onQuests);
@@ -123,6 +135,7 @@ export class HomeMenu extends Overlay {
       el('div', { class: 'stack' }, [
         this.cont,
         this.play,
+        this.journeyBtn,
         el('div', { class: 'tiles' }, [this.daily, zen, blitz]),
         el('div', { class: 'tools' }, [this.questsBtn, awards, settings]),
       ]),
@@ -164,6 +177,13 @@ export class HomeMenu extends Overlay {
     const done = v.quests.filter((q) => q.progress >= q.target).length;
     this.questsCount.textContent = `${done}/${v.quests.length}`;
     this.questsBtn.classList.toggle('done', v.questsDone);
+    this.journeyText.textContent = t('journey.home', { n: v.journeyLevel });
+    this.journeyStars.innerHTML = ICONS.star;
+    this.journeyStars.append(num(v.journeyStars));
+    this.journeyBtn.setAttribute(
+      'aria-label',
+      `${t('journey.home', { n: v.journeyLevel })}, ${t('journey.stars', { n: v.journeyStars })}`,
+    );
     this.questsBtn.setAttribute(
       'aria-label',
       `${t('quests.title')} ${t('quest.progress', { n: done, total: v.quests.length })}`,

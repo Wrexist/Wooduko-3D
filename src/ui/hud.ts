@@ -20,6 +20,8 @@ export class Hud {
   private readonly bestEl: HTMLDivElement;
   /** Mode info next to the best: Blitz clock, Daily goal, "Zen". */
   private readonly chip = el('span', { class: 'chip', hidden: '' });
+  /** Journey goals: one pill per goal (icon + progress). */
+  private readonly goals = el('div', { class: 'goals', hidden: '' });
   private target = 0;
   private shown = 0;
 
@@ -45,6 +47,7 @@ export class Hud {
       el('div', { class: 'scorebox' }, [
         el('div', { class: 'topline' }, [best, this.chip]),
         this.scoreEl,
+        this.goals,
         this.combo.node,
       ]),
       el('div', { class: 'side right' }, [camera, this.soundBtn]),
@@ -137,6 +140,26 @@ export class Hud {
     this.chip.classList.toggle('done', o.done === true);
     if (o.label) this.chip.setAttribute('aria-label', o.label);
     else this.chip.removeAttribute('aria-label');
+  }
+
+  /** Journey goal pills (null hides them). `done` pills turn gold with a tick. */
+  setGoals(goals: readonly { icon: string; text: string; done: boolean; label: string }[] | null): void {
+    this.goals.hidden = goals === null;
+    if (!goals) return;
+    const key = goals.map((g) => g.text + g.done).join('|');
+    if (this.goals.dataset.key === key) return;
+    this.goals.dataset.key = key;
+    this.goals.replaceChildren(
+      ...goals.map((g) =>
+        el('span', { class: g.done ? 'goal done' : 'goal', 'aria-label': g.label, html: g.icon }, [g.text]),
+      ),
+    );
+  }
+
+  /** Bounce one goal pill (a gem or crate just counted). */
+  kickGoal(i: number): void {
+    const p = this.goals.children[i];
+    if (p instanceof HTMLElement) replay(p, 'kick');
   }
 
   /** Short pop on the chip (goal reached, a Blitz second ticking away). */

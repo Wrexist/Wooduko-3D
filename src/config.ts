@@ -526,6 +526,10 @@ export const WOOD = {
  */
 export const COLORS = {
   ridge: 0x3e1c0f,
+  /** Journey gems and the dark stain on crates (multiplies the block tint). */
+  gem: 0x3fe0b4,
+  gemGlow: 0x0b7a5f,
+  crateStain: [0.26, 0.17, 0.12] as const,
   under: 0x1e0c05,
   chip: 0xf3dcae,
   ghost: 0xfff1d6,
@@ -911,7 +915,45 @@ export const UPSELL = {
   homeDelayMs: 450,
 } as const;
 
-export type Mode = 'classic' | 'daily' | 'zen' | 'blitz';
+export type Mode = 'classic' | 'daily' | 'zen' | 'blitz' | 'journey';
+
+/** Journey visuals. */
+export const JOURNEY_FX = {
+  gemSize: 0.34,
+  /** Height of a gem above the board floor (inside a block once covered, so hidden). */
+  gemLift: 0.36,
+  gemBob: 0.04,
+  gemSpin: 1.3,
+  gemGlow: 0.9,
+  gemFly: 0.55,
+  gemRise: 2.2,
+  gemStagger: 0.08,
+  /** Seconds after a clear before gems fly (lets the pops land). */
+  gemDelay: 0.12,
+} as const;
+
+/** Journey: a map of levels with goals, a move limit and stars (core/journey.ts). */
+export const JOURNEY = {
+  levels: 100,
+  /** Score a fair attempt makes per move (sets the win score for stars and score goals). */
+  parPerMove: 9,
+  /** Moves budgeted per goal unit before slack. */
+  movesPerCrate: 0.75,
+  movesPerGem: 1.6,
+  movesPerLine: 1.3,
+  /** Multiplier on that budget: generous at level 1, tight at the last level. */
+  slackStart: 1.9,
+  slackEnd: 1.2,
+  minMoves: 10,
+  maxMoves: 40,
+  /** Points per move left when a level is won. */
+  bonusPerMove: 30,
+  /** Moves added by a rewarded ad (or free with Remove ads) when you run out. */
+  extraMoves: 5,
+  /** Extra-move packs allowed per attempt. */
+  maxExtras: 2,
+  progressKey: 'grain_journey_v1',
+} as const;
 
 /** Game modes. Classic is the original. */
 export const MODES = {

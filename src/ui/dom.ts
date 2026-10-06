@@ -53,5 +53,14 @@ export const ICONS = {
     '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="7" y="15" width="50" height="34" rx="9" fill="none" stroke="currentColor" stroke-width="4.5"/><text x="32" y="41" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="21" fill="currentColor">AD</text><path d="M10 56L54 8" stroke="#ffd77a" stroke-width="8" stroke-linecap="round"/><path d="M10 56L54 8" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg>',
   camera:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5a2 2 0 0 1 2-2h2.2l1.4-2h6.8l1.4 2H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.4"/></svg>',
+  gem: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10l4 5-9 11L3 9z" fill="#3fe0b4" stroke="#0b5e49" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 9h18M9 4l3 16M15 4l-3 16" fill="none" stroke="#0b5e49" stroke-width="1"/></svg>',
+  crate:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5" fill="#7a4a2c" stroke="#3b1f0f" stroke-width="1.6"/><path d="M5 5l14 14M19 5L5 19" stroke="#c48a5a" stroke-width="2"/></svg>',
+  lines:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z" fill="currentColor"/></svg>',
+  moves:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v6a6 6 0 0 0 12 0V4"/><path d="M12 16v4M9 20h6"/></svg>',
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
   hand: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#fff6e6" stroke="#3a2010" stroke-width="2.5" stroke-linejoin="round" d="M22 30V9a5 5 0 0 1 10 0v15l2-.6a5 5 0 0 1 6 3.4l.3 1.1 1.4-.4a5 5 0 0 1 6 3.4l.4 1.4 1-.2a5 5 0 0 1 5.8 3.8l1.6 8.2c1.6 8.4-3.3 16.7-11.5 19.2l-3.2 1A18 18 0 0 1 21.4 56L12 44.5a5.2 5.2 0 0 1 7.6-7.1L22 40z"/></svg>',
 } as const;

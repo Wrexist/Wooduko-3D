@@ -298,6 +298,13 @@ export class Sound {
     [784, 523, 392].forEach((f, i) => this.marimba(f, t + 0.3 + i * 0.13, 0.18));
   }
 
+  /** Journey: a gem collected, a bright two-note sparkle. */
+  gem(): void {
+    const t = this.now;
+    if (t === null) return;
+    [1568, 2093].forEach((f, i) => this.marimba(f, t + i * 0.06, 0.1));
+  }
+
   /** Soft UI tick for buttons. */
   tick(): void {
     const t = this.now;

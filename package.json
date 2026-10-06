@@ -26,7 +26,8 @@
     "release-check": "node scripts/release-check.mjs",
     "prod-check": "node scripts/prod-check.mjs",
     "modes": "node scripts/modes.mjs",
-    "site": "node scripts/build-site.mjs"
+    "site": "node scripts/build-site.mjs",
+    "journey:calibrate": "vitest run --config vitest.sim.config.ts tests/sim/journey-calibrate.sim.ts"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.2.0",
