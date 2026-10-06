@@ -124,7 +124,10 @@ export const DEFAULT_SETTINGS = {
   reduceMotion: false,
   /** Faint glow on the last empty cell of a nearly full row/column/square. */
   hints: false,
+  /** Camera shake on clears (placing a block never shakes). */
+  shake: true,
   theme: 'maple',
+  camera: 'classic',
 } as const;
 
 export const PROGRESS = {
@@ -328,7 +331,8 @@ export const WORLD = {
   baseY: -BLOCK.height + BLOCK_LIP,
   /** Just above the block tops. */
   topY: -BLOCK.height + BLOCK_LIP + BLOCK.height + 0.012,
-  ghostY: -BLOCK.height + BLOCK_LIP + 0.003,
+  /** Overlay planes on the board floor (with polygon offset, so they never z-fight the floor). */
+  ghostY: -BLOCK.height + BLOCK_LIP + 0.012,
   /** FX planes float a bit above the block tops. */
   fxLift: 0.06,
 } as const;
@@ -403,9 +407,20 @@ export const LAYOUT: {
   },
 };
 
+/** Camera angles the player can pick (HUD button or Settings). dir = direction from target to camera. */
+export type CameraView = 'top' | 'classic' | 'tilted' | 'low';
+export const CAMERA_VIEWS: Readonly<Record<CameraView, readonly [number, number, number]>> = {
+  top: [0, 1, 0.1],
+  classic: [0, 1, 0.4],
+  tilted: [0, 1, 0.75],
+  low: [0, 1, 1.1],
+};
+export const CAMERA_VIEW_ORDER: readonly CameraView[] = ['classic', 'tilted', 'low', 'top'];
+
 export const CAMERA = {
   fov: 36,
-  near: 0.1,
+  /** Near plane: 1 (not 0.1) keeps depth precision high, so planes just above the board never shimmer. */
+  near: 1,
   far: 300,
   /** Camera looks down along −dir; dir = normalize(0, 1, 0.4) ≈ 22° tilt. */
   dir: [0, 1, 0.4] as const,
@@ -416,6 +431,8 @@ export const CAMERA = {
   fitMin: 4,
   fitMax: 250,
   fitIterations: 40,
+  /** Seconds for a smooth swing to a newly picked angle. */
+  viewTransition: 0.6,
 } as const;
 
 export const RENDER = {
@@ -611,8 +628,11 @@ export const FX = {
   /** Settle wobble (radians) and its frequency, decaying with the squash. */
   settleAngle: 0.035,
   settleFreq: 18,
-  placeShake: 0.06,
-  shakeDecay: 14,
+  /** Placing a block does not shake the camera (it read as flicker at 120 Hz). */
+  placeShake: 0,
+  shakeDecay: 9,
+  /** Shake is a smooth wobble at this frequency (Hz), not per-frame noise. */
+  shakeFreq: 9,
   landingDuration: 0.45,
   landingOpacity: 0.55,
   landingY: 0.22,

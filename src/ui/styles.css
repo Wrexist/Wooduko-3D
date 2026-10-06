@@ -46,7 +46,7 @@
   --danger: #f5a382;
   --toggle-off: rgba(255, 246, 230, 0.18);
   --vignette: rgba(24, 12, 5, 0.62);
-  --flash: rgba(255, 214, 140, 0.38);
+  --flash: rgba(255, 214, 140, 0.26);
   --shadow-text: rgba(60, 30, 12, 0.55);
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-ui: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -361,7 +361,7 @@ button {
   background: radial-gradient(ellipse 70% 55% at 50% 50%, var(--flash), rgba(255, 190, 90, 0) 70%);
 }
 .flash.on {
-  animation: flash 0.55s ease-out;
+  animation: flash 0.7s ease-out;
 }
 .flash[data-tier='2'] {
   --flash-peak: 0.55;
@@ -1122,6 +1122,11 @@ button {
   .hud .restart {
     display: none;
   }
+  /* camera + sound stack on the right so the score keeps the middle */
+  .hud .side.right {
+    flex-direction: column;
+    align-items: flex-end;
+  }
   .home .card {
     padding-left: 18px;
     padding-right: 18px;
@@ -1511,4 +1516,39 @@ button {
   from {
     opacity: 0.45;
   }
+}
+
+/* ---------- camera angle picker ---------- */
+.setting.camera-setting {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0;
+}
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--btn);
+  border: 1px solid var(--btn-line);
+}
+.segmented button {
+  height: 36px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.segmented button[aria-checked='true'] {
+  background: linear-gradient(#ffe3a0, var(--honey));
+  color: #3a1c0c;
+}
+.segmented button:focus-visible {
+  outline: 2px solid var(--honey);
+  outline-offset: 1px;
 }

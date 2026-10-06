@@ -9,7 +9,6 @@ export function createCamera(): THREE.PerspectiveCamera {
   return new THREE.PerspectiveCamera(CAMERA.fov, 1, CAMERA.near, CAMERA.far);
 }
 
-const dir = new THREE.Vector3(...CAMERA.dir).normalize();
 const tmp = new THREE.Vector3();
 
 /**
@@ -27,6 +26,7 @@ export function fitCamera(
   bottomPx: number,
   out: THREE.Vector3,
   leftPx = 0,
+  dir: THREE.Vector3 = new THREE.Vector3(...CAMERA.dir).normalize(),
 ): THREE.Vector3 {
   camera.aspect = width / height;
   camera.clearViewOffset();

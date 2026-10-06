@@ -24,6 +24,8 @@ export interface EffectsDeps {
   readonly chips: Chips;
   readonly blocks: Blocks;
   readonly reducedMotion: () => boolean;
+  /** Player turned screen shake off in Settings. */
+  readonly shakeOff?: () => boolean;
   readonly screenFlash: (tier: number) => void;
 }
 
@@ -62,7 +64,7 @@ export class Effects {
   }
 
   addShake(amount: number): void {
-    if (this.d.reducedMotion()) return;
+    if (amount <= 0 || this.d.reducedMotion() || this.d.shakeOff?.()) return;
     this.shake = Math.max(this.shake, amount);
   }
 

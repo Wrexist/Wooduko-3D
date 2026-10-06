@@ -7,6 +7,7 @@ export interface HudHandlers {
   onPause(): void;
   onRestart(): void;
   onSound(): void;
+  onCamera(): void;
 }
 
 /** Top bar: pause + restart (left), score + best + combo (centre), sound (right). */
@@ -33,6 +34,8 @@ export class Hud {
     pause.addEventListener('click', h.onPause);
     restart.addEventListener('click', h.onRestart);
     this.soundBtn.addEventListener('click', h.onSound);
+    const camera = el('button', { class: 'btn', 'aria-label': t('hud.camera'), html: ICONS.camera });
+    camera.addEventListener('click', h.onCamera);
     const best = el('div', { class: 'best' });
     best.innerHTML = ICONS.crown;
     best.append(this.bestVal);
@@ -44,7 +47,7 @@ export class Hud {
         this.scoreEl,
         this.combo.node,
       ]),
-      el('div', { class: 'side right' }, [this.soundBtn]),
+      el('div', { class: 'side right' }, [camera, this.soundBtn]),
     ]);
   }
 

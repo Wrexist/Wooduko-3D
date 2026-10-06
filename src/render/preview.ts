@@ -61,6 +61,9 @@ export class Preview {
           transparent: true,
           opacity: 0,
           depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
         });
         const o = new THREE.Mesh(this.overlayGeo, om);
         o.position.set(WORLD.x0 + c + 0.5, WORLD.ghostY, WORLD.z0 + r + 0.5);
@@ -75,6 +78,9 @@ export class Preview {
           transparent: true,
           opacity: 0,
           depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
           // additive: reads as warm light on the dark floor instead of a muddy tint
           blending: THREE.AdditiveBlending,
           toneMapped: false,

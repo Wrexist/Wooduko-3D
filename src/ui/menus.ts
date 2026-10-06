@@ -1,3 +1,5 @@
+import { CAMERA_VIEW_ORDER } from '../config';
+import type { CameraView } from '../config';
 import type { Settings } from '../core/types';
 import { num, t } from '../i18n';
 import type { Key } from '../i18n';
@@ -230,7 +232,7 @@ export class PauseMenu extends Overlay {
 }
 
 /** On/off settings (the wood theme is picked on the Awards screen). */
-export type ToggleKey = Exclude<keyof Settings, 'theme'>;
+export type ToggleKey = Exclude<keyof Settings, 'theme' | 'camera'>;
 
 const LABELS: Record<ToggleKey, Key> = {
   sound: 'settings.sound',
@@ -238,10 +240,34 @@ const LABELS: Record<ToggleKey, Key> = {
   haptics: 'settings.haptics',
   reduceMotion: 'settings.reduceMotion',
   hints: 'settings.hints',
+  shake: 'settings.shake',
 };
+
+/** Camera angle picker: one tap per angle, the current one highlighted. */
+function cameraPicker(onPick: (v: CameraView) => void): { node: HTMLDivElement; set(v: CameraView): void } {
+  const buttons = new Map<CameraView, HTMLButtonElement>();
+  const row = el('div', { class: 'segmented', role: 'radiogroup', 'aria-labelledby': 'set-camera' });
+  for (const v of CAMERA_VIEW_ORDER) {
+    const b = el('button', { role: 'radio', 'aria-checked': 'false' }, [t(`camera.${v}` as Key)]);
+    b.addEventListener('click', () => onPick(v));
+    buttons.set(v, b);
+    row.append(b);
+  }
+  const node = el('div', { class: 'setting camera-setting' }, [
+    el('span', { id: 'set-camera' }, [t('settings.camera')]),
+    row,
+  ]);
+  return {
+    node,
+    set: (cur) => {
+      for (const [v, b] of buttons) b.setAttribute('aria-checked', String(v === cur));
+    },
+  };
+}
 
 export class SettingsPanel extends Overlay {
   private readonly toggles = new Map<ToggleKey, HTMLButtonElement>();
+  private readonly camera: ReturnType<typeof cameraPicker>;
 
   private readonly reminderRow: HTMLDivElement;
   private readonly reminderToggle: HTMLButtonElement;
@@ -253,6 +279,7 @@ export class SettingsPanel extends Overlay {
 
   constructor(h: {
     onToggle(key: ToggleKey): void;
+    onCamera(view: CameraView): void;
     onReminder(): void;
     onReset(): void;
     onClose(): void;
@@ -262,6 +289,8 @@ export class SettingsPanel extends Overlay {
   }) {
     super('settings dialog-layer', 'settingsTitle');
     const list = el('div', { class: 'settings-list' });
+    this.camera = cameraPicker(h.onCamera);
+    list.append(this.camera.node);
     for (const key of Object.keys(LABELS) as ToggleKey[]) {
       const id = `set-${key}`;
       const sw = el('button', {
@@ -333,5 +362,6 @@ export class SettingsPanel extends Overlay {
 
   update(s: Settings): void {
     for (const [key, t] of this.toggles) t.setAttribute('aria-checked', String(s[key]));
+    this.camera.set(s.camera);
   }
 }

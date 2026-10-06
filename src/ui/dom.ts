@@ -51,5 +51,7 @@ export const ICONS = {
   list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>',
   noAds:
     '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="7" y="15" width="50" height="34" rx="9" fill="none" stroke="currentColor" stroke-width="4.5"/><text x="32" y="41" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="21" fill="currentColor">AD</text><path d="M10 56L54 8" stroke="#ffd77a" stroke-width="8" stroke-linecap="round"/><path d="M10 56L54 8" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg>',
+  camera:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5a2 2 0 0 1 2-2h2.2l1.4-2h6.8l1.4 2H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.4"/></svg>',
   hand: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#fff6e6" stroke="#3a2010" stroke-width="2.5" stroke-linejoin="round" d="M22 30V9a5 5 0 0 1 10 0v15l2-.6a5 5 0 0 1 6 3.4l.3 1.1 1.4-.4a5 5 0 0 1 6 3.4l.4 1.4 1-.2a5 5 0 0 1 5.8 3.8l1.6 8.2c1.6 8.4-3.3 16.7-11.5 19.2l-3.2 1A18 18 0 0 1 21.4 56L12 44.5a5.2 5.2 0 0 1 7.6-7.1L22 40z"/></svg>',
 } as const;

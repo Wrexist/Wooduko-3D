@@ -1,4 +1,5 @@
-import { BOARD, DEFAULT_SETTINGS, GENERATOR, SAVE, THEMES } from '../config';
+import { BOARD, CAMERA_VIEWS, DEFAULT_SETTINGS, GENERATOR, SAVE, THEMES } from '../config';
+import type { CameraView } from '../config';
 import { emptyBoard, inBounds, place } from './board';
 import { getShape } from './shapes';
 import type { BoardState, Cell, GameState, Piece, SaveData, Settings, UvCenter, WoodSeed } from './types';
@@ -133,7 +134,7 @@ export function parseSettings(raw: string | null, legacyMute: string | null): Se
   try {
     const v: unknown = JSON.parse(raw);
     if (!isObj(v)) return base;
-    const pick = (k: Exclude<keyof Settings, 'theme'>): boolean =>
+    const pick = (k: Exclude<keyof Settings, 'theme' | 'camera'>): boolean =>
       typeof v[k] === 'boolean' ? (v[k] as boolean) : base[k];
     const theme = THEMES.find((x) => x.id === v.theme)?.id ?? base.theme;
     return {
@@ -143,6 +144,9 @@ export function parseSettings(raw: string | null, legacyMute: string | null): Se
       haptics: pick('haptics'),
       reduceMotion: pick('reduceMotion'),
       hints: pick('hints'),
+      shake: pick('shake'),
+      camera:
+        typeof v.camera === 'string' && v.camera in CAMERA_VIEWS ? (v.camera as CameraView) : base.camera,
     };
   } catch {
     return base;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { RENDER, TRAY, WORLD } from '../config';
-import type { LayoutSpec } from '../config';
+import { CAMERA, CAMERA_VIEWS, RENDER, TRAY, WORLD } from '../config';
+import type { CameraView, LayoutSpec } from '../config';
 import { getShape, shapeCenter } from '../core/shapes';
 import type { BoardState, Group, Piece, Shape, Tray, UvCenter } from '../core/types';
 import { easeOutBack, easeOutCubic } from '../fx/tween';
@@ -41,6 +41,12 @@ export class World {
   private readonly table: Table;
   private readonly disposeLights: () => void;
   private readonly tmp = new THREE.Vector3();
+  /** Camera direction (target → camera), eased toward `viewTo` when the player picks an angle. */
+  private readonly viewDir = new THREE.Vector3(...CAMERA_VIEWS.classic).normalize();
+  private readonly viewFrom = new THREE.Vector3();
+  private readonly viewTo = new THREE.Vector3();
+  private viewT = 1;
+  private lastFit: [number, number, number, number, number] = [1, 1, 0, 0, 0];
 
   constructor(tex: Textures) {
     this.scene.background = new THREE.Color(RENDER.background);
@@ -58,6 +64,7 @@ export class World {
 
   /** Recompute layout + camera for a new viewport. Idle tray pieces snap to their slots. */
   resize(width: number, height: number, topPx: number, bottomInsetPx: number, leftPx = 0): void {
+    this.lastFit = [width, height, topPx, bottomInsetPx, leftPx];
     this.layout = layoutFor(width / height);
     fitCamera(
       this.camera,
@@ -68,8 +75,37 @@ export class World {
       bottomInsetPx + this.layout.padBottom,
       this.camBase,
       leftPx,
+      this.viewDir,
     );
     for (const t of this.tray) if (t && !t.anim) this.slotPos(t.slot, t.pivot.position);
+  }
+
+  /** Pick a camera angle; `animate` swings there smoothly (see `updateView`), else jumps. */
+  setView(view: CameraView, animate: boolean): void {
+    this.viewTo.set(...CAMERA_VIEWS[view]).normalize();
+    if (!animate) {
+      this.viewDir.copy(this.viewTo);
+      this.viewT = 1;
+      this.refit();
+      return;
+    }
+    this.viewFrom.copy(this.viewDir);
+    this.viewT = 0;
+  }
+
+  /** Per frame while a swing is running. Returns true while the camera is moving. */
+  updateView(dt: number): boolean {
+    if (this.viewT >= 1) return false;
+    this.viewT = Math.min(1, this.viewT + dt / CAMERA.viewTransition);
+    const k = this.viewT < 0.5 ? 4 * this.viewT ** 3 : 1 - (-2 * this.viewT + 2) ** 3 / 2;
+    this.viewDir.copy(this.viewFrom).lerp(this.viewTo, k).normalize();
+    this.refit();
+    return true;
+  }
+
+  private refit(): void {
+    const [w, h, top, bottom, left] = this.lastFit;
+    this.resize(w, h, top, bottom, left);
   }
 
   slotPos(slot: number, out: THREE.Vector3): THREE.Vector3 {

@@ -1,4 +1,4 @@
-import type { ThemeId } from '../config';
+import type { CameraView, ThemeId } from '../config';
 
 // Core data types. Pure data: everything here is JSON-serializable.
 
@@ -75,6 +75,8 @@ export interface Settings {
   readonly haptics: boolean;
   readonly reduceMotion: boolean;
   readonly hints: boolean;
+  readonly shake: boolean;
+  readonly camera: CameraView;
 }
 
 /** Everything needed to resume a game. */

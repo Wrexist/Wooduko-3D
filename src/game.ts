@@ -6,6 +6,7 @@ import {
   FX,
   HAPTICS,
   LADDER,
+  CAMERA_VIEW_ORDER,
   MODES,
   PROGRESS,
   UPSELL,
@@ -16,7 +17,7 @@ import {
   WORLD,
 } from './config';
 import type { AchievementId } from './core/progress';
-import type { ThemeId } from './config';
+import type { CameraView, ThemeId } from './config';
 import { streakAlive } from './core/daily';
 import { lastGaps } from './core/board';
 import { getShape } from './core/shapes';
@@ -124,6 +125,8 @@ export class Game {
   private readonly tutorialUi: TutorialOverlay;
   private readonly awards: AwardsPanel;
   private readonly banner = new AchievementBanner(PROGRESS.bannerSeconds);
+  /** Camera angle currently applied (null before the first settings apply). */
+  private cameraView: CameraView | null = null;
   /** Wood theme currently drawn into the textures. */
   private theme: ThemeId;
 
@@ -177,6 +180,7 @@ export class Game {
       chips: this.chips,
       blocks: this.world.blocks,
       reducedMotion: () => this.reduced,
+      shakeOff: () => !this.store.getState().settings.shake,
       screenFlash: (tier) => {
         this.flashEl.dataset.tier = String(tier);
         replay(this.flashEl, 'on');
@@ -188,6 +192,7 @@ export class Game {
       onPause: () => this.onPause(),
       onRestart: () => void this.onRestart(),
       onSound: () => this.onSoundButton(),
+      onCamera: () => this.cycleCamera(),
     });
     this.home = new HomeMenu({
       onPlay: () => void this.onPlay(),
@@ -220,6 +225,10 @@ export class Game {
     });
     this.settingsPanel = new SettingsPanel({
       onToggle: (k) => this.toggleSetting(k),
+      onCamera: (v) => {
+        this.store.getState().setSetting('camera', v);
+        this.sound.tick();
+      },
       onReminder: () => void this.answerReminder(this.store.getState().meta.reminder !== 'on'),
       onReset: () => void this.onResetProgress(),
       onBuy: () => void this.buyRemoveAds(),
@@ -541,6 +550,12 @@ export class Game {
     this.settingsPanel.update(st);
     document.documentElement.classList.toggle('reduced', this.reduced);
     this.applyTheme(st.theme);
+    if (st.camera !== this.cameraView) {
+      // first apply (boot) jumps; later changes swing smoothly unless motion is reduced
+      this.world.setView(st.camera, this.cameraView !== null && !this.reduced);
+      this.cameraView = st.camera;
+      this.drag.refresh();
+    }
   }
 
   /** Redraw the wood for a theme (same textures, so nothing to rebuild) and match the page colour. */
@@ -1172,6 +1187,18 @@ export class Game {
     this.sound.tick();
   }
 
+  /** HUD camera button: next angle, with a smooth swing and a short label. */
+  private cycleCamera(): void {
+    const s = this.store.getState();
+    const i = CAMERA_VIEW_ORDER.indexOf(s.settings.camera);
+    const next = CAMERA_VIEW_ORDER[(i + 1) % CAMERA_VIEW_ORDER.length] ?? 'classic';
+    s.setSetting('camera', next);
+    this.sound.tick();
+    this.haptics.pulse(HAPTICS.snap);
+    const a = this.world.toScreen(...FX.toastAnchor, this.width, this.height);
+    this.toast.show(t('camera.toast', { name: t(`camera.${next}` as Key) }), '', a.y, 1);
+  }
+
   private toggleSetting(key: ToggleKey): void {
     const s = this.store.getState();
     s.setSetting(key, !s.settings[key]);
@@ -1256,14 +1283,17 @@ export class Game {
     this.offer.update(raw);
     this.updateTutorialHand(dt);
 
+    if (this.world.updateView(dt)) this.drag.refresh();
     const shake = this.fx.updateShake(dt);
     const cb = this.world.camBase;
     const cam = this.world.camera;
     if (shake > 0) {
+      // a smooth wobble (two detuned sines), never per-frame random jumps: at 120 Hz those flicker
+      const w = this.time * Math.PI * 2 * FX.shakeFreq;
       cam.position.set(
-        cb.x + (Math.random() - 0.5) * shake,
-        cb.y + (Math.random() - 0.5) * shake * FX.shakeVertical,
-        cb.z + (Math.random() - 0.5) * shake,
+        cb.x + Math.sin(w) * 0.5 * shake,
+        cb.y + Math.sin(w * 1.31 + 1.7) * 0.5 * shake * FX.shakeVertical,
+        cb.z + Math.sin(w * 0.87 + 0.6) * 0.5 * shake,
       );
     } else cam.position.copy(cb);
 
