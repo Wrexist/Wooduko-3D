@@ -78,7 +78,7 @@
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleLightContent</string>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-2286247955186424~5746062875</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Lets us show you fewer, more relevant ads. Grain works the same either way.</string>
 	<key>SKAdNetworkItems</key>

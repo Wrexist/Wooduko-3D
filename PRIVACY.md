@@ -1,10 +1,10 @@
 # Grain — Privacy Policy
 
-_Draft — fill in the bracketed parts, then publish at a public URL. Last updated: [date]._
+_Last updated: 6 October 2026._
 
 ## English
 
-Grain ("the game") is made by [your name / company], [country]. Contact: [email].
+Grain ("the game") is made by Isac Molin, Sweden. Contact: isacmolin@gmail.com.
 
 **What the game stores.** Your saved game, best score, settings, statistics and awards are stored
 only on your device. We have no servers and no accounts; we never receive this data.
@@ -33,7 +33,7 @@ use their privacy tools linked above, or contact us and we will help.
 
 ## Svenska
 
-Grain ("spelet") är gjort av [ditt namn / företag], [land]. Kontakt: [e-post].
+Grain ("spelet") är gjort av Isac Molin, Sverige. Kontakt: isacmolin@gmail.com.
 
 **Vad spelet sparar.** Ditt sparade spel, rekord, inställningar, statistik och utmärkelser sparas
 bara på din enhet. Vi har inga servrar och inga konton och tar aldrig emot dessa uppgifter.

@@ -856,10 +856,10 @@ export const ADS = {
   initFromSession: 2,
   maxRevives: 1,
   /** Set false once the real ids are in. */
-  testMode: true,
-  iosAppId: 'ca-app-pub-3940256099942544~1458002511',
-  rewardedId: 'ca-app-pub-3940256099942544/1712485313',
-  interstitialId: 'ca-app-pub-3940256099942544/4411468910',
+  testMode: false,
+  iosAppId: 'ca-app-pub-2286247955186424~5746062875',
+  rewardedId: 'ca-app-pub-2286247955186424/6867572851',
+  interstitialId: 'ca-app-pub-2286247955186424/8180654522',
 } as const;
 
 export const PURCHASES = {

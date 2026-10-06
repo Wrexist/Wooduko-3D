@@ -25,7 +25,8 @@
     "store-shots": "node scripts/store-shots.mjs",
     "release-check": "node scripts/release-check.mjs",
     "prod-check": "node scripts/prod-check.mjs",
-    "modes": "node scripts/modes.mjs"
+    "modes": "node scripts/modes.mjs",
+    "site": "node scripts/build-site.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.2.0",
