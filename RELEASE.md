@@ -35,3 +35,6 @@ Everything below the line "you" needs your accounts, a Mac or real phones. The r
 2. App Privacy answers: `STORE.md` §4 · Age rating 4+ · not "Made for Kids"
 3. Review notes: `ASO.md`
 4. Submit for review; release manually so you can watch the first day
+
+## Mac-less builds (GitHub Actions)
+Actions → **iOS TestFlight** → Run workflow (or push a tag `ios-v1.0.1`). It runs typecheck, lint, tests and `npm run release-check`, then archives on macos-26 with the ASC API key (secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8) and uploads to TestFlight. Build number = run number; bump `version` in package.json for each new store version.
