@@ -25,9 +25,13 @@ function md(text) {
   for (const raw of text.split('\n')) {
     const line = raw.trim();
     if (!line) flush();
-    else if (line.startsWith('## ')) (flush(), out.push(`<h2>${inline(line.slice(3))}</h2>`));
-    else if (line.startsWith('# ')) (flush(), out.push(`<h1>${inline(line.slice(2))}</h1>`));
-    else if (line.startsWith('• ') || line.startsWith('- ')) list.push(line.slice(2));
+    else if (line.startsWith('## ')) {
+      flush();
+      out.push(`<h2>${inline(line.slice(3))}</h2>`);
+    } else if (line.startsWith('# ')) {
+      flush();
+      out.push(`<h1>${inline(line.slice(2))}</h1>`);
+    } else if (line.startsWith('• ') || line.startsWith('- ')) list.push(line.slice(2));
     else para.push(line);
   }
   flush();
