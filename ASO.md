@@ -10,7 +10,7 @@ Character limits are Apple's (2026). Screenshots: `npm run store-shots` → `sto
 `sudoku,blocks,brain,relax,logic,grid,tile,match,cube,offline,classic,zen,carve,mind,square`
 
 **Promotional text (170, editable any time):**
-Carved wood blocks, a tactile 3D board and satisfying clears. A daily challenge, three quests a day, eight woods to unlock — and Zen when you just want to unwind.
+Carved wood blocks, a tactile 3D board and satisfying clears. 100 Journey levels, a daily challenge, eight woods to unlock — and Zen when you just want to unwind.
 
 **Description:**
 Grain is a calm, tactile wood block puzzle. Drag carved blocks onto a 9×9 board and fill rows,
@@ -22,8 +22,11 @@ and every clear crackles with light, sawdust and sound.
 • Chain combos: clear on consecutive moves to multiply your score — one miss is forgiven.
 • Big moments: multi-line clears, board clears and new best scores all get their own reward.
 • Fair pieces: you always get at least one block that fits.
-• Four ways to play: Classic, a Daily challenge (same pieces for everyone, a new goal every day),
+• Journey: 100 levels with goals — collect gems, break crates, clear lines — in a limited number
+  of moves. Earn up to three stars on every level.
+• More ways to play: Classic, a Daily challenge (same pieces for everyone, a new goal every day),
   Zen (no game over) and Blitz (two minutes, as many points as you can).
+• Your view: tilt the camera from straight above to low and close.
 • Three daily quests: keep a streak going to unlock Oak and Mahogany.
 • Eight woods to unlock: maple, walnut, cherry, birch, driftwood, ebony, oak and mahogany.
 • 13 achievements and a Game Center leaderboard.
@@ -37,7 +40,7 @@ Made for quiet moments: a coffee break, the commute, or winding down at night.
 **Review notes (for Apple):**
 No login required. The Google consent form and the App Tracking Transparency prompt appear after
 the first finished game (or on the 2nd launch), before any ad loads. Ads only appear between games
-(on "Play again") or as an optional "Keep playing" reward after a game ends. "Remove ads" is a
+(on "Play again") or as an optional "Keep playing" / "+5 moves" (Journey) reward after a game ends. "Remove ads" is a
 non-consumable IAP (`grain_remove_ads`); Restore purchases is in Settings and in the Remove-ads offer (shown after ads, always with "Not now"). A quick way to reach game
 over for testing: play until no piece fits (≈2–5 minutes).
 
@@ -49,7 +52,7 @@ over for testing: play until no piece fits (≈2–5 minutes).
 `sudoku,klossar,hjärngympa,avkoppling,logik,rutnät,block,offline,klassisk,zen,trä,tänka,spel`
 
 **Kampanjtext:**
-Snidade träklossar, en taktil 3D-bräda och rensningar som känns. Dagens utmaning, tre uppdrag om dagen, åtta träslag — och Zen när du bara vill varva ner.
+Snidade träklossar, en taktil 3D-bräda och rensningar som känns. 100 äventyrsbanor, dagens utmaning, åtta träslag — och Zen när du bara vill varva ner.
 
 **Beskrivning:**
 Grain är ett lugnt, taktilt pussel med träklossar. Dra snidade klossar till en 9×9-bräda och fyll
@@ -61,8 +64,11 @@ rader, kolumner eller 3×3-rutor för att rensa dem. Varje kloss är en riktig 3
 • Bygg kombos: rensa i drag efter drag och multiplicera poängen — en miss är förlåten.
 • Stora ögonblick: flera rader, tom bräda och nya rekord får alla sin egen belöning.
 • Rättvisa klossar: minst en kloss får alltid plats.
-• Fyra sätt att spela: Klassisk, Dagens utmaning (samma klossar för alla, nytt mål varje dag),
+• Äventyr: 100 banor med mål — samla ädelstenar, knäck lådor, rensa rader — på ett begränsat
+  antal drag. Ta upp till tre stjärnor på varje bana.
+• Fler sätt att spela: Klassisk, Dagens utmaning (samma klossar för alla, nytt mål varje dag),
   Zen (ingen game over) och Blixt (två minuter, så många poäng du hinner).
+• Din vy: vinkla kameran från rakt ovanifrån till lågt och nära.
 • Tre dagliga uppdrag: håll en svit vid liv för att låsa upp ek och mahogny.
 • Åtta träslag att låsa upp: lönn, valnöt, körsbär, björk, drivved, ebenholts, ek och mahogny.
 • 13 prestationer och topplista i Game Center.

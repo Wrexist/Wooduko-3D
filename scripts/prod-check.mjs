@@ -72,6 +72,16 @@ try {
     await page.locator('.home').getByRole('button', { name: 'Awards' }).click();
     await page.waitForTimeout(500);
     await scan('awards');
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.waitForTimeout(400);
+    await page.locator('.journey-btn').click();
+    await page.waitForTimeout(500);
+    await page.locator('.stone').first().click();
+    await page.waitForTimeout(400);
+    await scan('journey map');
+    await page.locator('.journey .level-sheet .cta').click();
+    await page.waitForTimeout(800);
+    await scan('level intro');
 
     check(`${tag}: no console errors`, errors.length === 0, errors.slice(0, 3).join(' | '));
     check(

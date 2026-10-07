@@ -31,7 +31,7 @@ Legend: **[must]** blocks release · **[should]** strongly expected by players �
 - [x] **[must]** Memory: play 30+ minutes, confirm geometry/material counts stay flat (`renderer.info`)
 - [x] **[must]** Game-over check covers every tray piece, including after loading a save
 - [x] **[should]** Restart button: replace the "tap twice" toast with a real confirm dialog
-- [ ] **[should]** Error tracking (Sentry) wired before TestFlight
+- [x] **[should]** Error tracking (Sentry) wired before TestFlight _(decided Oct 7 2026: no Sentry in v1 — no extra SDK; crashes via App Store Connect / Xcode Organizer)_
 
 ## Phase 3 — Core gameplay & design
 - [x] **[must]** Piece generator fairness: guarantee at least one placeable piece per tray, tune the weights, avoid long droughts of small pieces

@@ -5,6 +5,14 @@
 - Done: App ID, ASC app, IAP `grain_remove_ads` ($2.99), Game Center (leaderboard + 13 achievements), listing en + sv, screenshots (6.3" iPhone + 13" iPad), age rating 4+, privacy label published, free pricing, review contact, support + privacy site (GitHub Pages from docs/), RevenueCat project + key, AdMob app + 2 ad units (real ids, test mode off), CI + TestFlight workflow (Actions → iOS TestFlight; secrets ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8 set).
 - Left: test the TestFlight build on a phone, then Add for Review (attach the Remove ads purchase + Game Center), release manually. AdMob shows "Requires review" until the app is live in the store — add the App Store link then (AdMob → Apps → Grain → Add store).
 
+**Journey + camera (Oct 6–7 2026)** — requested after the flicker report
+1. [x] Flicker fix (smooth shake, none on placement, Screen shake setting, depth fixes) + camera angle picker (HUD button + Settings)
+2. [x] Journey mode: 100 bot-calibrated levels (score, lines, gems, crates), move limits, stars, map, +5 moves ad (DESIGN.md)
+3. [x] Level intro card for each new goal kind; "Level n" callout; moves icon
+4. [x] Journey soak (`SOAK_MODE=journey`), journey a11y scans in prod-check, listing text (ASO.md)
+- Decided: no Sentry in v1.
+- Next: TestFlight build → you verify the flicker fix and Journey on the phone.
+
 **Polish for release (Oct 2026)**
 1. [x] **Remove-ads offer:** gold popup (perks, price, Restore, clear "Not now") after every interstitial, after a rewarded ad (15-min gap), on home once ads run (session 2+, 3+ games, 30-min gap), max 4/day; "Tired of ads? Remove them" link on the results card. Never for owners. Pacing: `UPSELL` in config, `core/upsell.ts` (tested). Deliberately no fake timers, hidden close buttons or guilt-trip copy: App Review guideline 5.6 rejects manipulative upsells.
 2. [x] Independent review of the modes → fixed: Blitz clock vs a piece in the air, Daily past midnight, ad pacing for finished Blitz/Home games, late Zen rescue after Home, stuck-Zen restart

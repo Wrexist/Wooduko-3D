@@ -64,6 +64,19 @@ reach a combo, score in one game, place blocks, 3+ line clears, reach the daily 
 Every mode counts (Zen can't progress score/combo quests). All three done = one quest-streak day.
 Numbers: `MODES` and `QUESTS` in `src/config.ts`.
 
+## Journey (100 levels)
+- Rules are pure in `src/core/journey.ts`; every level is deterministic (same for everyone).
+- Goals: **score**, **lines** (rows, columns, 3×3 squares cleared), **gems** (cover the cell, then clear
+  that line), **crates** (stained blocks already on the board; clear a line through them). Levels 1–4
+  introduce one goal each, with an intro card (once per level per session, until beaten). Level 5 and up
+  are procedural (`n % 5` picks the mix).
+- Every placed piece is one move. Out of moves → "+5 moves" (rewarded ad, free with Remove ads, max 2
+  per attempt). No room → revive (same rules as Classic).
+- Stars: winning = 1★. Moves left add `bonusPerMove` points each; 2★ / 3★ score thresholds come from
+  the bot calibration (`npm run journey:calibrate` writes `core/journeyTable.ts`).
+- Progress (best stars per level) in `grain_journey_v1`. Journey adds no Classic best.
+- Numbers: `JOURNEY` and `JOURNEY_FX` in `src/config.ts`.
+
 ## Game Center ids (App Store Connect)
 Leaderboard: `grain.best` (high score, sorted high → low).
 Achievements: `grain.first_clear`, `grain.combo_3`, `grain.combo_5`, `grain.triple`, `grain.quad`,

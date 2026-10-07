@@ -2,6 +2,7 @@
 // Usage: node scripts/soak.mjs [moves | <N>m] [url]
 //   node scripts/soak.mjs 200     → 200 moves
 //   node scripts/soak.mjs 30m     → keep playing for 30 minutes
+//   SOAK_MODE=journey node scripts/soak.mjs 30m → Journey: level after level (gems, crates, intros)
 // Plays legal moves through the real commit + FX path (restarting on game over). Every sample
 // waits for all animation to settle, forces GC, and records GPU resources (geometries per live
 // mesh, textures, shader programs), JS heap, DOM node count and running tweens. Fails if any of
@@ -14,6 +15,7 @@ const minutes = arg.endsWith('m') ? Number(arg.slice(0, -1)) : 0;
 const maxMoves = minutes ? Infinity : Number(arg);
 const deadline = Date.now() + minutes * 60_000;
 const SAMPLE_EVERY = minutes ? 150 : 50;
+const journey = process.env.SOAK_MODE === 'journey';
 
 const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--js-flags=--expose-gc'],
@@ -29,7 +31,8 @@ await page.addInitScript(() => {
 });
 await page.goto(url);
 await page.waitForFunction(() => window.__grain);
-await page.getByRole('button', { name: 'Play' }).click();
+if (journey) await page.evaluate(() => window.__grain.store.getState().playLevel(1));
+else await page.getByRole('button', { name: 'Play' }).click();
 
 async function sample() {
   await page.waitForFunction(() => window.__grain.game.debug.tweens === 0, null, { timeout: 120000 });
@@ -55,11 +58,14 @@ let games = 1;
 const t0 = Date.now();
 samples.push(await sample());
 while (moves < maxMoves && (!minutes || Date.now() < deadline)) {
-  const r = await page.evaluate(() => {
+  const r = await page.evaluate((journey) => {
     const { store, game } = window.__grain;
     const s = store.getState();
+    // tap through a level intro like a player would
+    document.querySelector('.level-intro:not(.hidden) .cta')?.click();
     if (s.phase === 'over') {
-      s.startNew();
+      if (journey) s.playLevel((s.run?.n ?? 0) % 100 + 1);
+      else s.startNew();
       return 'restart';
     }
     for (const tp of game.world.tray) {
@@ -81,7 +87,7 @@ while (moves < maxMoves && (!minutes || Date.now() < deadline)) {
       }
     }
     return 'stuck';
-  });
+  }, journey);
   if (r === 'restart') games++;
   else moves++;
   await page.waitForTimeout(40);
@@ -96,7 +102,8 @@ samples.push(await sample());
 await browser.close();
 
 // compare the first warmed-up sample (after the first batch, when every FX has run once) to the last
-const first = samples[Math.min(1, samples.length - 1)];
+// Journey warms up later: crate marks and gem glows first render on levels 3-4
+const first = samples[Math.min(journey ? 3 : 1, samples.length - 1)];
 const last = samples[samples.length - 1];
 console.log('first', JSON.stringify(first));
 console.log('last ', JSON.stringify(last));
@@ -105,7 +112,8 @@ const checks = [
   ['geometries flat', last.baseGeo <= first.baseGeo],
   ['textures flat', last.textures <= first.textures],
   ['shader programs flat', last.programs <= first.programs],
-  ['DOM nodes flat', last.dom <= first.dom],
+  // Journey: a level shows 1-2 goal pills, so the HUD differs by a few nodes between levels
+  ['DOM nodes flat', last.dom <= first.dom + (journey ? 6 : 0)],
   [`JS heap flat (${(heapGrowth * 100).toFixed(1)}%)`, heapGrowth < 0.15],
 ];
 let ok = !errors;
