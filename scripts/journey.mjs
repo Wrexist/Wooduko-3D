@@ -76,6 +76,14 @@ const playOne = () =>
     return false;
   });
 
+/** First plays of levels 1-4 open an intro card: tap through it like a player would. */
+async function skipIntro() {
+  if (await page.locator('.intro-card').isVisible()) {
+    await page.locator('.intro-card .cta').click();
+    await wait(0.3);
+  }
+}
+
 await wait(0.5);
 check('home shows the Journey button', (await page.locator('.journey-btn').innerText()).includes('Level 1'));
 await page.screenshot({ path: `${out}/journey-home.png` });
@@ -91,10 +99,20 @@ check(
 await page.screenshot({ path: `${out}/journey-map.png` });
 await page.locator('.stone').first().click();
 await wait(0.4);
-check('level card lists goals and moves', (await page.locator('.level-sheet').innerText()).includes('Score'));
+check('level card lists goals and moves', (await page.locator('.journey .level-sheet').innerText()).includes('Score'));
 await page.screenshot({ path: `${out}/journey-level-card.png` });
-await page.locator('.level-sheet .cta').click();
+await page.locator('.journey .level-sheet .cta').click();
 await wait(1);
+check(
+  'first play of level 1: the intro explains the goal and moves, and blocks the board',
+  (await page.locator('.intro-card').isVisible()) &&
+    (await page.locator('.intro-card').innerText()).includes('uses one move') &&
+    !(await page.evaluate(() => window.__grain.game.canInteract())),
+);
+await page.screenshot({ path: `${out}/journey-intro.png` });
+await page.locator('.intro-card .cta').click();
+await wait(0.3);
+check('intro closes and play can start', await page.evaluate(() => window.__grain.game.canInteract()));
 let s = await st();
 check('level 1 starts in Journey mode', s.mode === 'journey' && s.run?.n === 1 && s.phase === 'playing');
 check(
@@ -106,6 +124,7 @@ check(
 // a level with crates and gems
 await page.evaluate(() => window.__grain.store.getState().playLevel(3));
 await wait(1);
+await skipIntro();
 await page.screenshot({ path: `${out}/journey-gems.png` });
 check(
   'gem level: every gem is on the board',
@@ -116,6 +135,7 @@ check(
 );
 await page.evaluate(() => window.__grain.store.getState().playLevel(4));
 await wait(1);
+await skipIntro();
 check(
   'crate level: crates on the board are stained',
   await page.evaluate(() => {
@@ -178,6 +198,7 @@ if (s.outcome === 'outOfMoves') {
 // win level 1 → stars, unlock, next level
 await page.evaluate(() => window.__grain.store.getState().playLevel(1));
 await wait(0.8);
+check('a level replayed in the same session skips its intro', !(await page.locator('.intro-card').isVisible()));
 await page.evaluate(() => {
   const { store } = window.__grain;
   store.setState({ game: { ...store.getState().game, score: 5000 } });

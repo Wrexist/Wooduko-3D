@@ -1,6 +1,6 @@
 import { JOURNEY } from '../config';
 import { levelSpec, totalStars, unlockedLevel } from '../core/journey';
-import type { Goal, JourneyProgress } from '../core/journey';
+import type { Goal, GoalKind, JourneyProgress, LevelSpec } from '../core/journey';
 import { num, t } from '../i18n';
 import type { Key } from '../i18n';
 import { Overlay } from './dialogs';
@@ -108,5 +108,46 @@ export class JourneyMap extends Overlay {
     );
     this.sheet.hidden = false;
     play.focus({ preventScroll: true });
+  }
+}
+
+/**
+ * Start of a level the player hasn't beaten that brings a new kind of goal: the goals, the moves
+ * and one plain sentence per new mechanic. Tap "Let's go" (or the scrim) to play.
+ */
+export class LevelIntro extends Overlay {
+  private done: () => void = () => {};
+
+  constructor() {
+    super('level-intro dialog-layer', 'levelIntroTitle');
+    this.card.classList.add('level-sheet', 'intro-card');
+    this.node.addEventListener('pointerdown', (e) => {
+      if (e.target === this.node) this.close();
+    });
+  }
+
+  present(spec: LevelSpec, kinds: readonly GoalKind[], onDone: () => void): void {
+    this.done = onDone;
+    const go = el('button', { class: 'cta' }, [t('journey.go')]);
+    go.addEventListener('click', () => this.close());
+    const hints = [...kinds.map((k) => t(`hint.${k}` as Key)), ...(spec.n === 1 ? [t('journey.howMoves')] : [])];
+    this.card.replaceChildren(
+      el('h3', { id: 'levelIntroTitle' }, [t('journey.level', { n: spec.n })]),
+      el('p', { class: 'moves', html: ICONS.moves }, [t('journey.moves', { n: spec.moves })]),
+      el(
+        'ul',
+        { class: 'goal-list' },
+        spec.goals.map((g) => el('li', { html: GOAL_ICON[g.kind] }, [goalLabel(g)])),
+      ),
+      ...hints.map((h) => el('p', { class: 'hint' }, [h])),
+      go,
+    );
+    this.show();
+  }
+
+  close(): void {
+    if (!this.open) return;
+    this.hide();
+    this.done();
   }
 }

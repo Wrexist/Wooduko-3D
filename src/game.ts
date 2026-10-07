@@ -41,9 +41,9 @@ import { canRevive, shouldShowInterstitial } from './core/revive';
 import { shouldOfferRemoveAds } from './core/upsell';
 import type { OfferTrigger } from './core/upsell';
 import { RemoveAdsOffer } from './ui/offer';
-import { GOAL_ICON, goalLabel, JourneyMap } from './ui/journey';
+import { GOAL_ICON, goalLabel, JourneyMap, LevelIntro } from './ui/journey';
 import { LevelDecor } from './render/levelDecor';
-import { goalProgress, levelSpec, unlockedLevel } from './core/journey';
+import { goalProgress, levelSpec, newGoalKinds, unlockedLevel } from './core/journey';
 import { nextReminder, reminderIndex, shouldAskReview, shouldOfferReminder } from './core/retention';
 import { num, t } from './i18n';
 import type { Key } from './i18n';
@@ -118,6 +118,9 @@ export class Game {
     },
     onClose: () => this.journeyMap.hide(),
   });
+  private readonly levelIntro = new LevelIntro();
+  /** Levels whose intro was shown this session ("Try again" goes straight to the board). */
+  private readonly introsShown = new Set<number>();
   private levelDecor!: LevelDecor;
   private readonly offer = new RemoveAdsOffer({
     onBuy: () => this.buyRemoveAds(),
@@ -283,6 +286,7 @@ export class Game {
       this.awards.node,
       this.questsPanel.node,
       this.journeyMap.node,
+      this.levelIntro.node,
       this.offer.node,
       this.confirm.node,
       this.safeProbe,
@@ -353,7 +357,10 @@ export class Game {
   }
 
   private onStore(s: StoreState, prev: StoreState): void {
-    if (s.resetSeq !== prev.resetSeq) this.syncFromStore(s.phase === 'playing');
+    if (s.resetSeq !== prev.resetSeq) {
+      this.syncFromStore(s.phase === 'playing');
+      this.onLevelStart(s);
+    }
     if (s.reviveSeq !== prev.reviveSeq) this.onRevived();
     // Blitz: the clock ran out (no move ended it)
     if (
@@ -806,6 +813,22 @@ export class Game {
     st.revive();
   }
 
+  /** A Journey level just started: an intro card when it brings a new goal, else a quick "Level n". */
+  private onLevelStart(s: StoreState): void {
+    const run = s.run;
+    if (s.mode !== 'journey' || !run || s.tutorial || s.phase !== 'playing') return;
+    const spec = levelSpec(run.n);
+    if (run.movesLeft !== spec.moves || run.extras > 0) return;
+    const fresh = !this.introsShown.has(run.n) && !(s.journey.stars[run.n - 1] ?? 0);
+    const kinds = fresh ? newGoalKinds(run.n) : [];
+    if (kinds.length) {
+      this.introsShown.add(run.n);
+      return this.levelIntro.present(spec, kinds, () => this.sound.tick());
+    }
+    const a = this.world.toScreen(...FX.toastAnchor, this.width, this.height);
+    this.toast.show(t('journey.level', { n: run.n }), t('journey.moves', { n: spec.moves }), a.y, 2);
+  }
+
   /** +5 moves: the board comes back to life (blocks un-dim) and play goes on. */
   private onMoreMoves(): void {
     this.syncFromStore(false);
@@ -913,6 +936,7 @@ export class Game {
       !this.settingsPanel.open &&
       !this.awards.open &&
       !this.questsPanel.open &&
+      !this.levelIntro.open &&
       !this.offer.open
     );
   }
@@ -923,6 +947,7 @@ export class Game {
       this.settingsPanel.open ||
       this.awards.open ||
       this.questsPanel.open ||
+      this.levelIntro.open ||
       this.offer.open
     );
   }

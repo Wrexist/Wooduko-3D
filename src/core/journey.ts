@@ -191,6 +191,13 @@ export function levelSpec(n: number): LevelSpec {
   return t ? { ...spec, moves: t[1], stars: [t[2], t[3]] } : spec;
 }
 
+/** Goal kinds that level `n` is the first to use: its intro card explains them. */
+export function newGoalKinds(n: number): GoalKind[] {
+  const seen = new Set<GoalKind>();
+  for (let i = 1; i < n; i++) for (const g of levelSpec(i).goals) seen.add(g.kind);
+  return [...new Set(levelSpec(n).goals.map((g) => g.kind))].filter((k) => !seen.has(k));
+}
+
 function procedural(n: number, d: number, rng: Rng): Omit<LevelSpec, 'n' | 'stars'> {
   const kind = n % 5;
   const size = 2 + Math.round(d * 6);

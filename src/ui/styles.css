@@ -1870,6 +1870,32 @@ button {
   color: var(--honey);
 }
 
+/* level intro: the level sheet as a centred card, with plain-language hints */
+.overlay .card.intro-card {
+  position: relative;
+  inset: auto;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+}
+.intro-card .goal-list {
+  margin-bottom: 10px;
+}
+.intro-card .hint {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(63, 224, 180, 0.1);
+  font-size: 15px;
+  line-height: 1.35;
+  text-align: left;
+  color: var(--ink);
+}
+.intro-card .cta {
+  width: 100%;
+  margin-top: 4px;
+}
+
 /* small phones: the home card has a lot to hold (Play, Journey, modes, quests) */
 @media (max-height: 640px) {
   .home .card {

@@ -8,6 +8,7 @@ import {
   levelGame,
   levelSpec,
   movesBonus,
+  newGoalKinds,
   parseJourney,
   recordWin,
   runOutcome,
@@ -100,6 +101,14 @@ describe('journey levels', () => {
     expect(starsFor(spec, spec.stars[0])).toBe(2);
     expect(starsFor(spec, spec.stars[1])).toBe(3);
     expect(movesBonus(4)).toBe(4 * JOURNEY.bonusPerMove);
+  });
+
+  it('each goal kind is introduced once, on the hand-made levels', () => {
+    expect(newGoalKinds(1)).toEqual(['score']);
+    expect(newGoalKinds(2)).toEqual(['lines']);
+    expect(newGoalKinds(3)).toEqual(['gems']);
+    expect(newGoalKinds(4)).toEqual(['crates']);
+    for (let n = 5; n <= JOURNEY.levels; n++) expect(newGoalKinds(n)).toEqual([]);
   });
 
   it('progress unlocks the next level and keeps the best stars', () => {
