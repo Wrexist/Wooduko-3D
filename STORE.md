@@ -9,6 +9,9 @@ Everything in code is done; these steps need your accounts. Do them once, in thi
    - Leaderboard **`grain.best`** — Classic, "High score is best", integer.
    - 13 achievements, ids and texts in `DESIGN.md` (titles/descriptions in `src/i18n.ts`, en + sv).
 4. In-App Purchase: **Non-Consumable**, product id **`grain_remove_ads`**, reference name "Remove ads". Suggested price tier: $2.99. The in-game offer shows the store price RevenueCat returns (localised), so set the price only in App Store Connect. Add en + sv display name and description.
+   - en: display name **Remove ads** · description **No ads, free revives and line hints** (≤ 45 chars)
+   - sv: display name **Ta bort reklam** · description **Ingen reklam, gratis liv och radtips**
+   - The description must list every perk (no ads, free Classic revive, almost-there hints), or App Review can flag the unlisted one.
 5. Agreements, tax and banking must be active before purchases work (also in TestFlight sandbox).
 
 ## 2. RevenueCat (Remove ads)

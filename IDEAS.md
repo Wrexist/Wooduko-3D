@@ -6,3 +6,13 @@
 - Bomb / frozen blocks for a hard mode
 - Hold slot (swap one piece)
 - Weekly Game Center tournaments
+
+## Wood workshop: small wood-themed games (requested Oct 12 2026, not promoted yet)
+Same table, wood textures, sounds and haptics; one tile on Home ("Workshop"), each game ~2–5 min, offline, no timers by default.
+- **Wood chess**: carved pieces on the same board look, vs. a small offline engine (3 levels); daily chess puzzle (mate in 2)
+- **Checkers (Dam)**: simplest to build of the board games; good first step toward chess
+- **Tangram / fill-the-plank**: fit carved pieces into a silhouette (reuses block meshes + drag)
+- **Wooden sliding puzzle (15-puzzle / Klotski)**: slide wood blocks to free the big one
+- **Jenga-style stack**: pull blocks without toppling (needs physics; biggest scope)
+- **Mahjong-style matching** with carved wood tiles
+Order to build if promoted: Klotski → Tangram → Checkers → Chess (each reuses more of the current engine first).
