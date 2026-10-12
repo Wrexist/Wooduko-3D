@@ -31,6 +31,8 @@ export const BASE_SHAPES: readonly {
   { id: 'l5', pattern: '#..|#..|###', weight: 1.5 },
   { id: 'plus', pattern: '.#.|###|.#.', weight: 0.7 },
   { id: 'u5', pattern: '#.#|###', weight: 0.6 },
+  /** The big 3×3 square: rare, and it can clear a whole box in one drop. */
+  { id: 'o9', pattern: '###|###|###', weight: 0.5 },
 ];
 
 export const SCORING = {
@@ -383,12 +385,12 @@ export const LAYOUT: {
   portrait: {
     landscape: false,
     slots: [
-      [-3.5, 7.3],
+      [-3.4, 7.3],
       [0, 7.3],
-      [3.5, 7.3],
+      [3.4, 7.3],
     ],
-    hit: [1.75, 1.9],
-    bounds: { x0: -5.05, x1: 5.05, z0: -4.95, z1: 8.9 },
+    hit: [1.7, 1.9],
+    bounds: { x0: -4.95, x1: 4.95, z0: -4.7, z1: 8.9 },
     dealFromX: 13,
     padTop: 10,
     padBottom: 20,
@@ -401,7 +403,7 @@ export const LAYOUT: {
       [7.7, 3.3],
     ],
     hit: [1.95, 1.62],
-    bounds: { x0: -4.95, x1: 9.7, z0: -4.95, z1: 4.95 },
+    bounds: { x0: -4.7, x1: 9.5, z0: -4.7, z1: 4.7 },
     dealFromX: 9,
     padTop: 6,
     padBottom: 14,
@@ -561,7 +563,9 @@ export const COLORS = {
 } as const;
 
 export const TRAY = {
-  scale: 0.62,
+  /** Tray pieces are shown at this scale, unless their longest side would then span more than `maxSpan` units. */
+  scale: 0.76,
+  maxSpan: 2.9,
   hoverLift: 0.22,
   hoverScale: 1.07,
   hoverRate: 14,

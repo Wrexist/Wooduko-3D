@@ -26,7 +26,11 @@ export interface TrayPiece {
   fits: boolean;
   /** Previous pivot position, for drag velocity. */
   readonly prev: THREE.Vector3;
+  /** Resting scale in the tray: small pieces show bigger, long ones shrink to fit their slot. */
+  readonly scale: number;
 }
+
+export const trayScale = (shape: Shape): number => Math.min(TRAY.scale, TRAY.maxSpan / Math.max(shape.w, shape.h));
 
 /** Scene graph for the board: table, placed group meshes and tray pieces. Holds no game rules. */
 export class World {
@@ -152,7 +156,8 @@ export class World {
     mesh.position.set(-shape.w / 2, 0, -shape.h / 2);
     const pivot = new THREE.Group();
     pivot.add(mesh);
-    pivot.scale.setScalar(TRAY.scale);
+    const scale = trayScale(shape);
+    pivot.scale.setScalar(scale);
     this.slotPos(slot, pivot.position);
     this.scene.add(pivot);
     const tp: TrayPiece = {
@@ -165,6 +170,7 @@ export class World {
       anim: false,
       fits: true,
       prev: new THREE.Vector3(),
+      scale,
     };
     this.tray[slot] = tp;
     return tp;
@@ -206,12 +212,12 @@ export class World {
           // a short hop on the way in, like a piece being set down on the table
           t.pivot.position.y += Math.sin(Math.min(1, k) * Math.PI) * TRAY.dealArc;
           t.pivot.scale.setScalar(
-            Math.max(0.01, TRAY.scale * easeOutBack(Math.min(1, k * TRAY.dealScaleSpeed))),
+            Math.max(0.01, t.scale * easeOutBack(Math.min(1, k * TRAY.dealScaleSpeed))),
           );
         },
         done: () => {
           t.anim = false;
-          t.pivot.scale.setScalar(TRAY.scale);
+          t.pivot.scale.setScalar(t.scale);
         },
       });
     });

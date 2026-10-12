@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, SAVE } from '../src/config';
 import { newGame, playMove } from '../src/core/rules';
-import { parseBest, parseSave, parseSettings, serializeSave, toSave } from '../src/core/save';
+import { parseBest, parseSave, parseSettings, serializeSave, serializeSettings, toSave } from '../src/core/save';
 import type { GameState } from '../src/core/types';
 
 function playedState(): GameState {
@@ -166,5 +166,14 @@ describe('save v3', () => {
     const v2 = { ...valid(), version: 2 };
     delete (v2 as Record<string, unknown>).revives;
     expect(parse(v2)?.revives).toBe(0);
+  });
+});
+
+describe('settings camera migration', () => {
+  it('moves the old default camera to top-down once, then keeps the player pick', () => {
+    expect(parseSettings(JSON.stringify({ camera: 'classic' }), null).camera).toBe('top');
+    expect(parseSettings(JSON.stringify({ camera: 'tilted' }), null).camera).toBe('tilted');
+    const picked = serializeSettings({ ...DEFAULT_SETTINGS, camera: 'classic' });
+    expect(parseSettings(picked, null).camera).toBe('classic');
   });
 });

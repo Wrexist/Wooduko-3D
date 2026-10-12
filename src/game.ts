@@ -975,7 +975,7 @@ export class Game {
       tp.anim = false;
       this.world.slotPos(tp.slot, tp.pivot.position);
       tp.pivot.rotation.set(0, 0, 0);
-      tp.pivot.scale.setScalar(TRAY.scale);
+      tp.pivot.scale.setScalar(tp.scale);
       return;
     }
     const tutorial = before.tutorial;

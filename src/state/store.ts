@@ -45,7 +45,7 @@ import {
   startRun,
 } from '../core/journey';
 import type { JourneyProgress, LevelRun, RunOutcome } from '../core/journey';
-import { parseBest, parseSave, parseSettings, serializeSave } from '../core/save';
+import { parseBest, parseSave, parseSettings, serializeSave, serializeSettings } from '../core/save';
 import type { GameState, Settings } from '../core/types';
 import type { KeyValueStore } from '../platform/storage';
 
@@ -760,7 +760,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
         if (key === 'theme' && !themeUnlocked(themeById(String(value)), get().unlocked)) return;
         const settings = { ...get().settings, [key]: value };
         set({ settings });
-        persist(() => storage.set(SAVE.settingsKey, JSON.stringify(settings)));
+        persist(() => storage.set(SAVE.settingsKey, serializeSettings(settings)));
       },
 
       resetProgress: () => {
@@ -812,7 +812,7 @@ export function createGameStore(deps: StoreDeps, initial: Persisted, now: () => 
             JOURNEY.progressKey,
           ])
             await storage.remove(key);
-          await storage.set(SAVE.settingsKey, JSON.stringify(settings));
+          await storage.set(SAVE.settingsKey, serializeSettings(settings));
         });
       },
     };

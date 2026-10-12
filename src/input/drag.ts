@@ -317,7 +317,7 @@ export class DragController {
       update: (k) => {
         this.world.slotPos(tp.slot, to);
         pv.position.lerpVectors(from, to, k);
-        pv.scale.setScalar(fs + (TRAY.scale - fs) * k);
+        pv.scale.setScalar(fs + (tp.scale - fs) * k);
         pv.rotation.x = frx * (1 - k);
         pv.rotation.z = frz * (1 - k);
       },
@@ -325,7 +325,7 @@ export class DragController {
         tp.anim = false;
         this.world.slotPos(tp.slot, pv.position);
         pv.rotation.set(0, 0, 0);
-        pv.scale.setScalar(TRAY.scale);
+        pv.scale.setScalar(tp.scale);
       },
     });
   }
@@ -386,7 +386,7 @@ export class DragController {
       if (t.anim || d?.tp === t) continue;
       const hov = t.slot === this.hoverSlot;
       const ty = hov ? TRAY.hoverLift : 0;
-      const ts = TRAY.scale * (hov ? TRAY.hoverScale : 1);
+      const ts = t.scale * (hov ? TRAY.hoverScale : 1);
       t.pivot.position.y += (ty - t.pivot.position.y) * ah;
       t.pivot.scale.setScalar(t.pivot.scale.x + (ts - t.pivot.scale.x) * ah);
     }

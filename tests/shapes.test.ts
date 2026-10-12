@@ -52,8 +52,8 @@ describe('shapes', () => {
     expect(ORIENTATIONS.filter((o) => o.baseId === id)).toHaveLength(count);
   });
 
-  it('has 39 orientations in total, with stable indices', () => {
-    expect(ORIENTATIONS).toHaveLength(39);
+  it('has 40 orientations in total, with stable indices', () => {
+    expect(ORIENTATIONS).toHaveLength(40);
     ORIENTATIONS.forEach((o, i) => expect(o.index).toBe(i));
     expect(ORIENTATIONS[0]?.baseId).toBe('mono');
   });
@@ -100,7 +100,7 @@ describe('shapes', () => {
 
   it('getShape rejects unknown indices', () => {
     expect(getShape(-1)).toBeUndefined();
-    expect(getShape(39)).toBeUndefined();
+    expect(getShape(40)).toBeUndefined();
     expect(getShape(1.5)).toBeUndefined();
     expect(getShape(0)).toBeDefined();
   });

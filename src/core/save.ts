@@ -128,6 +128,11 @@ export function parseBest(raw: string | null): number {
   return Number.isInteger(n) && n > 0 ? n : 0;
 }
 
+/** Bumped when a default changes for players who never picked it themselves (2: top-down camera). */
+export const SETTINGS_REV = 2;
+
+export const serializeSettings = (s: Settings): string => JSON.stringify({ ...s, rev: SETTINGS_REV });
+
 export function parseSettings(raw: string | null, legacyMute: string | null): Settings {
   const base: Settings = { ...DEFAULT_SETTINGS, sound: legacyMute !== '1' };
   if (!raw) return base;
@@ -146,7 +151,12 @@ export function parseSettings(raw: string | null, legacyMute: string | null): Se
       hints: pick('hints'),
       shake: pick('shake'),
       camera:
-        typeof v.camera === 'string' && v.camera in CAMERA_VIEWS ? (v.camera as CameraView) : base.camera,
+        // settings saved before top-down became the default move from the old default to the new one, once
+        v.rev !== SETTINGS_REV && v.camera === 'classic'
+          ? base.camera
+          : typeof v.camera === 'string' && v.camera in CAMERA_VIEWS
+            ? (v.camera as CameraView)
+            : base.camera,
     };
   } catch {
     return base;

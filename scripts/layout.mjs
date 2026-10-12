@@ -93,7 +93,7 @@ for (const [name, [width, height]] of Object.entries(VIEWPORTS)) {
     // tray pieces: bounding box at full hover height and scale
     for (const t of w.tray) {
       if (!t) continue;
-      const s = 0.62 * 1.07;
+      const s = t.scale * 1.07;
       const p = w.slotPos(t.slot, t.pivot.position.clone());
       for (const dx of [-1, 1])
         for (const dz of [-1, 1])
