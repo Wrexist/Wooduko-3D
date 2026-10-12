@@ -122,12 +122,12 @@ export const DEFAULT_SETTINGS = {
   music: true,
   haptics: true,
   reduceMotion: false,
-  /** Faint glow on the last empty cell of a nearly full row/column/square. */
-  hints: false,
+  /** Faint glow on the last empty cell of a nearly full row/column/square. A Remove-ads perk: only shown to owners. */
+  hints: true,
   /** Camera shake on clears (placing a block never shakes). */
   shake: true,
   theme: 'maple',
-  camera: 'classic',
+  camera: 'top',
 } as const;
 
 export const PROGRESS = {
@@ -340,8 +340,9 @@ export const WORLD = {
 export const TABLE = {
   halfSize: 40,
   cornerRadius: 1,
-  hole: 9.8,
-  holeRadius: 0.22,
+  /** Carved hole: its wall (hole − 2·bevel) sits just outside the 9 cells, so edge blocks hug the wall. */
+  hole: 9.13,
+  holeRadius: 0.26,
   depth: 1.25,
   bevel: 0.05,
   bevelSegments: 3,
@@ -415,7 +416,7 @@ export const CAMERA_VIEWS: Readonly<Record<CameraView, readonly [number, number,
   tilted: [0, 1, 0.75],
   low: [0, 1, 1.1],
 };
-export const CAMERA_VIEW_ORDER: readonly CameraView[] = ['classic', 'tilted', 'low', 'top'];
+export const CAMERA_VIEW_ORDER: readonly CameraView[] = ['top', 'classic', 'tilted', 'low'];
 
 export const CAMERA = {
   fov: 36,

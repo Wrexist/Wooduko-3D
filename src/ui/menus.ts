@@ -288,6 +288,10 @@ function cameraPicker(onPick: (v: CameraView) => void): { node: HTMLDivElement; 
 export class SettingsPanel extends Overlay {
   private readonly toggles = new Map<ToggleKey, HTMLButtonElement>();
   private readonly camera: ReturnType<typeof cameraPicker>;
+  /** Hints are a Remove-ads perk: locked (off, with a tag) until it is owned. */
+  private readonly hintsTag = el('small', { class: 'perk-tag' }, [t('settings.hintsLocked')]);
+  private hasNoAds = false;
+  private last: Settings | null = null;
 
   private readonly reminderRow: HTMLDivElement;
   private readonly reminderToggle: HTMLButtonElement;
@@ -321,7 +325,9 @@ export class SettingsPanel extends Overlay {
       });
       sw.addEventListener('click', () => h.onToggle(key));
       this.toggles.set(key, sw);
-      list.append(el('div', { class: 'setting' }, [el('span', { id }, [t(LABELS[key])]), sw]));
+      const label = el('span', { id }, [t(LABELS[key])]);
+      if (key === 'hints') label.append(this.hintsTag);
+      list.append(el('div', { class: 'setting' }, [label, sw]));
     }
     this.reminderToggle = el('button', {
       class: 'toggle',
@@ -365,6 +371,7 @@ export class SettingsPanel extends Overlay {
     this.buy.hidden = !available || owned;
     this.restore.hidden = !available || owned;
     this.owned.hidden = !owned;
+    this.setOwned(owned);
     this.buy.textContent = price ? t('settings.removeAdsPrice', { price }) : t('settings.removeAds');
     this.privacy.hidden = !privacy;
   }
@@ -381,7 +388,15 @@ export class SettingsPanel extends Overlay {
   }
 
   update(s: Settings): void {
-    for (const [key, t] of this.toggles) t.setAttribute('aria-checked', String(s[key]));
+    this.last = s;
+    for (const [key, t] of this.toggles)
+      t.setAttribute('aria-checked', String(s[key] && (key !== 'hints' || this.hasNoAds)));
     this.camera.set(s.camera);
+  }
+
+  private setOwned(owned: boolean): void {
+    this.hasNoAds = owned;
+    this.hintsTag.hidden = owned;
+    if (this.last) this.update(this.last);
   }
 }

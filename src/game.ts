@@ -1106,7 +1106,7 @@ export class Game {
   /** "Almost there" hints: recomputed only when the board or the conditions change. */
   private updateHints(): void {
     const s = this.store.getState();
-    const on = s.settings.hints && !s.tutorial && s.phase === 'playing' && !this.drag.dragging;
+    const on = s.settings.hints && s.removeAds && !s.tutorial && s.phase === 'playing' && !this.drag.dragging;
     const key = on ? `${s.moveSeq}:${s.resetSeq}:${s.reviveSeq}` : 'off';
     if (key === this.hintKey) return;
     this.hintKey = key;
@@ -1381,6 +1381,12 @@ export class Game {
 
   private toggleSetting(key: ToggleKey): void {
     const s = this.store.getState();
+    // hints are a Remove-ads perk: the locked switch opens the offer instead
+    if (key === 'hints' && !s.removeAds) {
+      this.sound.tick();
+      if (this.money.purchases.available()) void this.presentOffer(false);
+      return;
+    }
     s.setSetting(key, !s.settings[key]);
     this.sound.tick();
   }

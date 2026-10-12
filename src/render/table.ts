@@ -17,7 +17,7 @@ function roundedRect(p: THREE.Path, x: number, y: number, w: number, h: number, 
 
 /**
  * Table slab (top at y = 0) with a rounded carved hole, the board floor deep inside it, a dark
- * plane under the margin, and raised ridges between cells. Returns a dispose function.
+ * plane under the margin, and raised ridges between cells (none along the wall). Returns a dispose function.
  */
 export interface Table {
   /** Ridge tint (linear hex) for the current wood theme. */
@@ -83,7 +83,8 @@ export function buildTable(scene: THREE.Scene, tex: Textures): Table {
   mats.push(ridgeMat);
   const n = BOARD.size;
   const RH = TABLE.ridgeHeight;
-  for (let i = 0; i <= n; i++) {
+  // inner lines only: the hole wall is the board's edge
+  for (let i = 1; i < n; i++) {
     const w = i % BOARD.box === 0 ? TABLE.ridgeBoxWidth : TABLE.ridgeWidth;
     const hzGeo = new THREE.BoxGeometry(n + w, RH, w);
     const vtGeo = new THREE.BoxGeometry(w, RH, n + w);

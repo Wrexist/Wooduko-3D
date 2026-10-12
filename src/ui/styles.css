@@ -1520,6 +1520,14 @@ button {
 }
 
 /* ---------- camera angle picker ---------- */
+.perk-tag {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+.perk-tag[hidden] {
+  display: none;
+}
 .setting.camera-setting {
   flex-wrap: wrap;
   gap: 8px;

@@ -25,6 +25,7 @@ export class RemoveAdsOffer extends Overlay {
     const perks = el('ul', { class: 'perks' }, [
       perk(t('offer.noAds')),
       perk(t('offer.revive')),
+      perk(t('offer.hints')),
       perk(t('offer.forever')),
       perk(t('offer.support')),
     ]);

@@ -44,7 +44,7 @@ export class World {
   private readonly disposeLights: () => void;
   private readonly tmp = new THREE.Vector3();
   /** Camera direction (target → camera), eased toward `viewTo` when the player picks an angle. */
-  private readonly viewDir = new THREE.Vector3(...CAMERA_VIEWS.classic).normalize();
+  private readonly viewDir = new THREE.Vector3(...CAMERA_VIEWS.top).normalize();
   private readonly viewFrom = new THREE.Vector3();
   private readonly viewTo = new THREE.Vector3();
   private viewT = 1;
