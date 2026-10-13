@@ -1,6 +1,6 @@
 import './ui/styles.css';
 import { Capacitor } from '@capacitor/core';
-import { PROGRESS, RETENTION, SAVE, TUTORIAL_KEY } from './config';
+import { KLOTSKI, PROGRESS, RETENTION, SAVE, TUTORIAL_KEY } from './config';
 import { Game } from './game';
 import { pickLanguage, setLanguage, t } from './i18n';
 import { webHaptics } from './platform/haptics';
@@ -25,6 +25,7 @@ const STORAGE_KEYS = [
   PROGRESS.statsKey,
   PROGRESS.achievementsKey,
   RETENTION.metaKey,
+  KLOTSKI.storageKey,
 ];
 
 async function boot(): Promise<void> {
@@ -52,7 +53,7 @@ async function boot(): Promise<void> {
 
   const deps = { storage, randomSeed };
   const store = createGameStore(deps, await loadPersisted(deps));
-  const game = new Game({ canvas, uiRoot, store, haptics, services, monetization });
+  const game = new Game({ canvas, uiRoot, store, haptics, services, monetization, storage });
   // hide the launch screen once the first frame is on screen
   if (nat) requestAnimationFrame(() => requestAnimationFrame(() => void nat.nativeChrome()));
   if (debug) {

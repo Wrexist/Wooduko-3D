@@ -89,6 +89,7 @@ export class HomeMenu extends Overlay {
     onZen(): void;
     onBlitz(): void;
     onJourney(): void;
+    onWorkshop(): void;
     onQuests(): void;
     onSettings(): void;
     onAwards(): void;
@@ -118,6 +119,12 @@ export class HomeMenu extends Overlay {
       this.journeyStars,
     );
     this.journeyBtn.addEventListener('click', h.onJourney);
+    const workshop = el(
+      'button',
+      { class: 'journey-btn workshop-btn', 'aria-label': `${t('mode.workshop')}: ${t('workshop.klotski')}` },
+      [el('span', { class: 'icon', html: ICONS.moves }), el('strong', {}, [t('mode.workshop')])],
+    );
+    workshop.addEventListener('click', h.onWorkshop);
     this.questsBtn.innerHTML = ICONS.list;
     this.questsBtn.append(el('span', {}, [t('quests.short')]), this.questsCount);
     this.questsBtn.addEventListener('click', h.onQuests);
@@ -135,7 +142,7 @@ export class HomeMenu extends Overlay {
       el('div', { class: 'stack' }, [
         this.cont,
         this.play,
-        this.journeyBtn,
+        el('div', { class: 'journey-row' }, [this.journeyBtn, workshop]),
         el('div', { class: 'tiles' }, [this.daily, zen, blitz]),
         el('div', { class: 'tools' }, [this.questsBtn, awards, settings]),
       ]),

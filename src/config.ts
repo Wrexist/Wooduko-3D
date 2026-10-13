@@ -773,6 +773,36 @@ export const AUDIO = {
   limiterRelease: 0.2,
 } as const;
 
+/** Workshop: Klotski (sliding wood blocks). */
+export const KLOTSKI = {
+  /** Gap between the outer cells and the carved wall (units). */
+  wallGap: 0.07,
+  /** Depth of the exit notch cut into the bottom wall. */
+  exitDepth: 0.5,
+  /** Key piece tint (linear RGB): darker walnut so it stands out from the maple blocks. */
+  keyTint: [0.2, 0.085, 0.035] as const,
+  /** Tray floor tint (sRGB hex, multiplies the side-grain texture). */
+  floor: 0x5a2a12,
+  /** Screen padding (px) under the top bar and above the bottom edge. */
+  padTop: 16,
+  padBottom: 40,
+  /** Drag: cells of travel before the slide axis locks. */
+  axisLock: 0.12,
+  /** Seconds for a released piece to settle on its cell. */
+  snapDuration: 0.16,
+  /** Lift (units) of the piece under the finger. */
+  lift: 0.08,
+  liftRate: 18,
+  /** Key piece glides out of the exit this far (units) when solved, over `winSlide` seconds. */
+  winTravel: 3,
+  /** …rising this much (units), so it ends on the table top instead of inside the slab. */
+  winRise: 0.42,
+  winSlide: 0.7,
+  /** Pause after the glide before the result card. */
+  winCardDelay: 0.25,
+  storageKey: 'grain_klotski_v1',
+} as const;
+
 export const HAPTICS = {
   pickup: 8,
   /** Tiny tick when a dragged piece snaps to a new cell. */

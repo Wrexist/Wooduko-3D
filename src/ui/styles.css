@@ -1942,3 +1942,114 @@ button {
     height: 38px;
   }
 }
+
+/* ---------- Workshop: Sliding blocks ---------- */
+.journey-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.journey-btn.workshop-btn {
+  width: 84px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 6px;
+  font-size: 13px;
+  color: #fff4e0;
+  background: linear-gradient(110deg, #8a5a33, #6b3f1f 55%, #4e2a12);
+  box-shadow:
+    0 3px 0 #2e170a,
+    0 10px 20px rgba(0, 0, 0, 0.28);
+}
+.journey-btn.workshop-btn strong {
+  flex: none;
+}
+.journey-btn.workshop-btn .icon {
+  width: 20px;
+  height: 20px;
+}
+.journey-btn.workshop-btn:active {
+  box-shadow: 0 1px 0 #2e170a;
+}
+.workshop-on .hud,
+.workshop-on .overlay.home {
+  display: none;
+}
+.k-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: calc(var(--safe-top) + 10px) calc(var(--safe-right) + 16px) 0 calc(var(--safe-left) + 16px);
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: start;
+  pointer-events: none;
+  color: var(--ink);
+}
+.k-bar[hidden] {
+  display: none;
+}
+.k-info {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.k-info strong {
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+.k-moves {
+  font-family: var(--display, inherit);
+  font-size: 34px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.k-info small {
+  font-size: 13px;
+  font-weight: 600;
+}
+.workshop-card .lead {
+  margin: 0 0 12px;
+  text-align: center;
+}
+.k-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px 8px;
+  justify-items: center;
+  overflow-y: auto;
+  max-height: min(60vh, 520px);
+  padding: 6px 4px 12px;
+}
+.k-grid .stone {
+  transform: none;
+  width: 52px;
+  height: 52px;
+}
+.k-stars {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 6px;
+}
+.k-stars .stars {
+  display: flex;
+  gap: 6px;
+}
+.k-stars .stars i {
+  width: 40px;
+  height: 40px;
+  color: rgba(255, 255, 255, 0.22);
+}
+.k-stars .stars i.on {
+  color: #ffd77a;
+  filter: drop-shadow(0 2px 0 #7a5a10);
+}
+.k-stars .stars svg {
+  width: 100%;
+  height: 100%;
+}

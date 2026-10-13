@@ -41,6 +41,8 @@ import { canRevive, shouldShowInterstitial } from './core/revive';
 import { shouldOfferRemoveAds } from './core/upsell';
 import type { OfferTrigger } from './core/upsell';
 import { RemoveAdsOffer } from './ui/offer';
+import type { KeyValueStore } from './platform/storage';
+import { KlotskiMode } from './workshop/klotskiMode';
 import { GOAL_ICON, goalLabel, JourneyMap, LevelIntro } from './ui/journey';
 import { LevelDecor } from './render/levelDecor';
 import { goalProgress, levelSpec, newGoalKinds, unlockedLevel } from './core/journey';
@@ -75,6 +77,7 @@ export interface GameDeps {
   readonly haptics: Haptics;
   readonly services: Services;
   readonly monetization: Monetization;
+  readonly storage: KeyValueStore;
 }
 
 /** Best score shown for the current mode (Zen has none). */
@@ -102,6 +105,8 @@ export class Game {
   private readonly chips: Chips;
   private readonly fx: Effects;
   private readonly sound = new Sound();
+  /** Workshop → Sliding blocks: its own scene and UI, drawn instead of the board while active. */
+  private readonly klotski: KlotskiMode;
   private readonly drag: DragController;
 
   private readonly hud: Hud;
@@ -182,6 +187,14 @@ export class Game {
     this.theme = d.store.getState().settings.theme;
     this.tex = createTextures(this.renderer.gl.capabilities.getMaxAnisotropy(), themeById(this.theme));
     this.world = new World(this.tex);
+    this.klotski = new KlotskiMode({
+      canvas: d.canvas,
+      tex: this.tex,
+      storage: d.storage,
+      sound: this.sound,
+      haptics: this.haptics,
+      onActive: (on) => this.onWorkshop(on),
+    });
     const { scene, camera } = this.world;
     this.preview = new Preview(scene, this.tex);
     this.sparkles = new Sparkles(scene, this.tex);
@@ -218,6 +231,10 @@ export class Game {
       onZen: () => this.store.getState().play('zen'),
       onBlitz: () => this.store.getState().play('blitz'),
       onJourney: () => this.openJourney(),
+      onWorkshop: () => {
+        this.sound.tick();
+        this.klotski.openPicker();
+      },
       onQuests: () => {
         this.refreshHome(this.store.getState());
         this.questsPanel.show();
@@ -287,6 +304,7 @@ export class Game {
       this.questsPanel.node,
       this.journeyMap.node,
       this.levelIntro.node,
+      ...this.klotski.nodes,
       this.offer.node,
       this.confirm.node,
       this.safeProbe,
@@ -635,8 +653,18 @@ export class Game {
       this.theme = id;
     }
     this.world.setThemeColors(t.background, t.ridge);
+    this.klotski.view.setBackground(t.background);
     document.documentElement.style.setProperty('--bg', t.background);
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.background);
+  }
+
+  /** Entering / leaving a Workshop level: the block puzzle's Home and HUD step aside. */
+  private onWorkshop(on: boolean): void {
+    document.documentElement.classList.toggle('workshop-on', on);
+    this.drag.cancel();
+    if (on) this.home.hide();
+    else if (this.store.getState().phase === 'home') this.home.show();
+    this.resize();
   }
 
   /** Launch-time native work: Game Center sign-in, re-schedule the reminder for tomorrow. */
@@ -948,7 +976,9 @@ export class Game {
       this.awards.open ||
       this.questsPanel.open ||
       this.levelIntro.open ||
-      this.offer.open
+      this.offer.open ||
+      this.klotski.picker.open ||
+      this.klotski.active
     );
   }
 
@@ -1395,6 +1425,8 @@ export class Game {
     if (e.key !== 'Escape') return;
     const s = this.store.getState();
     if (this.confirm.open) this.confirm.cancel();
+    else if (this.klotski.active) this.klotski.leave(true);
+    else if (this.klotski.picker.open) this.klotski.picker.hide();
     else if (this.offer.open) this.offer.dismiss();
     else if (this.settingsPanel.open) this.settingsPanel.hide();
     else if (this.awards.open) this.awards.hide();
@@ -1438,6 +1470,7 @@ export class Game {
     const tip = this.tutorialUi.open ? this.tutorialUi.reserve : { top: 0, left: 0 };
     const top = Math.max(this.hud.bottom, tip.top);
     this.world.resize(this.width, this.height, top, safeBottom, tip.left);
+    this.klotski.resize(this.width, this.height, safeBottom);
     this.drag.refresh();
   }
 
@@ -1447,6 +1480,13 @@ export class Game {
     this.last = now;
     this.time += dt;
     this.renderer.sample(raw);
+
+    if (this.klotski.active) {
+      this.klotski.update(dt);
+      this.renderer.gl.render(this.klotski.view.scene, this.klotski.view.camera);
+      this.raf = requestAnimationFrame((t) => this.frame(t));
+      return;
+    }
 
     // hit-stop: effects hold still for a beat at the clear; input and camera keep running
     let fxDt = dt;
