@@ -17,7 +17,8 @@ import type { Haptics } from '../platform/haptics';
 import type { KeyValueStore } from '../platform/storage';
 import { KlotskiScene } from '../render/klotskiScene';
 import type { Textures } from '../render/textures';
-import { KlotskiBar, KlotskiPicker, KlotskiTools, KlotskiWin } from '../ui/workshop';
+import { num, t } from '../i18n';
+import { GameBar, GameTools, LevelPicker, WinCard } from '../ui/workshop';
 
 interface Sounds {
   pickup(): void;
@@ -61,10 +62,10 @@ const signOf = (d: KDir): number => (d === 'right' || d === 'down' ? 1 : -1);
  */
 export class KlotskiMode {
   readonly view: KlotskiScene;
-  readonly picker: KlotskiPicker;
-  readonly bar: KlotskiBar;
-  readonly tools: KlotskiTools;
-  readonly win: KlotskiWin;
+  readonly picker: LevelPicker;
+  readonly bar: GameBar;
+  readonly tools: GameTools;
+  readonly win: WinCard;
   active = false;
   private progress: KProgress = { stars: [], best: [] };
   private n = 1;
@@ -96,16 +97,25 @@ export class KlotskiMode {
     },
   ) {
     this.view = new KlotskiScene(d.tex);
-    this.picker = new KlotskiPicker(KLOTSKI_LEVELS.length, {
-      onPlay: (n) => this.start(n),
-      onClose: () => {
-        this.picker.hide();
-        d.onPickerClose();
+    this.picker = new LevelPicker(
+      'klotski',
+      t('workshop.klotski'),
+      t('workshop.goal'),
+      KLOTSKI_LEVELS.length,
+      {
+        onPlay: (n) => this.start(n),
+        onClose: () => {
+          this.picker.hide();
+          d.onPickerClose();
+        },
       },
-    });
-    this.bar = new KlotskiBar({ onBack: () => this.leave(true), onRestart: () => this.start(this.n) });
-    this.tools = new KlotskiTools({ onUndo: () => this.undo(), onHint: () => this.hint() });
-    this.win = new KlotskiWin({
+    );
+    this.bar = new GameBar({ onBack: () => this.leave(true), onRestart: () => this.start(this.n) });
+    this.tools = new GameTools(
+      { onUndo: () => this.undo(), onHint: () => this.hint() },
+      t('workshop.hintNote'),
+    );
+    this.win = new WinCard({
       onNext: () => this.start(Math.min(this.n + 1, KLOTSKI_LEVELS.length)),
       onReplay: () => this.start(this.n),
       onLevels: () => this.leave(true),
@@ -117,7 +127,7 @@ export class KlotskiMode {
     c.addEventListener('pointercancel', (e) => this.onUp(e, false));
     void d.storage.get(KLOTSKI.storageKey).then((raw) => {
       this.progress = parseKProgress(raw);
-      this.picker.update(this.progress);
+      this.picker.update(this.progress.stars);
     });
   }
 
@@ -131,7 +141,7 @@ export class KlotskiMode {
   }
 
   openPicker(): void {
-    this.picker.update(this.progress);
+    this.picker.update(this.progress.stars);
     this.picker.show();
   }
 
@@ -220,7 +230,13 @@ export class KlotskiMode {
 
   private refreshUi(): void {
     const spec = KLOTSKI_LEVELS[this.n - 1];
-    this.bar.set(this.n, this.moves, spec?.par ?? 0, this.progress.best[this.n - 1] ?? 0);
+    const best = this.progress.best[this.n - 1] ?? 0;
+    const par = t('workshop.par', { n: num(spec?.par ?? 0) });
+    this.bar.set(
+      t('journey.level', { n: this.n }),
+      t('workshop.moves', { n: num(this.moves) }),
+      best > 0 ? `${par} · ${t('workshop.yourBest', { n: num(best) })}` : par,
+    );
     this.tools.set(this.history.length > 0, this.hinted);
   }
 
@@ -371,7 +387,12 @@ export class KlotskiMode {
     const stars = kStars(this.moves, par, this.hinted);
     this.progress = kRecord(this.progress, this.n, stars, this.moves);
     void this.d.storage.set(KLOTSKI.storageKey, JSON.stringify(this.progress));
-    this.win.present(stars, this.moves, par, this.n < KLOTSKI_LEVELS.length, this.hinted);
+    const line = t('workshop.result', { n: num(this.moves), p: num(par) });
+    this.win.present(
+      stars,
+      this.hinted ? `${line} · ${t('workshop.hinted')}` : line,
+      this.n < KLOTSKI_LEVELS.length,
+    );
   }
 
   dispose(): void {

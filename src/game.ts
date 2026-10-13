@@ -43,6 +43,7 @@ import type { OfferTrigger } from './core/upsell';
 import { RemoveAdsOffer } from './ui/offer';
 import type { KeyValueStore } from './platform/storage';
 import { KlotskiMode } from './workshop/klotskiMode';
+import { PlankMode } from './workshop/plankMode';
 import { WorkshopHub } from './ui/workshop';
 import { GOAL_ICON, goalLabel, JourneyMap, LevelIntro } from './ui/journey';
 import { LevelDecor } from './render/levelDecor';
@@ -81,6 +82,9 @@ export interface GameDeps {
   readonly storage: KeyValueStore;
 }
 
+const PLANK_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h10v6h6v10H4z"/><path d="M4 12h6v8M10 4v8"/></svg>';
+
 /** Best score shown for the current mode (Zen has none). */
 const modeBest = (s: StoreState): number =>
   s.mode === 'classic' ? s.best : s.mode === 'blitz' ? s.blitzBest : s.mode === 'daily' ? s.daily.best : 0;
@@ -108,6 +112,9 @@ export class Game {
   private readonly sound = new Sound();
   /** Workshop → Sliding blocks: its own scene and UI, drawn instead of the board while active. */
   private readonly klotski: KlotskiMode;
+  private readonly plank: PlankMode;
+  /** Every Workshop game (each owns a scene, a level list, a bar, tools and a solved card). */
+  private readonly workshop: readonly (KlotskiMode | PlankMode)[];
   private readonly hub: WorkshopHub;
   private readonly drag: DragController;
 
@@ -189,15 +196,18 @@ export class Game {
     this.theme = d.store.getState().settings.theme;
     this.tex = createTextures(this.renderer.gl.capabilities.getMaxAnisotropy(), themeById(this.theme));
     this.world = new World(this.tex);
-    this.klotski = new KlotskiMode({
+    const wsDeps = {
       canvas: d.canvas,
       tex: this.tex,
       storage: d.storage,
       sound: this.sound,
       haptics: this.haptics,
-      onActive: (on) => this.onWorkshop(on),
+      onActive: (on: boolean) => this.onWorkshop(on),
       onPickerClose: () => this.openHub(),
-    });
+    };
+    this.klotski = new KlotskiMode(wsDeps);
+    this.plank = new PlankMode(wsDeps);
+    this.workshop = [this.klotski, this.plank];
     this.hub = new WorkshopHub(
       [
         {
@@ -209,6 +219,17 @@ export class Game {
             this.sound.tick();
             this.hub.hide();
             this.klotski.openPicker();
+          },
+        },
+        {
+          id: 'plank',
+          icon: PLANK_ICON,
+          name: t('workshop.plank'),
+          desc: t('workshop.plankDesc'),
+          open: () => {
+            this.sound.tick();
+            this.hub.hide();
+            this.plank.openPicker();
           },
         },
       ],
@@ -324,7 +345,7 @@ export class Game {
       this.journeyMap.node,
       this.levelIntro.node,
       this.hub.node,
-      ...this.klotski.nodes,
+      ...this.workshop.flatMap((w) => w.nodes),
       this.offer.node,
       this.confirm.node,
       this.safeProbe,
@@ -673,13 +694,14 @@ export class Game {
       this.theme = id;
     }
     this.world.setThemeColors(t.background, t.ridge);
-    this.klotski.view.setBackground(t.background);
+    for (const w of this.workshop) w.view.setBackground(t.background);
     document.documentElement.style.setProperty('--bg', t.background);
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.background);
   }
 
   private openHub(): void {
     this.hub.setStars('klotski', ...this.klotski.starCount);
+    this.hub.setStars('plank', ...this.plank.starCount);
     this.hub.show();
   }
 
@@ -1002,8 +1024,7 @@ export class Game {
       this.questsPanel.open ||
       this.levelIntro.open ||
       this.offer.open ||
-      this.klotski.picker.open ||
-      this.klotski.active ||
+      this.workshop.some((w) => w.active || w.picker.open) ||
       this.hub.open
     );
   }
@@ -1451,9 +1472,9 @@ export class Game {
     if (e.key !== 'Escape') return;
     const s = this.store.getState();
     if (this.confirm.open) this.confirm.cancel();
-    else if (this.klotski.active) this.klotski.leave(true);
-    else if (this.klotski.picker.open) {
-      this.klotski.picker.hide();
+    else if (this.workshop.some((w) => w.active)) this.workshop.find((w) => w.active)?.leave(true);
+    else if (this.workshop.some((w) => w.picker.open)) {
+      for (const w of this.workshop) w.picker.hide();
       this.openHub();
     } else if (this.hub.open) this.hub.hide();
     else if (this.offer.open) this.offer.dismiss();
@@ -1499,7 +1520,7 @@ export class Game {
     const tip = this.tutorialUi.open ? this.tutorialUi.reserve : { top: 0, left: 0 };
     const top = Math.max(this.hud.bottom, tip.top);
     this.world.resize(this.width, this.height, top, safeBottom, tip.left);
-    this.klotski.resize(this.width, this.height, safeBottom);
+    for (const w of this.workshop) w.resize(this.width, this.height, safeBottom);
     this.drag.refresh();
   }
 
@@ -1510,9 +1531,10 @@ export class Game {
     this.time += dt;
     this.renderer.sample(raw);
 
-    if (this.klotski.active) {
-      this.klotski.update(dt);
-      this.renderer.gl.render(this.klotski.view.scene, this.klotski.view.camera);
+    const ws = this.workshop.find((w) => w.active);
+    if (ws) {
+      ws.update(dt);
+      this.renderer.gl.render(ws.view.scene, ws.view.camera);
       this.raf = requestAnimationFrame((t) => this.frame(t));
       return;
     }

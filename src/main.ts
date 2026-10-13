@@ -1,6 +1,6 @@
 import './ui/styles.css';
 import { Capacitor } from '@capacitor/core';
-import { KLOTSKI, PROGRESS, RETENTION, SAVE, TUTORIAL_KEY } from './config';
+import { KLOTSKI, PLANK, PROGRESS, RETENTION, SAVE, TUTORIAL_KEY } from './config';
 import { Game } from './game';
 import { pickLanguage, setLanguage, t } from './i18n';
 import { webHaptics } from './platform/haptics';
@@ -26,6 +26,7 @@ const STORAGE_KEYS = [
   PROGRESS.achievementsKey,
   RETENTION.metaKey,
   KLOTSKI.storageKey,
+  PLANK.storageKey,
 ];
 
 async function boot(): Promise<void> {

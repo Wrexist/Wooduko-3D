@@ -1,5 +1,3 @@
-import { kUnlocked } from '../core/klotski';
-import type { KProgress } from '../core/klotski';
 import { num, t } from '../i18n';
 import { Overlay } from './dialogs';
 import { el, ICONS } from './dom';
@@ -10,16 +8,26 @@ const starsRow = (n: number): HTMLSpanElement => {
   return row;
 };
 
-/** Workshop → Sliding blocks: a grid of levels, best stars under each, later ones locked. */
-export class KlotskiPicker extends Overlay {
+/** One past the last solved level (levels unlock in order). */
+const unlocked = (stars: readonly number[], total: number): number => {
+  let n = 1;
+  while (n <= total && (stars[n - 1] ?? 0) > 0) n++;
+  return Math.min(n, total);
+};
+
+/** A Workshop game's levels: a grid, best stars under each, later ones locked. */
+export class LevelPicker extends Overlay {
   private readonly grid = el('div', { class: 'k-grid' });
   private readonly note = el('p', { class: 'note' });
 
   constructor(
+    id: string,
+    title: string,
+    lead: string,
     private readonly total: number,
     h: { onPlay(n: number): void; onClose(): void },
   ) {
-    super('workshop dialog-layer', 'workshopTitle');
+    super('workshop dialog-layer', `${id}Title`);
     this.card.classList.add('wide', 'workshop-card');
     const close = el('button', { class: 'btn close', 'aria-label': t('common.done'), html: '×' });
     close.addEventListener('click', h.onClose);
@@ -27,11 +35,8 @@ export class KlotskiPicker extends Overlay {
       if (e.target === this.node) h.onClose();
     });
     this.card.append(
-      el('div', { class: 'journey-head' }, [
-        el('h2', { id: 'workshopTitle' }, [t('workshop.klotski')]),
-        close,
-      ]),
-      el('p', { class: 'lead' }, [t('workshop.goal')]),
+      el('div', { class: 'journey-head' }, [el('h2', { id: `${id}Title` }, [title]), close]),
+      el('p', { class: 'lead' }, [lead]),
       this.grid,
       this.note,
     );
@@ -42,20 +47,22 @@ export class KlotskiPicker extends Overlay {
     }
   }
 
-  update(p: KProgress): void {
-    const open = kUnlocked(p, this.total);
+  update(best: readonly number[]): void {
+    const open = unlocked(best, this.total);
     let solved = 0;
     [...this.grid.children].forEach((node, i) => {
       const n = i + 1;
       const b = node as HTMLButtonElement;
-      const stars = p.stars[n - 1] ?? 0;
+      const stars = best[n - 1] ?? 0;
       if (stars) solved++;
       const locked = n > open;
       b.className = `stone${locked ? ' locked' : ''}${n === open && !stars ? ' current' : ''}${stars ? ' done' : ''}`;
       b.disabled = locked;
       b.setAttribute(
         'aria-label',
-        locked ? t('journey.locked', { n }) : `${t('journey.level', { n })}, ${t('journey.stars', { n: stars })}`,
+        locked
+          ? t('journey.locked', { n })
+          : `${t('journey.level', { n })}, ${t('journey.stars', { n: stars })}`,
       );
       b.querySelector('.stars')?.remove();
       if (!locked) b.append(starsRow(stars));
@@ -64,8 +71,8 @@ export class KlotskiPicker extends Overlay {
   }
 }
 
-/** Top bar while sliding: back, level, moves (with the best possible), restart. */
-export class KlotskiBar {
+/** Top bar in a Workshop level: back, title, a big counter and a small line, restart. */
+export class GameBar {
   readonly node: HTMLDivElement;
   private readonly title = el('strong');
   private readonly moves = el('span', { class: 'k-moves', 'aria-live': 'polite' });
@@ -87,11 +94,10 @@ export class KlotskiBar {
     return this.node.hidden ? 0 : this.node.getBoundingClientRect().bottom;
   }
 
-  set(level: number, moves: number, par: number, best: number): void {
-    this.title.textContent = t('journey.level', { n: level });
-    this.moves.textContent = t('workshop.moves', { n: num(moves) });
-    const parText = t('workshop.par', { n: num(par) });
-    this.par.textContent = best > 0 ? `${parText} · ${t('workshop.yourBest', { n: num(best) })}` : parText;
+  set(title: string, big: string, small: string): void {
+    this.title.textContent = title;
+    this.moves.textContent = big;
+    this.par.textContent = small;
   }
 
   show(on: boolean): void {
@@ -99,16 +105,19 @@ export class KlotskiBar {
   }
 }
 
-/** Bottom tools while sliding: Undo and Hint (a hint caps the level at two stars). */
-export class KlotskiTools {
+/** Bottom tools in a Workshop level: Undo (optional) and Hint (hints cost stars). */
+export class GameTools {
   readonly node: HTMLDivElement;
   private readonly undo: HTMLButtonElement;
   private readonly hint: HTMLButtonElement;
 
-  constructor(h: { onUndo(): void; onHint(): void }) {
+  constructor(h: { onUndo?(): void; onHint(): void }, hintNote: string) {
     this.undo = el('button', { class: 'ghost-btn k-tool' }, [el('span', { html: UNDO }), t('workshop.undo')]);
     this.hint = el('button', { class: 'ghost-btn k-tool' }, [el('span', { html: BULB }), t('workshop.hint')]);
-    this.undo.addEventListener('click', h.onUndo);
+    this.hint.setAttribute('aria-description', hintNote);
+    const onUndo = h.onUndo;
+    if (onUndo) this.undo.addEventListener('click', () => onUndo());
+    else this.undo.hidden = true;
     this.hint.addEventListener('click', h.onHint);
     this.node = el('div', { class: 'k-tools', hidden: '' }, [this.undo, this.hint]);
   }
@@ -121,7 +130,6 @@ export class KlotskiTools {
   set(canUndo: boolean, hinted: boolean): void {
     this.undo.disabled = !canUndo;
     this.hint.classList.toggle('used', hinted);
-    this.hint.setAttribute('aria-description', t('workshop.hintNote'));
   }
 
   show(on: boolean): void {
@@ -129,8 +137,8 @@ export class KlotskiTools {
   }
 }
 
-/** Solved card: stars, moves vs the best possible, Next / Try again / Levels. */
-export class KlotskiWin extends Overlay {
+/** Solved card: stars, a result line, Next / Try again / Levels. */
+export class WinCard extends Overlay {
   private readonly stars = el('div', { class: 'k-stars' });
   private readonly line = el('p', { class: 'lead' });
   private readonly next = el('button', { class: 'cta' }, [t('workshop.next')]);
@@ -150,11 +158,10 @@ export class KlotskiWin extends Overlay {
     );
   }
 
-  present(stars: number, moves: number, par: number, hasNext: boolean, hinted: boolean): void {
+  present(stars: number, line: string, hasNext: boolean): void {
     this.stars.replaceChildren(starsRow(stars));
     this.stars.setAttribute('aria-label', t('journey.stars', { n: stars }));
-    const line = t('workshop.result', { n: num(moves), p: num(par) });
-    this.line.textContent = hinted ? `${line} · ${t('workshop.hinted')}` : line;
+    this.line.textContent = line;
     this.next.hidden = !hasNext;
     this.show();
   }

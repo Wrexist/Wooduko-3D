@@ -50,3 +50,5 @@
 - Combo rule: **grace 1** (a streak survives one miss). It doubles how often a casual player sees "Combo" for ~13% higher median scores. Grace 2 makes combos the default and doubles skilled scores, so a combo stops feeling special. The pill dims and pulses while a streak is at risk.
 - The skilled bot still hits the 2,500-move cap in ~20% of games: a perfect player can play nearly forever. Fine for a calm game; revisit with real players before making the ramp steeper.
 - Bots are not people: use these numbers to compare before/after, not as absolute difficulty. Human playtest script: `PLAYTEST.md`.
+
+- **Carving a table hole from a 2D shape (Workshop):** `ExtrudeGeometry` + `rotateX(+π/2)` maps shape *y* to world *+z* (not −z). The first Klotski tray had its exit notch on the wrong edge because of a sign flip. Also: an extruded hole is narrowed by `bevelSize` on each side, so outset the hole by the bevel (as `table.ts` does).

@@ -813,6 +813,37 @@ export const KLOTSKI = {
   storageKey: 'grain_klotski_v1',
 } as const;
 
+/** Workshop: Plank fit (fill a carved shape with wood pieces). */
+export const PLANK = {
+  /** Gap between the outer cells and the carved wall (units). */
+  wallGap: 0.07,
+  /** Loose pieces lie on the table at this scale, three to a row. */
+  trayScale: 0.55,
+  trayCols: 3,
+  trayMinWidth: 6,
+  trayRowDepth: 2.1,
+  /** Space between the board and the first tray row (units). */
+  trayGap: 1.1,
+  /** Held piece: lift (units) and how far above the finger it floats on touch (units). */
+  lift: 0.7,
+  touchOffsetZ: -1.4,
+  /** Easing rate (1/s) of a piece toward where it should be; rotation turns at the same rate. */
+  followRate: 26,
+  settleRate: 16,
+  turnRate: 18,
+  /** A press shorter than this, moving less than `tapPx`, is a tap (turn / send back). */
+  tapMs: 320,
+  tapPx: 10,
+  /** Floor tint and cell grooves. */
+  floor: 0x5a2a12,
+  groove: 0x1e0c05,
+  grooveOpacity: 0.35,
+  grooveWidth: 0.04,
+  /** Seconds after the last piece lands before the result card. */
+  winCardDelay: 0.9,
+  storageKey: 'grain_plank_v1',
+} as const;
+
 export const HAPTICS = {
   pickup: 8,
   /** Tiny tick when a dragged piece snaps to a new cell. */

@@ -34,8 +34,8 @@ await page.getByRole('button', { name: /Sliding blocks/ }).click();
 await page.waitForTimeout(300);
 check('level list opens', await page.locator('.overlay.workshop:not(.hidden)').count() === 1);
 await page.screenshot({ path: 'shots/workshop-1-levels.png' });
-check('only level 1 is open', (await page.locator('.k-grid .stone:not([disabled])').count()) === 1);
-await page.locator('.k-grid .stone').first().click();
+check('only level 1 is open', (await page.locator('.overlay.workshop:not(.hidden) .k-grid .stone:not([disabled])').count()) === 1);
+await page.locator('.overlay.workshop:not(.hidden) .k-grid .stone').first().click();
 await page.waitForTimeout(500);
 check('level is on screen, Home hidden', await page.evaluate(() => {
   const k = window.__grain.game.klotski;
@@ -146,7 +146,7 @@ check('undo takes it back', h2.moves === 0 && h2.hist === 0, JSON.stringify(h2))
 await page.screenshot({ path: 'shots/workshop-4-tools.png' });
 await page.getByRole('button', { name: 'Back' }).click();
 await page.waitForTimeout(300);
-check('level 2 unlocked', (await page.locator('.k-grid .stone:not([disabled])').count()) === 2);
+check('level 2 unlocked', (await page.locator('.overlay.workshop:not(.hidden) .k-grid .stone:not([disabled])').count()) === 2);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
 check('Escape goes back to the hub', (await page.locator('.overlay.workshop-hub:not(.hidden)').count()) === 1);
@@ -156,6 +156,101 @@ check('back on Home', await page.evaluate(() => {
   const k = window.__grain.game.klotski;
   return !k.active && !k.picker.open && !window.__grain.game.hub.open && getComputedStyle(document.querySelector('.overlay.home')).display !== 'none';
 }));
+
+
+// ---------- Plank fit ----------
+await page.getByRole('button', { name: /Workshop/ }).click();
+await page.waitForTimeout(300);
+await page.getByRole('button', { name: /Plank fit/ }).click();
+await page.waitForTimeout(300);
+await page.locator('.overlay.workshop:not(.hidden) .k-grid .stone').first().click();
+await page.waitForTimeout(900);
+check('plank level is on screen', await page.evaluate(() => window.__grain.game.plank.active));
+await page.screenshot({ path: 'shots/workshop-5-plank.png' });
+const proj = (x, z, y) =>
+  page.evaluate(
+    ([x, z, y]) => {
+      const v = window.__grain.game.plank.view;
+      const q = v.camera.position.clone().set(x, y, z).project(v.camera);
+      return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight];
+    },
+    [x, z, y],
+  );
+const topY = 0.04;
+const pieces = await page.evaluate(() => {
+  const m = window.__grain.game.plank;
+  return m.level.pieces.map((p) => ({ id: p.id, sol: p.solution, cells: p.cells }));
+});
+for (const p of pieces) {
+  const look = await page.evaluate((id) => ({ ...window.__grain.game.plank.look.get(id) }), p.id);
+  const w = Math.max(...p.cells.map((c) => c[1])) + 1;
+  const h = Math.max(...p.cells.map((c) => c[0])) + 1;
+  const goal = await page.evaluate(([r, c, w, h]) => window.__grain.game.plank.view.cellCentre(r, c, w, h), [p.sol.r, p.sol.c, w, h]);
+  const [x0, y0] = await proj(look.x, look.z, topY);
+  const [x1, y1] = await proj(goal.x, goal.z, topY);
+  await page.mouse.move(x0, y0);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(x0 + ((x1 - x0) * i) / 10, y0 + ((y1 - y0) * i) / 10);
+  await page.waitForTimeout(150);
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+}
+await page.waitForTimeout(1300);
+const pk = await page.evaluate(() => {
+  const m = window.__grain.game.plank;
+  return { placed: m.placed.length, total: m.level.pieces.length, win: m.win.open, saved: localStorage.getItem('grain_plank_v1') };
+});
+check('plank pieces placed by drag', pk.placed === pk.total, `${pk.placed}/${pk.total}`);
+check('plank solved card', pk.win);
+check('plank three stars saved', pk.saved === JSON.stringify({ stars: [3] }), pk.saved ?? 'nothing');
+await page.screenshot({ path: 'shots/workshop-6-plank-solved.png' });
+
+// level 2: tap turns a loose piece; a hint places one and costs a star
+await page.getByRole('button', { name: 'Next level' }).click();
+await page.waitForTimeout(900);
+const before = await page.evaluate(() => {
+  const m = window.__grain.game.plank;
+  const p = m.level.pieces.find((q) => q.cells.length > 2) ?? m.level.pieces[0];
+  return { id: p.id, cells: JSON.stringify(m.cells.get(p.id)), look: { ...m.look.get(p.id) } };
+});
+const [tx, ty] = await proj(before.look.x, before.look.z, 0);
+await page.mouse.click(tx, ty);
+await page.waitForTimeout(400);
+const turned = await page.evaluate((id) => JSON.stringify(window.__grain.game.plank.cells.get(id)), before.id);
+check('tap turns a loose piece', turned !== before.cells, `${before.cells} -> ${turned}`);
+await page.getByRole('button', { name: 'Hint' }).click();
+await page.waitForTimeout(500);
+const hinted = await page.evaluate(() => ({ placed: window.__grain.game.plank.placed.length, hints: window.__grain.game.plank.hints }));
+check('hint places a piece', hinted.placed === 1 && hinted.hints === 1, JSON.stringify(hinted));
+await page.screenshot({ path: 'shots/workshop-7-plank-hint.png' });
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+check('plank: Escape leaves the level', await page.evaluate(() => !window.__grain.game.plank.active));
+
+
+// ---------- memory: cycling levels must not grow GPU resources ----------
+const mem = await page.evaluate(async () => {
+  const g = window.__grain.game;
+  const info = g.renderer.gl.info.memory;
+  const wait = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const out = {};
+  for (const [name, m] of [['klotski', g.klotski], ['plank', g.plank]]) {
+    m.start(1);
+    await wait();
+    const a = { ...info };
+    for (let n = 2; n <= 12; n++) {
+      m.start(n);
+      await wait();
+    }
+    m.start(1);
+    await wait();
+    out[name] = [a, { ...info }];
+    m.leave(false);
+  }
+  return out;
+});
+for (const [name, [a, b]] of Object.entries(mem))
+  check(`${name}: GPU memory flat after 12 levels`, b.geometries <= a.geometries && b.textures <= a.textures, `${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
 
 await browser.close();
 console.log(errors ? `${errors} console error(s)` : 'no console errors');
