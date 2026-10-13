@@ -1,5 +1,15 @@
 import { HAPTICS, KLOTSKI } from '../config';
-import { isSolved, keyPiece, kRecord, kStars, maxSlide, parseKProgress, parseLevel, slide } from '../core/klotski';
+import {
+  isSolved,
+  keyPiece,
+  kRecord,
+  kStars,
+  maxSlide,
+  nextMove,
+  parseKProgress,
+  parseLevel,
+  slide,
+} from '../core/klotski';
 import type { KDir, KLevel, KPiece, KProgress } from '../core/klotski';
 import { KLOTSKI_LEVELS } from '../core/klotskiLevels';
 import { easeInCubic, easeOutCubic } from '../fx/tween';
@@ -7,13 +17,14 @@ import type { Haptics } from '../platform/haptics';
 import type { KeyValueStore } from '../platform/storage';
 import { KlotskiScene } from '../render/klotskiScene';
 import type { Textures } from '../render/textures';
-import { KlotskiBar, KlotskiPicker, KlotskiWin } from '../ui/workshop';
+import { KlotskiBar, KlotskiPicker, KlotskiTools, KlotskiWin } from '../ui/workshop';
 
 interface Sounds {
   pickup(): void;
   place(): void;
   nope(): void;
   tick(): void;
+  returnPiece(): void;
   boardClear(): void;
 }
 
@@ -27,14 +38,22 @@ interface Held {
   /** Free cells: [left, right, up, down]. */
   readonly room: readonly [number, number, number, number];
   lift: number;
+  /** Already buzzed for pushing past the end of the free run (once per push). */
+  bumped: boolean;
 }
 
+/** A piece easing onto its cell: `from` is its visual offset (cells) along `axis` at t = 0. */
 interface Settle {
   readonly id: number;
   readonly axis: 'x' | 'z';
   readonly from: number;
+  readonly dur: number;
   t: number;
 }
+
+const DIRS: readonly KDir[] = ['left', 'right', 'up', 'down'];
+const axisOf = (d: KDir): 'x' | 'z' => (d === 'left' || d === 'right' ? 'x' : 'z');
+const signOf = (d: KDir): number => (d === 'right' || d === 'down' ? 1 : -1);
 
 /**
  * Workshop → Sliding blocks (Klotski). Owns its scene, UI and input; the Game renders its scene
@@ -44,13 +63,17 @@ export class KlotskiMode {
   readonly view: KlotskiScene;
   readonly picker: KlotskiPicker;
   readonly bar: KlotskiBar;
+  readonly tools: KlotskiTools;
   readonly win: KlotskiWin;
   active = false;
-  private progress: KProgress = { stars: [] };
+  private progress: KProgress = { stars: [], best: [] };
   private n = 1;
   private level: KLevel | null = null;
   private pieces: KPiece[] = [];
+  /** Earlier positions, for Undo. */
+  private history: KPiece[][] = [];
   private moves = 0;
+  private hinted = false;
   private held: Held | null = null;
   private settle: Settle | null = null;
   /** Solved: seconds since the key piece started gliding out (−1 = not solved). */
@@ -68,14 +91,20 @@ export class KlotskiMode {
       haptics: Haptics;
       /** Entering / leaving a level: the Game hides or restores its own UI. */
       onActive(on: boolean): void;
+      /** Back from the level list (to the Workshop hub). */
+      onPickerClose(): void;
     },
   ) {
     this.view = new KlotskiScene(d.tex);
     this.picker = new KlotskiPicker(KLOTSKI_LEVELS.length, {
       onPlay: (n) => this.start(n),
-      onClose: () => this.picker.hide(),
+      onClose: () => {
+        this.picker.hide();
+        d.onPickerClose();
+      },
     });
     this.bar = new KlotskiBar({ onBack: () => this.leave(true), onRestart: () => this.start(this.n) });
+    this.tools = new KlotskiTools({ onUndo: () => this.undo(), onHint: () => this.hint() });
     this.win = new KlotskiWin({
       onNext: () => this.start(Math.min(this.n + 1, KLOTSKI_LEVELS.length)),
       onReplay: () => this.start(this.n),
@@ -93,7 +122,12 @@ export class KlotskiMode {
   }
 
   get nodes(): HTMLElement[] {
-    return [this.bar.node, this.picker.node, this.win.node];
+    return [this.bar.node, this.tools.node, this.picker.node, this.win.node];
+  }
+
+  /** Stars earned / possible, for the Workshop hub. */
+  get starCount(): [number, number] {
+    return [this.progress.stars.reduce((a, b) => a + b, 0), KLOTSKI_LEVELS.length * 3];
   }
 
   openPicker(): void {
@@ -107,15 +141,18 @@ export class KlotskiMode {
     this.n = n;
     this.level = parseLevel(spec.rows);
     this.pieces = [...this.level.pieces];
+    this.history = [];
     this.moves = 0;
+    this.hinted = false;
     this.held = null;
     this.settle = null;
     this.winT = -1;
     this.picker.hide();
     this.win.hide();
     this.view.load(this.level, this.pieces);
-    this.bar.set(n, 0, spec.par);
     this.bar.show(true);
+    this.tools.show(true);
+    this.refreshUi();
     if (!this.active) {
       this.active = true;
       this.d.onActive(true);
@@ -128,6 +165,7 @@ export class KlotskiMode {
   leave(toLevels: boolean): void {
     this.win.hide();
     this.bar.show(false);
+    this.tools.show(false);
     this.held = null;
     if (this.active) {
       this.active = false;
@@ -140,7 +178,7 @@ export class KlotskiMode {
     this.width = width;
     this.height = height;
     this.safeBottom = safeBottom;
-    this.view.resize(width, height, this.bar.bottom, safeBottom);
+    this.view.resize(width, height, this.bar.bottom, Math.max(safeBottom, this.tools.height));
   }
 
   update(dt: number): void {
@@ -153,11 +191,14 @@ export class KlotskiMode {
     }
     const s = this.settle;
     if (s) {
-      s.t = Math.min(1, s.t + dt / KLOTSKI.snapDuration);
+      s.t = Math.min(1, s.t + dt / s.dur);
       const off = s.from * (1 - easeOutCubic(s.t));
       const p = this.piece(s.id);
       if (p) this.view.place(p, s.axis === 'x' ? off : 0, s.axis === 'z' ? off : 0, KLOTSKI.lift * (1 - s.t));
-      if (s.t >= 1) this.settle = null;
+      if (s.t >= 1) {
+        this.settle = null;
+        this.checkSolved();
+      }
     }
     if (this.winT >= 0) {
       this.winT += dt;
@@ -177,6 +218,65 @@ export class KlotskiMode {
     return !this.active || !this.level || this.winT >= 0 || this.settle !== null || this.win.open;
   }
 
+  private refreshUi(): void {
+    const spec = KLOTSKI_LEVELS[this.n - 1];
+    this.bar.set(this.n, this.moves, spec?.par ?? 0, this.progress.best[this.n - 1] ?? 0);
+    this.tools.set(this.history.length > 0, this.hinted);
+  }
+
+  /** Commit a slide, then ease the piece the rest of the way from `fromOffset` (cells, visual). */
+  private commit(id: number, dir: KDir, steps: number, fromOffset: number, dur: number): boolean {
+    if (!this.level) return false;
+    const moved = slide(this.level, this.pieces, id, dir, steps);
+    if (!moved) return false;
+    this.history.push(this.pieces);
+    this.pieces = moved;
+    this.moves++;
+    this.d.sound.place();
+    this.d.haptics.pulse(HAPTICS.place);
+    this.settle = { id, axis: axisOf(dir), from: fromOffset - signOf(dir) * steps, dur, t: 0 };
+    this.refreshUi();
+    return true;
+  }
+
+  private checkSolved(): void {
+    if (!this.level || this.winT >= 0 || !isSolved(this.level, this.pieces)) return;
+    this.winT = 0;
+    this.d.sound.boardClear();
+    this.d.haptics.pulse(HAPTICS.boardClear);
+  }
+
+  private undo(): void {
+    const prev = this.history.pop();
+    if (!prev || this.busy() || this.held) {
+      if (prev) this.history.push(prev);
+      return;
+    }
+    // ease the piece that moved back from where it is now
+    const moved = this.pieces.find((p, i) => {
+      const q = prev[i];
+      return q && (q.r !== p.r || q.c !== p.c);
+    });
+    const was = moved ? prev.find((q) => q.id === moved.id) : undefined;
+    this.pieces = prev;
+    this.moves = Math.max(0, this.moves - 1);
+    if (moved && was) {
+      const axis = moved.r !== was.r ? 'z' : 'x';
+      const from = axis === 'z' ? moved.r - was.r : moved.c - was.c;
+      this.settle = { id: moved.id, axis, from, dur: KLOTSKI.undoDuration, t: 0 };
+    }
+    this.d.sound.returnPiece();
+    this.refreshUi();
+  }
+
+  private hint(): void {
+    if (this.busy() || this.held || !this.level) return;
+    const m = nextMove(this.level, this.pieces);
+    if (!m) return;
+    this.hinted = true;
+    this.commit(m.id, m.dir, m.steps, 0, KLOTSKI.hintDuration);
+  }
+
   private onDown(e: PointerEvent): void {
     if (this.held || this.busy() || !this.level) return;
     const hit = this.view.pick(e.clientX, e.clientY, this.width, this.height);
@@ -187,10 +287,24 @@ export class KlotskiMode {
     } catch {
       // pointer already gone
     }
-    const room = (['left', 'right', 'up', 'down'] as KDir[]).map((dir) =>
-      maxSlide(this.level as KLevel, this.pieces, hit.id, dir),
-    ) as unknown as [number, number, number, number];
-    this.held = { id: hit.id, pointerId: e.pointerId, col: hit.col, row: hit.row, axis: null, offset: 0, room, lift: 0 };
+    const level = this.level;
+    const room = DIRS.map((dir) => maxSlide(level, this.pieces, hit.id, dir)) as unknown as [
+      number,
+      number,
+      number,
+      number,
+    ];
+    this.held = {
+      id: hit.id,
+      pointerId: e.pointerId,
+      col: hit.col,
+      row: hit.row,
+      axis: null,
+      offset: 0,
+      room,
+      lift: 0,
+      bumped: false,
+    };
     this.d.sound.pickup();
     this.d.haptics.pulse(HAPTICS.pickup);
   }
@@ -202,52 +316,62 @@ export class KlotskiMode {
     if (!cells) return;
     const dx = cells.col - h.col;
     const dz = cells.row - h.row;
+    const [l, r, u, d] = h.room;
     if (!h.axis) {
       if (Math.max(Math.abs(dx), Math.abs(dz)) < KLOTSKI.axisLock) return;
-      const [l, r, u, d] = h.room;
       const canX = l + r > 0;
       const canZ = u + d > 0;
-      if (!canX && !canZ) return;
+      if (!canX && !canZ) {
+        this.bump(h);
+        return;
+      }
       h.axis = Math.abs(dx) >= Math.abs(dz) ? (canX ? 'x' : 'z') : canZ ? 'z' : 'x';
     }
-    const [l, r, u, d] = h.room;
     const raw = h.axis === 'x' ? dx : dz;
-    const next = h.axis === 'x' ? Math.max(-l, Math.min(r, raw)) : Math.max(-u, Math.min(d, raw));
+    const lo = h.axis === 'x' ? -l : -u;
+    const hi = h.axis === 'x' ? r : d;
+    const next = Math.max(lo, Math.min(hi, raw));
+    // pushing against a wall or a block: one soft bump per push
+    if (raw > hi + KLOTSKI.bumpOver || raw < lo - KLOTSKI.bumpOver) this.bump(h);
+    else if (raw <= hi && raw >= lo) h.bumped = false;
     if (Math.round(next) !== Math.round(h.offset)) this.d.haptics.pulse(HAPTICS.snap);
     h.offset = next;
+  }
+
+  private bump(h: Held): void {
+    if (h.bumped) return;
+    h.bumped = true;
+    this.d.haptics.pulse(HAPTICS.nope);
   }
 
   private onUp(e: PointerEvent, commit: boolean): void {
     const h = this.held;
     if (!h || e.pointerId !== h.pointerId || !this.level) return;
     this.held = null;
+    if (commit && !h.axis) {
+      // a tap: slide all the way if the block can only go one way
+      const open = DIRS.filter((_, i) => (h.room[i] ?? 0) > 0);
+      const only = open.length === 1 ? open[0] : undefined;
+      if (only) this.commit(h.id, only, h.room[DIRS.indexOf(only)] ?? 0, 0, KLOTSKI.tapDuration);
+      else {
+        this.d.sound.nope();
+        this.settle = { id: h.id, axis: 'x', from: 0, dur: KLOTSKI.snapDuration, t: 0 };
+      }
+      return;
+    }
     const steps = commit && h.axis ? Math.round(h.offset) : 0;
     const axis = h.axis ?? 'x';
     const dir: KDir = axis === 'x' ? (steps > 0 ? 'right' : 'left') : steps > 0 ? 'down' : 'up';
-    const moved = steps !== 0 ? slide(this.level, this.pieces, h.id, dir, Math.abs(steps)) : null;
-    if (moved) {
-      this.pieces = moved;
-      this.moves++;
-      this.d.sound.place();
-      this.d.haptics.pulse(HAPTICS.place);
-    }
-    // ease the rest of the way onto the cell (from where the finger left it)
-    this.settle = { id: h.id, axis, from: h.offset - (moved ? steps : 0), t: 0 };
-    this.bar.set(this.n, this.moves, KLOTSKI_LEVELS[this.n - 1]?.par ?? 0);
-    if (moved && isSolved(this.level, this.pieces)) {
-      this.settle = null;
-      this.winT = 0;
-      this.d.sound.boardClear();
-      this.d.haptics.pulse(HAPTICS.boardClear);
-    }
+    if (steps === 0 || !this.commit(h.id, dir, Math.abs(steps), h.offset, KLOTSKI.snapDuration))
+      this.settle = { id: h.id, axis, from: h.offset, dur: KLOTSKI.snapDuration, t: 0 };
   }
 
   private finish(): void {
     const par = KLOTSKI_LEVELS[this.n - 1]?.par ?? this.moves;
-    const stars = kStars(this.moves, par);
-    this.progress = kRecord(this.progress, this.n, stars);
+    const stars = kStars(this.moves, par, this.hinted);
+    this.progress = kRecord(this.progress, this.n, stars, this.moves);
     void this.d.storage.set(KLOTSKI.storageKey, JSON.stringify(this.progress));
-    this.win.present(stars, this.moves, par, this.n < KLOTSKI_LEVELS.length);
+    this.win.present(stars, this.moves, par, this.n < KLOTSKI_LEVELS.length, this.hinted);
   }
 
   dispose(): void {

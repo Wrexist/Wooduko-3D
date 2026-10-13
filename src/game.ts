@@ -43,6 +43,7 @@ import type { OfferTrigger } from './core/upsell';
 import { RemoveAdsOffer } from './ui/offer';
 import type { KeyValueStore } from './platform/storage';
 import { KlotskiMode } from './workshop/klotskiMode';
+import { WorkshopHub } from './ui/workshop';
 import { GOAL_ICON, goalLabel, JourneyMap, LevelIntro } from './ui/journey';
 import { LevelDecor } from './render/levelDecor';
 import { goalProgress, levelSpec, newGoalKinds, unlockedLevel } from './core/journey';
@@ -107,6 +108,7 @@ export class Game {
   private readonly sound = new Sound();
   /** Workshop → Sliding blocks: its own scene and UI, drawn instead of the board while active. */
   private readonly klotski: KlotskiMode;
+  private readonly hub: WorkshopHub;
   private readonly drag: DragController;
 
   private readonly hud: Hud;
@@ -194,7 +196,24 @@ export class Game {
       sound: this.sound,
       haptics: this.haptics,
       onActive: (on) => this.onWorkshop(on),
+      onPickerClose: () => this.openHub(),
     });
+    this.hub = new WorkshopHub(
+      [
+        {
+          id: 'klotski',
+          icon: ICONS.moves,
+          name: t('workshop.klotski'),
+          desc: t('workshop.klotskiDesc'),
+          open: () => {
+            this.sound.tick();
+            this.hub.hide();
+            this.klotski.openPicker();
+          },
+        },
+      ],
+      { onClose: () => this.hub.hide() },
+    );
     const { scene, camera } = this.world;
     this.preview = new Preview(scene, this.tex);
     this.sparkles = new Sparkles(scene, this.tex);
@@ -233,7 +252,7 @@ export class Game {
       onJourney: () => this.openJourney(),
       onWorkshop: () => {
         this.sound.tick();
-        this.klotski.openPicker();
+        this.openHub();
       },
       onQuests: () => {
         this.refreshHome(this.store.getState());
@@ -304,6 +323,7 @@ export class Game {
       this.questsPanel.node,
       this.journeyMap.node,
       this.levelIntro.node,
+      this.hub.node,
       ...this.klotski.nodes,
       this.offer.node,
       this.confirm.node,
@@ -658,6 +678,11 @@ export class Game {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.background);
   }
 
+  private openHub(): void {
+    this.hub.setStars('klotski', ...this.klotski.starCount);
+    this.hub.show();
+  }
+
   /** Entering / leaving a Workshop level: the block puzzle's Home and HUD step aside. */
   private onWorkshop(on: boolean): void {
     document.documentElement.classList.toggle('workshop-on', on);
@@ -978,7 +1003,8 @@ export class Game {
       this.levelIntro.open ||
       this.offer.open ||
       this.klotski.picker.open ||
-      this.klotski.active
+      this.klotski.active ||
+      this.hub.open
     );
   }
 
@@ -1426,7 +1452,10 @@ export class Game {
     const s = this.store.getState();
     if (this.confirm.open) this.confirm.cancel();
     else if (this.klotski.active) this.klotski.leave(true);
-    else if (this.klotski.picker.open) this.klotski.picker.hide();
+    else if (this.klotski.picker.open) {
+      this.klotski.picker.hide();
+      this.openHub();
+    } else if (this.hub.open) this.hub.hide();
     else if (this.offer.open) this.offer.dismiss();
     else if (this.settingsPanel.open) this.settingsPanel.hide();
     else if (this.awards.open) this.awards.hide();

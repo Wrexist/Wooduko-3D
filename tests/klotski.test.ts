@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isSolved,
+  nextMove,
   kRecord,
   kStars,
   kUnlocked,
@@ -52,18 +53,27 @@ describe('klotski rules', () => {
     expect(kStars(10, 10)).toBe(3);
     expect(kStars(15, 10)).toBe(2);
     expect(kStars(16, 10)).toBe(1);
+    expect(kStars(10, 10, true)).toBe(2);
+  });
+
+  it('hints the first move of a shortest solution', () => {
+    const m = nextMove(lvl, lvl.pieces);
+    expect(m).toEqual({ id: 1, dir: 'right', steps: 2 });
+    const after = slide(lvl, lvl.pieces, 1, 'right', 2) ?? [];
+    expect(nextMove(lvl, after)).toEqual({ id: 0, dir: 'down', steps: 1 });
   });
 
   it('records best stars and unlocks in order', () => {
     let p = parseKProgress(null);
     expect(kUnlocked(p, 30)).toBe(1);
-    p = kRecord(p, 1, 2);
-    p = kRecord(p, 1, 1);
+    p = kRecord(p, 1, 2, 12);
+    p = kRecord(p, 1, 1, 9);
     expect(p.stars).toEqual([2]);
+    expect(p.best).toEqual([9]);
     expect(kUnlocked(p, 30)).toBe(2);
     expect(parseKProgress(JSON.stringify(p))).toEqual(p);
-    expect(parseKProgress('{bad')).toEqual({ stars: [] });
-    expect(parseKProgress(JSON.stringify({ stars: [9, 'x', 2] }))).toEqual({ stars: [0, 0, 2] });
+    expect(parseKProgress('{bad')).toEqual({ stars: [], best: [] });
+    expect(parseKProgress(JSON.stringify({ stars: [9, 'x', 2] }))).toEqual({ stars: [0, 0, 2], best: [] });
   });
 });
 

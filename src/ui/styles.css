@@ -2053,3 +2053,97 @@ button {
   width: 100%;
   height: 100%;
 }
+.hub-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+.hub-game {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 230, 190, 0.18);
+  background: linear-gradient(110deg, rgba(138, 90, 51, 0.55), rgba(78, 42, 18, 0.55));
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.hub-game:active {
+  transform: translateY(1px);
+}
+.hub-game .icon {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.hub-game .icon svg {
+  width: 100%;
+  height: 100%;
+}
+.hub-text {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.hub-text strong {
+  font-size: 17px;
+}
+.hub-text small {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.hub-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.hub-stars svg {
+  width: 16px;
+  height: 16px;
+  color: #ffd77a;
+}
+.k-tools {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px calc(var(--safe-bottom, 0px) + 18px);
+}
+.k-tools[hidden] {
+  display: none;
+}
+.k-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  justify-content: center;
+}
+.k-tool span {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+}
+.k-tool span svg {
+  width: 100%;
+  height: 100%;
+}
+.k-tool:disabled {
+  opacity: 0.45;
+}
+.k-tool.used {
+  color: #ffd77a;
+}
+/* the Workshop hub and level list replace Home while open (no card showing through) */
+:root:has(.overlay.workshop-hub:not(.hidden)) .overlay.home .card,
+:root:has(.overlay.workshop:not(.hidden)) .overlay.home .card {
+  visibility: hidden;
+}

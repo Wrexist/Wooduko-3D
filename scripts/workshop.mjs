@@ -28,6 +28,10 @@ await page.waitForTimeout(600);
 
 await page.getByRole('button', { name: /Workshop/ }).click();
 await page.waitForTimeout(300);
+check('workshop hub opens', (await page.locator('.overlay.workshop-hub:not(.hidden)').count()) === 1);
+await page.screenshot({ path: 'shots/workshop-0-hub.png' });
+await page.getByRole('button', { name: /Sliding blocks/ }).click();
+await page.waitForTimeout(300);
 check('level list opens', await page.locator('.overlay.workshop:not(.hidden)').count() === 1);
 await page.screenshot({ path: 'shots/workshop-1-levels.png' });
 check('only level 1 is open', (await page.locator('.k-grid .stone:not([disabled])').count()) === 1);
@@ -125,17 +129,32 @@ const after = await page.evaluate(() => {
 });
 check('moves counted', after.moves === (plan?.length ?? -1), `${after.moves}`);
 check('solved card shows', after.win);
-check('three stars saved', after.saved === JSON.stringify({ stars: [3] }), after.saved ?? 'nothing');
+check('three stars saved', after.saved === JSON.stringify({ stars: [3], best: [plan?.length] }), after.saved ?? 'nothing');
 await page.screenshot({ path: 'shots/workshop-3-solved.png' });
 
-await page.getByRole('button', { name: 'Levels' }).click();
+await page.getByRole('button', { name: 'Next level' }).click();
+await page.waitForTimeout(400);
+const k = () => page.evaluate(() => { const k = window.__grain.game.klotski; return { moves: k.moves, hinted: k.hinted, hist: k.history.length }; });
+await page.getByRole('button', { name: 'Hint' }).click();
+await page.waitForTimeout(700);
+const h1 = await k();
+check('hint plays one move', h1.moves === 1 && h1.hinted, JSON.stringify(h1));
+await page.getByRole('button', { name: 'Undo' }).click();
+await page.waitForTimeout(500);
+const h2 = await k();
+check('undo takes it back', h2.moves === 0 && h2.hist === 0, JSON.stringify(h2));
+await page.screenshot({ path: 'shots/workshop-4-tools.png' });
+await page.getByRole('button', { name: 'Back' }).click();
 await page.waitForTimeout(300);
 check('level 2 unlocked', (await page.locator('.k-grid .stone:not([disabled])').count()) === 2);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
+check('Escape goes back to the hub', (await page.locator('.overlay.workshop-hub:not(.hidden)').count()) === 1);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
 check('back on Home', await page.evaluate(() => {
   const k = window.__grain.game.klotski;
-  return !k.active && !k.picker.open && getComputedStyle(document.querySelector('.overlay.home')).display !== 'none';
+  return !k.active && !k.picker.open && !window.__grain.game.hub.open && getComputedStyle(document.querySelector('.overlay.home')).display !== 'none';
 }));
 
 await browser.close();

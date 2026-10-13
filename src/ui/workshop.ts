@@ -87,10 +87,41 @@ export class KlotskiBar {
     return this.node.hidden ? 0 : this.node.getBoundingClientRect().bottom;
   }
 
-  set(level: number, moves: number, par: number): void {
+  set(level: number, moves: number, par: number, best: number): void {
     this.title.textContent = t('journey.level', { n: level });
     this.moves.textContent = t('workshop.moves', { n: num(moves) });
-    this.par.textContent = t('workshop.par', { n: num(par) });
+    const parText = t('workshop.par', { n: num(par) });
+    this.par.textContent = best > 0 ? `${parText} · ${t('workshop.yourBest', { n: num(best) })}` : parText;
+  }
+
+  show(on: boolean): void {
+    this.node.hidden = !on;
+  }
+}
+
+/** Bottom tools while sliding: Undo and Hint (a hint caps the level at two stars). */
+export class KlotskiTools {
+  readonly node: HTMLDivElement;
+  private readonly undo: HTMLButtonElement;
+  private readonly hint: HTMLButtonElement;
+
+  constructor(h: { onUndo(): void; onHint(): void }) {
+    this.undo = el('button', { class: 'ghost-btn k-tool' }, [el('span', { html: UNDO }), t('workshop.undo')]);
+    this.hint = el('button', { class: 'ghost-btn k-tool' }, [el('span', { html: BULB }), t('workshop.hint')]);
+    this.undo.addEventListener('click', h.onUndo);
+    this.hint.addEventListener('click', h.onHint);
+    this.node = el('div', { class: 'k-tools', hidden: '' }, [this.undo, this.hint]);
+  }
+
+  /** Height (px) the tools take from the bottom of the screen. */
+  get height(): number {
+    return this.node.hidden ? 0 : window.innerHeight - this.node.getBoundingClientRect().top;
+  }
+
+  set(canUndo: boolean, hinted: boolean): void {
+    this.undo.disabled = !canUndo;
+    this.hint.classList.toggle('used', hinted);
+    this.hint.setAttribute('aria-description', t('workshop.hintNote'));
   }
 
   show(on: boolean): void {
@@ -119,14 +150,68 @@ export class KlotskiWin extends Overlay {
     );
   }
 
-  present(stars: number, moves: number, par: number, hasNext: boolean): void {
+  present(stars: number, moves: number, par: number, hasNext: boolean, hinted: boolean): void {
     this.stars.replaceChildren(starsRow(stars));
     this.stars.setAttribute('aria-label', t('journey.stars', { n: stars }));
-    this.line.textContent = t('workshop.result', { n: num(moves), p: num(par) });
+    const line = t('workshop.result', { n: num(moves), p: num(par) });
+    this.line.textContent = hinted ? `${line} · ${t('workshop.hinted')}` : line;
     this.next.hidden = !hasNext;
     this.show();
   }
 }
 
+const UNDO =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>';
+
+const BULB =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>';
+
 const BACK =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+
+export interface HubGame {
+  readonly id: string;
+  readonly icon: string;
+  readonly name: string;
+  readonly desc: string;
+  open(): void;
+}
+
+/** Workshop: one card per small wood game, with the stars earned in each. */
+export class WorkshopHub extends Overlay {
+  private readonly counts = new Map<string, HTMLSpanElement>();
+
+  constructor(games: readonly HubGame[], h: { onClose(): void }) {
+    super('workshop-hub dialog-layer', 'hubTitle');
+    this.card.classList.add('wide');
+    const close = el('button', { class: 'btn close', 'aria-label': t('common.done'), html: '×' });
+    close.addEventListener('click', h.onClose);
+    this.node.addEventListener('pointerdown', (e) => {
+      if (e.target === this.node) h.onClose();
+    });
+    const list = el('div', { class: 'hub-list' });
+    for (const g of games) {
+      const count = el('span', { class: 'hub-stars' });
+      this.counts.set(g.id, count);
+      const b = el('button', { class: 'hub-game' }, [
+        el('span', { class: 'icon', html: g.icon }),
+        el('span', { class: 'hub-text' }, [el('strong', {}, [g.name]), el('small', {}, [g.desc])]),
+        count,
+      ]);
+      b.addEventListener('click', () => g.open());
+      list.append(b);
+    }
+    this.card.append(
+      el('div', { class: 'journey-head' }, [el('h2', { id: 'hubTitle' }, [t('mode.workshop')]), close]),
+      list,
+    );
+  }
+
+  setStars(id: string, earned: number, total: number): void {
+    const c = this.counts.get(id);
+    if (!c) return;
+    c.innerHTML = ICONS.star;
+    c.append(`${num(earned)}/${num(total)}`);
+    c.setAttribute('aria-label', t('journey.stars', { n: earned }));
+  }
+}

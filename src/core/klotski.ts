@@ -139,17 +139,28 @@ function stateKey(level: KLevel, pieces: readonly KPiece[]): string {
   return g.join('');
 }
 
+export interface KMove {
+  readonly id: number;
+  readonly dir: KDir;
+  readonly steps: number;
+}
+
 /**
- * Fewest moves to solve (breadth-first search over states; a move is one straight slide of any length).
- * Returns -1 if unsolvable or the search exceeds `limit` states.
+ * Breadth-first search over states (a move is one straight slide of any length).
+ * Returns the fewest moves and the first move of one shortest solution, or null if unsolvable
+ * or the search exceeds `limit` states.
  */
-export function solve(level: KLevel, pieces: readonly KPiece[] = level.pieces, limit = 400_000): number {
-  if (isSolved(level, pieces)) return 0;
+export function search(
+  level: KLevel,
+  pieces: readonly KPiece[] = level.pieces,
+  limit = 400_000,
+): { moves: number; first: KMove | null } | null {
+  if (isSolved(level, pieces)) return { moves: 0, first: null };
   const seen = new Set<string>([stateKey(level, pieces)]);
-  let frontier: (readonly KPiece[])[] = [pieces];
+  let frontier: { ps: readonly KPiece[]; first: KMove | null }[] = [{ ps: pieces, first: null }];
   for (let depth = 1; frontier.length; depth++) {
-    const next: KPiece[][] = [];
-    for (const ps of frontier) {
+    const next: { ps: readonly KPiece[]; first: KMove | null }[] = [];
+    for (const { ps, first } of frontier) {
       for (const p of ps) {
         for (const d of K_DIRS) {
           const max = maxSlide(level, ps, p.id, d);
@@ -158,22 +169,32 @@ export function solve(level: KLevel, pieces: readonly KPiece[] = level.pieces, l
             if (!moved) continue;
             const k = stateKey(level, moved);
             if (seen.has(k)) continue;
-            if (isSolved(level, moved)) return depth;
+            const f = first ?? { id: p.id, dir: d, steps: n };
+            if (isSolved(level, moved)) return { moves: depth, first: f };
             seen.add(k);
-            if (seen.size > limit) return -1;
-            next.push(moved);
+            if (seen.size > limit) return null;
+            next.push({ ps: moved, first: f });
           }
         }
       }
     }
     frontier = next;
   }
-  return -1;
+  return null;
 }
 
-/** Stars for a finished level: par or better = 3, within 1.5× par = 2, else 1. */
-export function kStars(moves: number, par: number): number {
-  if (moves <= par) return 3;
+/** Fewest moves to solve, or −1 if unsolvable (or the search exceeds `limit` states). */
+export function solve(level: KLevel, pieces: readonly KPiece[] = level.pieces, limit = 400_000): number {
+  return search(level, pieces, limit)?.moves ?? -1;
+}
+
+/** The first move of a shortest solution from here (the hint), or null when solved / stuck. */
+export const nextMove = (level: KLevel, pieces: readonly KPiece[]): KMove | null =>
+  search(level, pieces)?.first ?? null;
+
+/** Stars for a finished level: par or better = 3, within 1.5× par = 2, else 1. Using a hint caps it at 2. */
+export function kStars(moves: number, par: number, hinted = false): number {
+  if (moves <= par && !hinted) return 3;
   if (moves <= Math.ceil(par * 1.5)) return 2;
   return 1;
 }
@@ -181,6 +202,8 @@ export function kStars(moves: number, par: number): number {
 export interface KProgress {
   /** Best stars per level (index = level − 1). */
   readonly stars: readonly number[];
+  /** Fewest moves per level (0 = not solved yet). */
+  readonly best: readonly number[];
 }
 
 /** Highest level the player may open (1-based): one past the last solved. */
@@ -190,20 +213,27 @@ export const kUnlocked = (p: KProgress, total: number): number => {
   return Math.min(n, total);
 };
 
-export function kRecord(p: KProgress, level: number, stars: number): KProgress {
+export function kRecord(p: KProgress, level: number, stars: number, moves: number): KProgress {
   const s = [...p.stars];
+  const b = [...p.best];
   while (s.length < level) s.push(0);
+  while (b.length < level) b.push(0);
   s[level - 1] = Math.max(s[level - 1] ?? 0, stars);
-  return { stars: s };
+  const old = b[level - 1] ?? 0;
+  b[level - 1] = old > 0 ? Math.min(old, moves) : moves;
+  return { stars: s, best: b };
 }
 
 export function parseKProgress(raw: string | null): KProgress {
   try {
     const v: unknown = raw ? JSON.parse(raw) : null;
-    const stars = (v as { stars?: unknown } | null)?.stars;
-    if (!Array.isArray(stars)) return { stars: [] };
-    return { stars: stars.map((x) => (Number.isInteger(x) && x >= 0 && x <= 3 ? (x as number) : 0)) };
+    const o = v as { stars?: unknown; best?: unknown } | null;
+    const stars = Array.isArray(o?.stars) ? (o.stars as unknown[]) : [];
+    const best = Array.isArray(o?.best) ? (o.best as unknown[]) : [];
+    const int = (x: unknown, max: number): number =>
+      Number.isInteger(x) && (x as number) >= 0 && (x as number) <= max ? (x as number) : 0;
+    return { stars: stars.map((x) => int(x, 3)), best: best.map((x) => int(x, 100_000)) };
   } catch {
-    return { stars: [] };
+    return { stars: [], best: [] };
   }
 }

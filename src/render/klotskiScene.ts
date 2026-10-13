@@ -173,6 +173,25 @@ export class KlotskiScene {
     floor.position.y = WORLD.baseY;
     floor.receiveShadow = true;
     this.table.add(slab, floor);
+    // faint grooves between the cells, so the grid reads without competing with the blocks
+    const grooveMat = new THREE.MeshBasicMaterial({
+      color: linearColor(KLOTSKI.groove),
+      transparent: true,
+      opacity: KLOTSKI.grooveOpacity,
+      depthWrite: false,
+    });
+    const gw = KLOTSKI.grooveWidth;
+    const lines: [number, number, number, number][] = [];
+    for (let c = 1; c < level.w; c++) lines.push([this.cellX(c), 0, gw, level.h]);
+    for (let r = 1; r < level.h; r++) lines.push([0, this.cellZ(r), level.w, gw]);
+    lines.forEach(([x, z, w, d], i) => {
+      const geo = new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2);
+      // each line gets its own material clone so dispose() stays one-to-one
+      const line = new THREE.Mesh(geo, i === 0 ? grooveMat : grooveMat.clone());
+      line.position.set(x, WORLD.baseY + 0.003, z);
+      line.renderOrder = 1;
+      this.table.add(line);
+    });
   }
 
   private clear(): void {

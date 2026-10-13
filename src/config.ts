@@ -783,6 +783,10 @@ export const KLOTSKI = {
   keyTint: [0.2, 0.085, 0.035] as const,
   /** Tray floor tint (sRGB hex, multiplies the side-grain texture). */
   floor: 0x5a2a12,
+  /** Cell grooves on the floor. */
+  groove: 0x1e0c05,
+  grooveOpacity: 0.35,
+  grooveWidth: 0.04,
   /** Screen padding (px) under the top bar and above the bottom edge. */
   padTop: 16,
   padBottom: 40,
@@ -790,6 +794,12 @@ export const KLOTSKI = {
   axisLock: 0.12,
   /** Seconds for a released piece to settle on its cell. */
   snapDuration: 0.16,
+  /** Seconds for a tapped block to slide, for Undo to slide it back, and for a hint move. */
+  tapDuration: 0.22,
+  undoDuration: 0.2,
+  hintDuration: 0.45,
+  /** Cells pushed past the end of a free run before the "blocked" bump. */
+  bumpOver: 0.35,
   /** Lift (units) of the piece under the finger. */
   lift: 0.08,
   liftRate: 18,

@@ -119,11 +119,10 @@ export class HomeMenu extends Overlay {
       this.journeyStars,
     );
     this.journeyBtn.addEventListener('click', h.onJourney);
-    const workshop = el(
-      'button',
-      { class: 'journey-btn workshop-btn', 'aria-label': `${t('mode.workshop')}: ${t('workshop.klotski')}` },
-      [el('span', { class: 'icon', html: ICONS.moves }), el('strong', {}, [t('mode.workshop')])],
-    );
+    const workshop = el('button', { class: 'journey-btn workshop-btn' }, [
+      el('span', { class: 'icon', html: ICONS.moves }),
+      el('strong', {}, [t('mode.workshop')]),
+    ]);
     workshop.addEventListener('click', h.onWorkshop);
     this.questsBtn.innerHTML = ICONS.list;
     this.questsBtn.append(el('span', {}, [t('quests.short')]), this.questsCount);
