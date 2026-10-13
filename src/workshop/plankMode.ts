@@ -173,7 +173,13 @@ export class PlankMode {
     this.width = width;
     this.height = height;
     this.safeBottom = safeBottom;
-    this.view.resize(width, height, this.bar.bottom, Math.max(safeBottom, this.tools.height), this.tools.left);
+    this.view.resize(
+      width,
+      height,
+      this.bar.bottom,
+      Math.max(safeBottom, this.tools.height),
+      this.tools.left,
+    );
   }
 
   private refreshUi(): void {
@@ -233,6 +239,7 @@ export class PlankMode {
       this.view.draw(p.id, look);
     }
     if (this.winT >= 0) {
+      if (this.winT === 0) this.tools.show(false);
       this.winT += dt;
       if (this.winT >= PLANK.winCardDelay && !this.win.open) this.finish();
     }
@@ -392,13 +399,14 @@ export class PlankMode {
   }
 
   private finish(): void {
-    const line =
-      this.hints === 0
-        ? t('workshop.plankClean')
-        : this.hints === 1
-          ? t('workshop.plankHint1')
-          : t('workshop.plankHints', { n: num(this.hints) });
-    this.win.present(this.solvedStars, line, this.n < LEVEL_COUNT_PLANK);
+    this.win.present(
+      this.solvedStars,
+      [
+        { label: t('workshop.statPieces'), value: num(this.level?.pieces.length ?? 0) },
+        { label: t('workshop.statHints'), value: num(this.hints) },
+      ],
+      this.n < LEVEL_COUNT_PLANK,
+    );
   }
 
   dispose(): void {

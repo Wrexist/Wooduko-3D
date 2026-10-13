@@ -34,8 +34,8 @@ await page.getByRole('button', { name: /Sliding blocks/ }).click();
 await page.waitForTimeout(300);
 check('level list opens', await page.locator('.overlay.workshop:not(.hidden)').count() === 1);
 await page.screenshot({ path: 'shots/workshop-1-levels.png' });
-check('only level 1 is open', (await page.locator('.overlay.workshop:not(.hidden) .k-grid .stone:not([disabled])').count()) === 1);
-await page.locator('.overlay.workshop:not(.hidden) .k-grid .stone').first().click();
+check('only level 1 is open', (await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level:not([disabled])').count()) === 1);
+await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level').first().click();
 await page.waitForTimeout(500);
 check('level is on screen, Home hidden', await page.evaluate(() => {
   const k = window.__grain.game.klotski;
@@ -146,7 +146,7 @@ check('undo takes it back', h2.moves === 0 && h2.hist === 0, JSON.stringify(h2))
 await page.screenshot({ path: 'shots/workshop-4-tools.png' });
 await page.getByRole('button', { name: 'Back' }).click();
 await page.waitForTimeout(300);
-check('level 2 unlocked', (await page.locator('.overlay.workshop:not(.hidden) .k-grid .stone:not([disabled])').count()) === 2);
+check('level 2 unlocked', (await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level:not([disabled])').count()) === 2);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
 check('Escape goes back to the hub', (await page.locator('.overlay.workshop-hub:not(.hidden)').count()) === 1);
@@ -163,7 +163,7 @@ await page.getByRole('button', { name: /Workshop/ }).click();
 await page.waitForTimeout(300);
 await page.getByRole('button', { name: /Plank fit/ }).click();
 await page.waitForTimeout(300);
-await page.locator('.overlay.workshop:not(.hidden) .k-grid .stone').first().click();
+await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level').first().click();
 await page.waitForTimeout(900);
 check('plank level is on screen', await page.evaluate(() => window.__grain.game.plank.active));
 await page.screenshot({ path: 'shots/workshop-5-plank.png' });
@@ -284,7 +284,7 @@ for (const [vw, vh] of [
   check(`${tag}: level list fits`, await fits('.overlay.workshop:not(.hidden) .card'));
   const overlap = await pg.evaluate(() => {
     const grid = document.querySelector('.overlay.workshop:not(.hidden) .k-grid');
-    const rs = [...grid.querySelectorAll('.stone')].slice(0, 6).map((b) => b.getBoundingClientRect());
+    const rs = [...grid.querySelectorAll('.k-level')].slice(0, 6).map((b) => b.getBoundingClientRect());
     const bad = rs.some((a, i) => rs.some((b, j) => i < j && a.right > b.left + 1 && b.right > a.left + 1 && a.bottom > b.top + 1 && b.bottom > a.top + 1));
     return bad || grid.scrollWidth > grid.clientWidth + 1;
   });

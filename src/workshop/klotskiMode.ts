@@ -198,7 +198,13 @@ export class KlotskiMode {
     this.width = width;
     this.height = height;
     this.safeBottom = safeBottom;
-    this.view.resize(width, height, this.bar.bottom, Math.max(safeBottom, this.tools.height), this.tools.left);
+    this.view.resize(
+      width,
+      height,
+      this.bar.bottom,
+      Math.max(safeBottom, this.tools.height),
+      this.tools.left,
+    );
   }
 
   update(dt: number): void {
@@ -221,6 +227,7 @@ export class KlotskiMode {
       }
     }
     if (this.winT >= 0) {
+      if (this.winT === 0) this.tools.show(false);
       this.winT += dt;
       const k = Math.min(1, this.winT / KLOTSKI.winSlide);
       const key = keyPiece(this.pieces);
@@ -414,11 +421,16 @@ export class KlotskiMode {
   private finish(): void {
     const par = KLOTSKI_LEVELS[this.n - 1]?.par ?? this.moves;
     const stars = this.solvedStars;
-    const line = t('workshop.result', { n: num(this.moves), p: num(par) });
+    const best = this.progress.best[this.n - 1] ?? 0;
     this.win.present(
       stars,
-      this.hinted ? `${line} · ${t('workshop.hinted')}` : line,
+      [
+        { label: t('workshop.statMoves'), value: num(this.moves) },
+        { label: t('workshop.statPar'), value: num(par) },
+        ...(best > 0 ? [{ label: t('workshop.statBest'), value: num(best) }] : []),
+      ],
       this.n < KLOTSKI_LEVELS.length,
+      this.hinted ? t('workshop.hinted') : '',
     );
   }
 

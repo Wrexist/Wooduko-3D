@@ -81,7 +81,7 @@ try {
     await page.locator('.hub-game').first().click();
     await page.waitForTimeout(500);
     await scan('workshop levels');
-    await page.locator('.overlay.workshop:not(.hidden) .stone').first().click();
+    await page.locator('.overlay.workshop:not(.hidden) .k-level').first().click();
     await page.waitForTimeout(800);
     await scan('workshop level');
     await page.keyboard.press('Escape');

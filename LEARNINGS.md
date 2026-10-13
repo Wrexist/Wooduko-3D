@@ -52,3 +52,5 @@
 - Bots are not people: use these numbers to compare before/after, not as absolute difficulty. Human playtest script: `PLAYTEST.md`.
 
 - **Carving a table hole from a 2D shape (Workshop):** `ExtrudeGeometry` + `rotateX(+π/2)` maps shape *y* to world *+z* (not −z). The first Klotski tray had its exit notch on the wrong edge because of a sign flip. Also: an extruded hole is narrowed by `bevelSize` on each side, so outset the hole by the bevel (as `table.ts` does).
+
+- **120 Hz is not available to us on iPhone (Oct 2026):** WKWebView caps `requestAnimationFrame` at 60 fps on ProMotion screens even with `CADisableMinimumFrameDurationOnPhone` set (WebKit bug 294338; the "near 60fps" flag only affects Safari). Aim for a steady 60 instead; motion is dt-based, so it will feel right at 120 the day WebKit allows it. Pixel ratio is capped at 3 with the adaptive step-down in `renderer.ts`.

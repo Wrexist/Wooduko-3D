@@ -439,7 +439,8 @@ export const CAMERA = {
 } as const;
 
 export const RENDER = {
-  maxPixelRatio: 2,
+  /** Native sharpness on 3× iPhones; the adaptive step-down below protects slower devices. */
+  maxPixelRatio: 3,
   minPixelRatio: 1,
   pixelRatioStep: 0.25,
   /** Lower the pixel ratio when the average frame time stays above this for `slowSeconds`. */
@@ -806,7 +807,7 @@ export const KLOTSKI = {
   lift: 0.08,
   liftRate: 18,
   /** Key piece glides out of the exit this far (units) when solved, over `winSlide` seconds. */
-  winTravel: 3,
+  winTravel: 1.9,
   /** …rising this much (units), so it ends on the table top instead of inside the slab. */
   winRise: 0.42,
   winSlide: 0.7,

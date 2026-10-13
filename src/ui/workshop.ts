@@ -2,12 +2,6 @@ import { num, t } from '../i18n';
 import { Overlay } from './dialogs';
 import { el, ICONS } from './dom';
 
-const starsRow = (n: number): HTMLSpanElement => {
-  const row = el('span', { class: 'stars', 'aria-hidden': 'true' });
-  for (let i = 0; i < 3; i++) row.append(el('i', { class: i < n ? 'on' : '', html: ICONS.star }));
-  return row;
-};
-
 /**
  * While the Workshop hub or a level list is open the Home card hides behind it. A class on the
  * root (not `:has()`, which iOS 15.0-15.3 lacks) drives the CSS.
@@ -37,10 +31,12 @@ const unlocked = (stars: readonly number[], total: number): number => {
   return Math.min(n, total);
 };
 
-/** A Workshop game's levels: a grid, best stars under each, later ones locked. */
+/** A Workshop game's levels: a header with total stars, then a grid of tiles (stars or a lock). */
 export class LevelPicker extends WorkshopOverlay {
-  private readonly grid = el('div', { class: 'k-grid' });
+  private readonly grid = el('div', { class: 'k-grid', role: 'list' });
   private readonly note = el('p', { class: 'note' });
+  private readonly count = el('span', { class: 'k-count' });
+  private readonly fill = el('i');
 
   constructor(
     id: string,
@@ -57,13 +53,20 @@ export class LevelPicker extends WorkshopOverlay {
       if (e.target === this.node) h.onClose();
     });
     this.card.append(
-      el('div', { class: 'journey-head' }, [el('h2', { id: `${id}Title` }, [title]), close]),
-      el('p', { class: 'lead' }, [lead]),
+      el('div', { class: 'k-head' }, [
+        el('div', {}, [el('h2', { id: `${id}Title` }, [title]), el('p', { class: 'k-lead' }, [lead])]),
+        close,
+      ]),
+      el('div', { class: 'k-progress' }, [
+        el('span', { class: 'k-star', html: ICONS.star }),
+        this.count,
+        el('span', { class: 'k-bar-track', 'aria-hidden': 'true' }, [this.fill]),
+      ]),
       this.grid,
       this.note,
     );
     for (let n = 1; n <= total; n++) {
-      const b = el('button', { class: 'stone' }, [el('b', {}, [String(n)])]);
+      const b = el('button', { class: 'k-level', role: 'listitem' }, [el('b', {}, [String(n)])]);
       b.addEventListener('click', () => h.onPlay(n));
       this.grid.append(b);
     }
@@ -72,13 +75,15 @@ export class LevelPicker extends WorkshopOverlay {
   update(best: readonly number[]): void {
     const open = unlocked(best, this.total);
     let solved = 0;
+    let earned = 0;
     [...this.grid.children].forEach((node, i) => {
       const n = i + 1;
       const b = node as HTMLButtonElement;
       const stars = best[n - 1] ?? 0;
+      earned += stars;
       if (stars) solved++;
       const locked = n > open;
-      b.className = `stone${locked ? ' locked' : ''}${n === open && !stars ? ' current' : ''}${stars ? ' done' : ''}`;
+      b.className = `k-level${locked ? ' locked' : ''}${n === open && !stars ? ' current' : ''}${stars ? ' done' : ''}`;
       b.disabled = locked;
       b.setAttribute(
         'aria-label',
@@ -86,10 +91,29 @@ export class LevelPicker extends WorkshopOverlay {
           ? t('journey.locked', { n })
           : `${t('journey.level', { n })}, ${t('journey.stars', { n: stars })}`,
       );
-      b.querySelector('.stars')?.remove();
-      if (!locked) b.append(starsRow(stars));
+      b.querySelector('.pips, .lock')?.remove();
+      if (locked) b.append(el('span', { class: 'lock', html: ICONS.lock, 'aria-hidden': 'true' }));
+      else {
+        const pips = el('span', { class: 'pips', 'aria-hidden': 'true' });
+        for (let k = 0; k < 3; k++) pips.append(el('i', { class: k < stars ? 'on' : '', html: ICONS.star }));
+        b.append(pips);
+      }
     });
+    const max = this.total * 3;
+    this.count.textContent = `${num(earned)} / ${num(max)}`;
+    this.count.setAttribute('aria-label', t('journey.stars', { n: earned }));
+    this.fill.style.width = `${Math.round((earned / max) * 100)}%`;
     this.note.textContent = solved === this.total ? t('workshop.allDone') : '';
+    this.note.hidden = solved !== this.total;
+  }
+
+  /** Open with the next level to play scrolled into view. */
+  override show(): void {
+    super.show();
+    const cur =
+      this.grid.querySelector<HTMLElement>('.k-level.current') ?? this.grid.querySelector('.k-level');
+    cur?.scrollIntoView({ block: 'nearest' });
+    cur?.focus({ preventScroll: true });
   }
 }
 
@@ -171,31 +195,46 @@ export class GameTools {
   }
 }
 
-/** Solved card: stars, a result line, Next / Try again / Levels. */
+export interface WinStat {
+  readonly label: string;
+  readonly value: string;
+}
+
+/** Solved card: stars that pop in, a row of stats, Next level, and Try again / Levels side by side. */
 export class WinCard extends Overlay {
-  private readonly stars = el('div', { class: 'k-stars' });
-  private readonly line = el('p', { class: 'lead' });
+  private readonly stars = el('div', { class: 'k-win-stars' });
+  private readonly stats = el('dl', { class: 'k-stats' });
+  private readonly note = el('p', { class: 'k-note' });
   private readonly next = el('button', { class: 'cta' }, [t('workshop.next')]);
 
   constructor(h: { onNext(): void; onReplay(): void; onLevels(): void }) {
     super('workshop-win dialog-layer', 'kWinTitle');
+    this.card.classList.add('k-win');
     const replay = el('button', { class: 'ghost-btn' }, [t('workshop.replay')]);
     const levels = el('button', { class: 'ghost-btn' }, [t('workshop.levels')]);
     this.next.addEventListener('click', h.onNext);
     replay.addEventListener('click', h.onReplay);
     levels.addEventListener('click', h.onLevels);
     this.card.append(
-      el('h2', { id: 'kWinTitle' }, [t('workshop.solved')]),
       this.stars,
-      this.line,
-      el('div', { class: 'stack' }, [this.next, replay, levels]),
+      el('h2', { id: 'kWinTitle' }, [t('workshop.solved')]),
+      this.stats,
+      this.note,
+      el('div', { class: 'k-actions' }, [this.next, el('div', { class: 'pair' }, [replay, levels])]),
     );
   }
 
-  present(stars: number, line: string, hasNext: boolean): void {
-    this.stars.replaceChildren(starsRow(stars));
+  present(stars: number, stats: readonly WinStat[], hasNext: boolean, note = ''): void {
+    this.stars.replaceChildren();
+    for (let i = 0; i < 3; i++)
+      this.stars.append(el('i', { class: i < stars ? 'on' : '', html: ICONS.star, style: `--i:${i}` }));
+    this.stars.setAttribute('role', 'img');
     this.stars.setAttribute('aria-label', t('journey.stars', { n: stars }));
-    this.line.textContent = line;
+    this.stats.replaceChildren(
+      ...stats.map((s) => el('div', {}, [el('dt', {}, [s.label]), el('dd', {}, [s.value])])),
+    );
+    this.note.textContent = note;
+    this.note.hidden = !note;
     this.next.hidden = !hasNext;
     this.show();
   }
