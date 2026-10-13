@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BLOCK, CAMERA_VIEWS, PLANK, RENDER, TABLE, WORLD } from '../config';
+import { BLOCK, CAMERA_VIEWS, LAYOUT, PLANK, RENDER, TABLE, WORLD } from '../config';
 import type { LayoutSpec } from '../config';
 import type { Cells, PlankLevel } from '../core/plank';
 import { Blocks } from './blocks';
@@ -45,8 +45,10 @@ export class PlankScene {
   private readonly ray = new THREE.Raycaster();
   private readonly ndc = new THREE.Vector2();
   private readonly plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  private fit: [number, number, number, number] = [1, 1, 0, 0];
+  private fit: [number, number, number, number, number] = [1, 1, 0, 0, 0];
   private trayRows = 1;
+  /** Wide screen: loose pieces sit to the right of the board instead of below it. */
+  private side = false;
 
   constructor(private readonly tex: Textures) {
     this.scene.background = new THREE.Color(RENDER.background);
@@ -69,6 +71,15 @@ export class PlankScene {
 
   /** Centre of tray slot `i` (on the table, below the board). */
   slot(i: number): { x: number; z: number } {
+    if (this.side) {
+      // columns of three, starting right of the board, rows spread over the board's height
+      const rows = PLANK.trayCols;
+      const rowD = Math.max((this.level?.h ?? 0) / rows, PLANK.trayRowDepth * 0.9);
+      return {
+        x: (this.level?.w ?? 0) / 2 + PLANK.trayGap + PLANK.sideColWidth * (Math.floor(i / rows) + 0.5),
+        z: rowD * ((i % rows) + 0.5),
+      };
+    }
     const cols = PLANK.trayCols;
     const w = this.trayWidth / cols;
     const row = Math.floor(i / cols);
@@ -163,15 +174,31 @@ export class PlankScene {
     return { x: p.x, z: p.z };
   }
 
-  resize(width: number, height: number, topPx: number, bottomPx: number): void {
-    this.fit = [width, height, topPx, bottomPx];
+  /** True when the last resize put the tray beside the board (slots move; pieces ease there). */
+  get sideTray(): boolean {
+    return this.side;
+  }
+
+  resize(width: number, height: number, topPx: number, bottomPx: number, leftPx = 0): void {
+    this.fit = [width, height, topPx, bottomPx, leftPx];
+    this.side = width / height > LAYOUT.landscapeAspect;
+    const w = this.level?.w ?? 4;
     const h = this.level?.h ?? 4;
-    const half = Math.max((this.level?.w ?? 4) / 2, this.trayWidth / 2) + 0.4;
+    const n = this.level?.pieces.length ?? 1;
+    const half = Math.max(w / 2, this.trayWidth / 2) + 0.4;
+    const bounds = this.side
+      ? {
+          x0: -w / 2 - 0.4,
+          x1: w / 2 + PLANK.trayGap + PLANK.sideColWidth * Math.ceil(n / PLANK.trayCols) + 0.2,
+          z0: -0.5,
+          z1: Math.max(h, PLANK.trayCols * PLANK.trayRowDepth * 0.9) + 0.4,
+        }
+      : { x0: -half, x1: half, z0: -0.5, z1: h + PLANK.trayGap + PLANK.trayRowDepth * this.trayRows };
     const spec: LayoutSpec = {
-      landscape: false,
+      landscape: this.side,
       slots: [],
       hit: [0, 0],
-      bounds: { x0: -half, x1: half, z0: -0.5, z1: h + PLANK.trayGap + PLANK.trayRowDepth * this.trayRows },
+      bounds,
       dealFromX: 0,
       padTop: 12,
       padBottom: 12,
@@ -185,7 +212,7 @@ export class PlankScene {
       topPx + spec.padTop,
       bottomPx + spec.padBottom,
       this.camPos,
-      0,
+      leftPx,
       dir,
     );
   }

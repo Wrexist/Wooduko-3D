@@ -403,7 +403,7 @@ export const LAYOUT: {
       [7.7, 3.3],
     ],
     hit: [1.95, 1.62],
-    bounds: { x0: -4.7, x1: 9.5, z0: -4.7, z1: 4.7 },
+    bounds: { x0: -4.7, x1: 9.5, z0: -4.9, z1: 4.9 },
     dealFromX: 9,
     padTop: 6,
     padBottom: 14,
@@ -798,6 +798,8 @@ export const KLOTSKI = {
   tapDuration: 0.22,
   undoDuration: 0.2,
   hintDuration: 0.45,
+  /** Ms after a level appears before its solution is worked out in the background (for Hint). */
+  planDelayMs: 700,
   /** Cells pushed past the end of a free run before the "blocked" bump. */
   bumpOver: 0.35,
   /** Lift (units) of the piece under the finger. */
@@ -819,9 +821,13 @@ export const PLANK = {
   wallGap: 0.07,
   /** Loose pieces lie on the table at this scale, three to a row. */
   trayScale: 0.55,
+  /** …but no loose piece spans more than this (units), so neighbours never touch. */
+  trayMaxSpan: 1.7,
   trayCols: 3,
   trayMinWidth: 6,
   trayRowDepth: 2.1,
+  /** Wide screens: width (units) of each column of loose pieces beside the board. */
+  sideColWidth: 2,
   /** Space between the board and the first tray row (units). */
   trayGap: 1.1,
   /** Held piece: lift (units) and how far above the finger it floats on touch (units). */
@@ -831,8 +837,7 @@ export const PLANK = {
   followRate: 26,
   settleRate: 16,
   turnRate: 18,
-  /** A press shorter than this, moving less than `tapPx`, is a tap (turn / send back). */
-  tapMs: 320,
+  /** A press moving less than this (px) is a tap (turn / send back). */
   tapPx: 10,
   /** Floor tint and cell grooves. */
   floor: 0x5a2a12,

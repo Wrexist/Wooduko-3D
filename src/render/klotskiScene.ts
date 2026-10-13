@@ -32,7 +32,7 @@ export class KlotskiScene {
   private readonly ray = new THREE.Raycaster();
   private readonly ndc = new THREE.Vector2();
   private readonly plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  private fit: [number, number, number, number] = [1, 1, 0, 0];
+  private fit: [number, number, number, number, number] = [1, 1, 0, 0, 0];
 
   constructor(private readonly tex: Textures) {
     this.scene.background = new THREE.Color(RENDER.background);
@@ -90,14 +90,25 @@ export class KlotskiScene {
       const r0 = m.position.z - this.cellZ(0);
       const box = m.geometry.boundingBox ?? (m.geometry.computeBoundingBox(), m.geometry.boundingBox);
       if (!box) continue;
-      if (hit.col >= c0 + box.min.x && hit.col <= c0 + box.max.x && hit.row >= r0 + box.min.z && hit.row <= r0 + box.max.z)
+      if (
+        hit.col >= c0 + box.min.x &&
+        hit.col <= c0 + box.max.x &&
+        hit.row >= r0 + box.min.z &&
+        hit.row <= r0 + box.max.z
+      )
         id = pid;
     }
     return { id, col: hit.col, row: hit.row };
   }
 
   /** Screen point → board cells (fractional) on the plane at height y. */
-  toCells(x: number, y: number, width: number, height: number, planeY: number): { col: number; row: number } | null {
+  toCells(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    planeY: number,
+  ): { col: number; row: number } | null {
     this.ndc.set((x / width) * 2 - 1, -(y / height) * 2 + 1);
     this.ray.setFromCamera(this.ndc, this.camera);
     this.plane.constant = -planeY;
@@ -106,8 +117,8 @@ export class KlotskiScene {
     return { col: p.x - this.cellX(0), row: p.z - this.cellZ(0) };
   }
 
-  resize(width: number, height: number, topPx: number, bottomPx: number): void {
-    this.fit = [width, height, topPx, bottomPx];
+  resize(width: number, height: number, topPx: number, bottomPx: number, leftPx = 0): void {
+    this.fit = [width, height, topPx, bottomPx, leftPx];
     const w = this.level?.w ?? 4;
     const h = this.level?.h ?? 5;
     const m = KLOTSKI.wallGap + TABLE.bevel + 0.3;
@@ -121,7 +132,17 @@ export class KlotskiScene {
       padBottom: KLOTSKI.padBottom,
     };
     const dir = new THREE.Vector3(...CAMERA_VIEWS.top).normalize();
-    fitCamera(this.camera, width, height, spec, topPx + spec.padTop, bottomPx + spec.padBottom, this.camPos, 0, dir);
+    fitCamera(
+      this.camera,
+      width,
+      height,
+      spec,
+      topPx + spec.padTop,
+      bottomPx + spec.padBottom,
+      this.camPos,
+      leftPx,
+      dir,
+    );
   }
 
   private buildTable(level: KLevel): void {
@@ -133,7 +154,8 @@ export class KlotskiScene {
     const z0 = -level.h / 2 - g;
     const z1 = level.h / 2 + g;
     const ex0 = this.cellX(level.exit.c) - g;
-    const ex1 = this.cellX(level.exit.c + 2) + g;
+    const keyW = level.pieces.find((p) => p.key)?.w ?? 2;
+    const ex1 = this.cellX(level.exit.c + keyW) + g;
     const T = TABLE.halfSize;
     const s = new THREE.Shape();
     s.moveTo(-T, -T);
@@ -163,12 +185,21 @@ export class KlotskiScene {
     });
     slabGeo.rotateX(Math.PI / 2);
     slabGeo.translate(0, -TABLE.bevel, 0);
-    const slab = new THREE.Mesh(slabGeo, new THREE.MeshStandardMaterial({ map: tex.table, roughness: TABLE.roughness }));
+    const slab = new THREE.Mesh(
+      slabGeo,
+      new THREE.MeshStandardMaterial({ map: tex.table, roughness: TABLE.roughness }),
+    );
     slab.receiveShadow = true;
-    const floorGeo = new THREE.PlaneGeometry(level.w + 2, level.h + 2 + KLOTSKI.exitDepth).rotateX(-Math.PI / 2);
+    const floorGeo = new THREE.PlaneGeometry(level.w + 2, level.h + 2 + KLOTSKI.exitDepth).rotateX(
+      -Math.PI / 2,
+    );
     const floor = new THREE.Mesh(
       floorGeo,
-      new THREE.MeshStandardMaterial({ map: tex.side, color: linearColor(KLOTSKI.floor), roughness: TABLE.boardRoughness }),
+      new THREE.MeshStandardMaterial({
+        map: tex.side,
+        color: linearColor(KLOTSKI.floor),
+        roughness: TABLE.boardRoughness,
+      }),
     );
     floor.position.y = WORLD.baseY;
     floor.receiveShadow = true;

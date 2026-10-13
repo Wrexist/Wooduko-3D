@@ -27,6 +27,13 @@ describe('i18n', () => {
     for (const th of THEMES) expect(dictionaries.en[`wood.${th.id}` as Key]).toBeTruthy();
   });
 
+  it('uses the singular form for one', () => {
+    expect(t('journey.stars', { n: 1 })).toBe('1 star');
+    expect(t('journey.stars', { n: 2 })).toBe('2 stars');
+    setLanguage('sv');
+    expect(t('journey.stars', { n: 1 })).toBe('1 stjärna');
+  });
+
   it('follows the device language, falling back to English', () => {
     expect(pickLanguage(['sv-SE', 'en-US'])).toBe('sv');
     expect(pickLanguage(['de-DE', 'en-GB'])).toBe('en');

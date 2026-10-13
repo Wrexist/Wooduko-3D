@@ -55,6 +55,18 @@ export function rotate(cells: Cells, turns: number): Cell[] {
   return out;
 }
 
+/** The same id for a piece in any rotation (identical pieces are interchangeable). */
+export function shapeId(cells: Cells): string {
+  let best = '';
+  let cur = normalize(cells);
+  for (let i = 0; i < 4; i++) {
+    const k = cur.map((p) => `${p[0]},${p[1]}`).join(';');
+    if (!best || k < best) best = k;
+    cur = rotateCw(cur);
+  }
+  return best;
+}
+
 export const sameShape = (a: Cells, b: Cells): boolean => {
   const na = normalize(a);
   const nb = normalize(b);

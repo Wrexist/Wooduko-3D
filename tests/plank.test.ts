@@ -10,6 +10,7 @@ import {
   rotate,
   rotateCw,
   sameShape,
+  shapeId,
 } from '../src/core/plank';
 import type { Placed } from '../src/core/plank';
 import { outlineLoops } from '../src/render/blockGeometry';
@@ -28,6 +29,14 @@ describe('plank rules', () => {
     ]);
     expect(sameShape(rotate(l, 4), l)).toBe(true);
     expect(sameShape(rotate(rotate(l, 3), 1), l)).toBe(true);
+    expect(shapeId(rotate(l, 1))).toBe(shapeId(l));
+    expect(
+      shapeId([
+        [0, 0],
+        [0, 1],
+        [0, 2],
+      ]),
+    ).not.toBe(shapeId(l));
   });
 
   it('places inside the silhouette, never on another piece', () => {

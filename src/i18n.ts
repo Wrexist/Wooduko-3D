@@ -184,13 +184,15 @@ const en = {
   'workshop.plankSmall': 'Tap to turn · tap a placed piece to lift it out',
   'workshop.plankHintNote': 'Each hint costs a star',
   'workshop.plankClean': 'Solved without hints',
-  'workshop.plankHints': 'Solved with {n} hint(s)',
+  'workshop.plankHint1': 'Solved with 1 hint',
+  'workshop.plankHints': 'Solved with {n} hints',
   'workshop.undo': 'Undo',
   'workshop.hint': 'Hint',
   'workshop.hintNote': 'Using a hint gives at most two stars',
   'workshop.hinted': 'Solved with a hint',
   'journey.level': 'Level {n}',
   'journey.stars': '{n} stars',
+  'journey.stars.one': '{n} star',
   'journey.play': 'Play',
   'journey.next': 'Next level',
   'journey.retry': 'Try again',
@@ -446,6 +448,7 @@ const sv: Record<Key, string> = {
   'workshop.plankSmall': 'Tryck för att vrida · tryck på en lagd bit för att ta upp den',
   'workshop.plankHintNote': 'Varje tips kostar en stjärna',
   'workshop.plankClean': 'Löst utan tips',
+  'workshop.plankHint1': 'Löst med 1 tips',
   'workshop.plankHints': 'Löst med {n} tips',
   'workshop.undo': 'Ångra',
   'workshop.hint': 'Tips',
@@ -453,6 +456,7 @@ const sv: Record<Key, string> = {
   'workshop.hinted': 'Löst med tips',
   'journey.level': 'Bana {n}',
   'journey.stars': '{n} stjärnor',
+  'journey.stars.one': '{n} stjärna',
   'journey.play': 'Spela',
   'journey.next': 'Nästa bana',
   'journey.retry': 'Försök igen',
@@ -547,7 +551,10 @@ export const language = (): Language => lang;
 
 /** Translate a key, filling {placeholders}. */
 export function t(key: Key, vars: Record<string, string | number> = {}): string {
-  const s = DICTS[lang][key] ?? en[key];
+  // singular forms: `key.one` is used when n is 1 ("1 star", not "1 stars")
+  const one = `${key}.one` as Key;
+  const k = vars.n === 1 && one in en ? one : key;
+  const s = DICTS[lang][k] ?? en[k];
   return s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? `{${k}}`));
 }
 

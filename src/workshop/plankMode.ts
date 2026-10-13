@@ -10,6 +10,7 @@ import {
   rotate,
   rotateCw,
   sameShape,
+  shapeId,
 } from '../core/plank';
 import type { Cells, Placed, PlankLevel, PlankProgress } from '../core/plank';
 import { num, t } from '../i18n';
@@ -33,7 +34,8 @@ interface Held {
   readonly id: number;
   readonly pointerId: number;
   readonly touch: boolean;
-  readonly downAt: number;
+  /** Where it sat on the board when picked up (put back there if the touch is cancelled). */
+  readonly from: Placed | null;
   readonly sx: number;
   readonly sy: number;
   /** Grab point relative to the piece centre (world units), so it doesn't jump to the finger. */
@@ -66,6 +68,8 @@ export class PlankMode {
   /** Pieces on the board. */
   private placed: Placed[] = [];
   private hints = 0;
+  /** Stars for the solve in progress (saved the moment the board is filled). */
+  private solvedStars = 0;
   private held: Held | null = null;
   private readonly look = new Map<number, PieceLook>();
   /** Solved: seconds since the last piece landed (−1 = not solved). */
@@ -169,7 +173,7 @@ export class PlankMode {
     this.width = width;
     this.height = height;
     this.safeBottom = safeBottom;
-    this.view.resize(width, height, this.bar.bottom, Math.max(safeBottom, this.tools.height));
+    this.view.resize(width, height, this.bar.bottom, Math.max(safeBottom, this.tools.height), this.tools.left);
   }
 
   private refreshUi(): void {
@@ -193,7 +197,9 @@ export class PlankMode {
     }
     const i = this.level?.pieces.findIndex((q) => q.id === id) ?? 0;
     const s = this.view.slot(i);
-    return { x: s.x, z: s.z, y: PlankScene.tableY, s: PLANK.trayScale, turn: 0 };
+    // long pieces shrink to fit their slot, so neighbours never overlap (even after a turn)
+    const scale = Math.min(PLANK.trayScale, PLANK.trayMaxSpan / Math.max(w, h));
+    return { x: s.x, z: s.z, y: PlankScene.tableY, s: scale, turn: 0 };
   }
 
   /** A small celebratory hop of the whole board when it is filled. */
@@ -253,7 +259,7 @@ export class PlankMode {
       id,
       pointerId: e.pointerId,
       touch: e.pointerType === 'touch',
-      downAt: performance.now(),
+      from: this.placed.find((p) => p.id === id) ?? null,
       sx: e.clientX,
       sy: e.clientY,
       gx: at.x - look.x,
@@ -288,12 +294,21 @@ export class PlankMode {
     if (!h || e.pointerId !== h.pointerId || !this.level) return;
     this.held = null;
     if (!h.moved) {
-      if (commit && performance.now() - h.downAt < PLANK.tapMs) this.tap(h.id);
+      // a press without moving is a tap, however long it was held
+      if (commit) this.tap(h.id);
+      return;
+    }
+    if (!commit) {
+      // the system took the touch (Control Centre, a call): put it back where it was
+      if (h.from && canPlace(this.level, this.placed, h.from.cells, h.from.r, h.from.c, h.id)) {
+        this.placed.push(h.from);
+        this.refreshUi();
+      }
       return;
     }
     const cells = this.cells.get(h.id) ?? [];
     const look = this.look.get(h.id);
-    if (commit && look) {
+    if (look) {
       const { w, h: ph } = sizeOf(cells);
       const { r, c } = this.view.nearestCell(look.x, look.z, w, ph);
       if (canPlace(this.level, this.placed, cells, r, c, h.id)) {
@@ -329,27 +344,35 @@ export class PlankMode {
   private hint(): void {
     if (this.busy() || this.held || !this.level) return;
     const level = this.level;
-    // the first piece not yet where the generator put it
-    const next = level.pieces.find((p) => {
-      const at = this.placed.find((q) => q.id === p.id);
-      return (
-        !at ||
-        at.r !== p.solution.r ||
-        at.c !== p.solution.c ||
-        !sameShape(at.cells, rotate(p.cells, p.solution.turns))
-      );
-    });
-    if (!next) return;
-    const cells = rotate(next.cells, next.solution.turns);
-    const { r, c } = next.solution;
+    // solution slots (shape + place); a slot is done if any piece of that shape fills it exactly
+    const slots = level.pieces.map((p) => ({
+      cells: rotate(p.cells, p.solution.turns),
+      r: p.solution.r,
+      c: p.solution.c,
+      shape: shapeId(p.cells),
+    }));
+    const fills = (q: Placed, slot: (typeof slots)[number]): boolean =>
+      q.r === slot.r && q.c === slot.c && sameShape(q.cells, slot.cells);
+    const done = (slot: (typeof slots)[number]): boolean => this.placed.some((q) => fills(q, slot));
+    const slot = slots.find((x) => !done(x));
+    if (!slot) return;
+    // a piece of that shape not already filling a slot: a loose one first, else one placed elsewhere
+    const free = level.pieces.filter(
+      (p) =>
+        shapeId(p.cells) === slot.shape &&
+        !this.placed.some((q) => q.id === p.id && slots.some((x) => fills(q, x))),
+    );
+    const piece = free.find((p) => !this.placed.some((q) => q.id === p.id)) ?? free[0];
+    if (!piece) return;
+    const { cells, r, c } = slot;
     // anything in the way goes back to the table
     const want = new Set(cells.map((p) => `${p[0] + r},${p[1] + c}`));
     this.placed = this.placed.filter(
-      (p) => p.id !== next.id && !p.cells.some((q) => want.has(`${q[0] + p.r},${q[1] + p.c}`)),
+      (p) => p.id !== piece.id && !p.cells.some((q) => want.has(`${q[0] + p.r},${q[1] + p.c}`)),
     );
-    this.cells.set(next.id, cells);
-    this.view.setCells(next.id, cells);
-    this.placed.push({ id: next.id, cells, r, c });
+    this.cells.set(piece.id, cells);
+    this.view.setCells(piece.id, cells);
+    this.placed.push({ id: piece.id, cells, r, c });
     this.hints++;
     this.d.sound.place();
     this.d.haptics.pulse(HAPTICS.place);
@@ -360,16 +383,22 @@ export class PlankMode {
   private checkSolved(): void {
     if (!this.level || this.winT >= 0 || !isComplete(this.level, this.placed)) return;
     this.winT = 0;
+    // save now, not when the card shows: leaving during the celebration must not lose the stars
+    this.solvedStars = plankStars(this.hints);
+    this.progress = plankRecord(this.progress, this.n, this.solvedStars);
+    void this.d.storage.set(PLANK.storageKey, JSON.stringify(this.progress));
     this.d.sound.boardClear();
     this.d.haptics.pulse(HAPTICS.boardClear);
   }
 
   private finish(): void {
-    const stars = plankStars(this.hints);
-    this.progress = plankRecord(this.progress, this.n, stars);
-    void this.d.storage.set(PLANK.storageKey, JSON.stringify(this.progress));
-    const line = this.hints ? t('workshop.plankHints', { n: num(this.hints) }) : t('workshop.plankClean');
-    this.win.present(stars, line, this.n < LEVEL_COUNT_PLANK);
+    const line =
+      this.hints === 0
+        ? t('workshop.plankClean')
+        : this.hints === 1
+          ? t('workshop.plankHint1')
+          : t('workshop.plankHints', { n: num(this.hints) });
+    this.win.present(this.solvedStars, line, this.n < LEVEL_COUNT_PLANK);
   }
 
   dispose(): void {

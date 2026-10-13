@@ -1563,7 +1563,8 @@ button {
 }
 
 /* ---------- journey ---------- */
-.journey-btn {
+.journey-btn,
+.workshop-btn {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1585,20 +1586,24 @@ button {
   transform: translateY(2px);
   box-shadow: 0 1px 0 #11735a;
 }
-.journey-btn:focus-visible {
+.journey-btn:focus-visible,
+.workshop-btn:focus-visible {
   outline: 2px solid var(--honey);
   outline-offset: 2px;
 }
-.journey-btn .icon {
+.journey-btn .icon,
+.workshop-btn .icon {
   width: 24px;
   height: 24px;
   flex: none;
 }
-.journey-btn .icon svg {
+.journey-btn .icon svg,
+.workshop-btn .icon svg {
   width: 100%;
   height: 100%;
 }
-.journey-btn strong {
+.journey-btn strong,
+.workshop-btn strong {
   flex: 1;
 }
 .journey-btn .jstars {
@@ -1923,12 +1928,14 @@ button {
     gap: 8px;
     margin-top: 14px;
   }
-  .journey-btn {
+  .journey-btn,
+  .workshop-btn {
     min-height: 46px;
   }
 }
 @media (max-height: 500px) {
-  .journey-btn {
+  .journey-btn,
+  .workshop-btn {
     min-height: 40px;
     font-size: 15px;
   }
@@ -1949,7 +1956,7 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
-.journey-btn.workshop-btn {
+.workshop-btn {
   width: 84px;
   flex-direction: column;
   justify-content: center;
@@ -1962,14 +1969,14 @@ button {
     0 3px 0 #2e170a,
     0 10px 20px rgba(0, 0, 0, 0.28);
 }
-.journey-btn.workshop-btn strong {
+.workshop-btn strong {
   flex: none;
 }
-.journey-btn.workshop-btn .icon {
+.workshop-btn .icon {
   width: 20px;
   height: 20px;
 }
-.journey-btn.workshop-btn:active {
+.workshop-btn:active {
   box-shadow: 0 1px 0 #2e170a;
 }
 .workshop-on .hud,
@@ -2125,7 +2132,8 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-width: 120px;
+  width: auto;
+  min-width: 132px;
   justify-content: center;
 }
 .k-tool span {
@@ -2144,7 +2152,57 @@ button {
   color: #ffd77a;
 }
 /* the Workshop hub and level list replace Home while open (no card showing through) */
-:root:has(.overlay.workshop-hub:not(.hidden)) .overlay.home .card,
-:root:has(.overlay.workshop:not(.hidden)) .overlay.home .card {
+.workshop-menu .overlay.home .card {
   visibility: hidden;
+}
+/* banners (awards, quests) wait until the player is back from the Workshop */
+.workshop-on .banner {
+  visibility: hidden;
+}
+/* small phones: four levels a row, so the stones never overlap */
+@media (max-width: 379px) {
+  .k-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .k-grid .stone {
+    width: 48px;
+    height: 48px;
+  }
+}
+/* short landscape phones: a lower, scrolling level grid and no lead line, so the list fits */
+@media (max-height: 500px) {
+  .workshop-card .lead {
+    display: none;
+  }
+  .k-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    max-height: calc(100vh - 140px);
+    gap: 10px 6px;
+  }
+  .k-grid .stone {
+    width: 46px;
+    height: 46px;
+  }
+}
+/* short landscape phones: a compact top bar and the tools in a column on the left, so the
+   puzzle gets the full height */
+@media (max-height: 500px) and (orientation: landscape) {
+  .k-info small {
+    display: none;
+  }
+  .k-moves {
+    font-size: 24px;
+  }
+  .k-tools {
+    top: 50%;
+    bottom: auto;
+    right: auto;
+    left: 0;
+    transform: translateY(-50%);
+    flex-direction: column;
+    padding: 0 0 0 calc(var(--safe-left) + 16px);
+  }
+  .k-tool {
+    min-width: 112px;
+  }
 }

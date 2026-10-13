@@ -5,12 +5,13 @@ import {
   kRecord,
   kStars,
   maxSlide,
-  nextMove,
+  positionKey,
+  searchPath,
   parseKProgress,
   parseLevel,
   slide,
 } from '../core/klotski';
-import type { KDir, KLevel, KPiece, KProgress } from '../core/klotski';
+import type { KDir, KLevel, KMove, KPiece, KProgress } from '../core/klotski';
 import { KLOTSKI_LEVELS } from '../core/klotskiLevels';
 import { easeInCubic, easeOutCubic } from '../fx/tween';
 import type { Haptics } from '../platform/haptics';
@@ -75,6 +76,11 @@ export class KlotskiMode {
   private history: KPiece[][] = [];
   private moves = 0;
   private hinted = false;
+  /** A shortest solution from the position `key` (computed in the background, reused by Hint). */
+  private plan: { key: string; moves: KMove[] } | null = null;
+  private planTimer = 0;
+  /** Stars for the solve in progress (saved the moment the level is solved). */
+  private solvedStars = 0;
   private held: Held | null = null;
   private settle: Settle | null = null;
   /** Solved: seconds since the key piece started gliding out (−1 = not solved). */
@@ -157,6 +163,10 @@ export class KlotskiMode {
     this.held = null;
     this.settle = null;
     this.winT = -1;
+    this.plan = null;
+    // work out a solution after the level is on screen, so the first Hint is instant
+    window.clearTimeout(this.planTimer);
+    this.planTimer = window.setTimeout(() => this.ensurePlan(), KLOTSKI.planDelayMs);
     this.picker.hide();
     this.win.hide();
     this.view.load(this.level, this.pieces);
@@ -188,7 +198,7 @@ export class KlotskiMode {
     this.width = width;
     this.height = height;
     this.safeBottom = safeBottom;
-    this.view.resize(width, height, this.bar.bottom, Math.max(safeBottom, this.tools.height));
+    this.view.resize(width, height, this.bar.bottom, Math.max(safeBottom, this.tools.height), this.tools.left);
   }
 
   update(dt: number): void {
@@ -258,8 +268,25 @@ export class KlotskiMode {
   private checkSolved(): void {
     if (!this.level || this.winT >= 0 || !isSolved(this.level, this.pieces)) return;
     this.winT = 0;
+    // save now, not when the card shows: leaving during the glide must not lose the stars
+    const par = KLOTSKI_LEVELS[this.n - 1]?.par ?? this.moves;
+    this.solvedStars = kStars(this.moves, par, this.hinted);
+    // "your best" only counts solves without a hint
+    this.progress = kRecord(this.progress, this.n, this.solvedStars, this.hinted ? null : this.moves);
+    void this.d.storage.set(KLOTSKI.storageKey, JSON.stringify(this.progress));
     this.d.sound.boardClear();
     this.d.haptics.pulse(HAPTICS.boardClear);
+  }
+
+  /** The cached solution from here, or a fresh search (once per position). */
+  private ensurePlan(): KMove[] | null {
+    if (!this.active || !this.level || this.winT >= 0) return null;
+    const key = positionKey(this.pieces);
+    if (this.plan?.key !== key) {
+      const moves = searchPath(this.level, this.pieces);
+      this.plan = moves ? { key, moves } : null;
+    }
+    return this.plan?.moves ?? null;
   }
 
   private undo(): void {
@@ -287,10 +314,12 @@ export class KlotskiMode {
 
   private hint(): void {
     if (this.busy() || this.held || !this.level) return;
-    const m = nextMove(this.level, this.pieces);
+    const m = this.ensurePlan()?.[0];
     if (!m) return;
     this.hinted = true;
-    this.commit(m.id, m.dir, m.steps, 0, KLOTSKI.hintDuration);
+    if (!this.commit(m.id, m.dir, m.steps, 0, KLOTSKI.hintDuration)) return;
+    // the rest of the plan is still shortest from the new position
+    this.plan = this.plan ? { key: positionKey(this.pieces), moves: this.plan.moves.slice(1) } : null;
   }
 
   private onDown(e: PointerEvent): void {
@@ -384,9 +413,7 @@ export class KlotskiMode {
 
   private finish(): void {
     const par = KLOTSKI_LEVELS[this.n - 1]?.par ?? this.moves;
-    const stars = kStars(this.moves, par, this.hinted);
-    this.progress = kRecord(this.progress, this.n, stars, this.moves);
-    void this.d.storage.set(KLOTSKI.storageKey, JSON.stringify(this.progress));
+    const stars = this.solvedStars;
     const line = t('workshop.result', { n: num(this.moves), p: num(par) });
     this.win.present(
       stars,

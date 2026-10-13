@@ -752,6 +752,8 @@ export class Game {
   private async maybeStartAds(): Promise<void> {
     const s = this.store.getState();
     if (s.removeAds || s.tutorial) return;
+    // never pop the consent / tracking prompt over a Workshop puzzle (tried again on the next chance)
+    if (this.workshop.some((w) => w.active)) return;
     if (s.meta.sessions < ADS.initFromSession && s.stats.gamesPlayed < 1) return;
     await this.money.ads.start();
     const first = !this.adsStarted;
@@ -1534,6 +1536,8 @@ export class Game {
     const ws = this.workshop.find((w) => w.active);
     if (ws) {
       ws.update(dt);
+      // the banner queue keeps draining (hidden by CSS), so it never waits over a puzzle
+      this.banner.update(dt);
       this.renderer.gl.render(ws.view.scene, ws.view.camera);
       this.raf = requestAnimationFrame((t) => this.frame(t));
       return;
@@ -1621,6 +1625,7 @@ export class Game {
     this.comboGlow.dispose();
     this.fx.dispose();
     this.world.dispose();
+    for (const w of this.workshop) w.dispose();
     this.tex.dispose();
     this.renderer.dispose();
   }

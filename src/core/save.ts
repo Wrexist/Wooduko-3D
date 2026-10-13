@@ -141,6 +141,8 @@ export function parseSettings(raw: string | null, legacyMute: string | null): Se
     if (!isObj(v)) return base;
     const pick = (k: Exclude<keyof Settings, 'theme' | 'camera'>): boolean =>
       typeof v[k] === 'boolean' ? (v[k] as boolean) : base[k];
+    // settings saved before rev 2 hold the old defaults: top-down camera and hints-on are new
+    const old = (typeof v.rev === 'number' ? v.rev : 1) < 2;
     const theme = THEMES.find((x) => x.id === v.theme)?.id ?? base.theme;
     return {
       theme,
@@ -148,11 +150,12 @@ export function parseSettings(raw: string | null, legacyMute: string | null): Se
       music: pick('music'),
       haptics: pick('haptics'),
       reduceMotion: pick('reduceMotion'),
-      hints: pick('hints'),
+      // hints became a Remove-ads perk (on by default); an old saved `false` was just the old default
+      hints: old ? base.hints : pick('hints'),
       shake: pick('shake'),
       camera:
-        // settings saved before top-down became the default move from the old default to the new one, once
-        v.rev !== SETTINGS_REV && v.camera === 'classic'
+        // the old default camera moves to the new one, once
+        old && v.camera === 'classic'
           ? base.camera
           : typeof v.camera === 'string' && v.camera in CAMERA_VIEWS
             ? (v.camera as CameraView)

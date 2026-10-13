@@ -74,9 +74,25 @@ try {
     await scan('awards');
     await page.getByRole('button', { name: 'Done' }).click();
     await page.waitForTimeout(400);
-    await page.locator('.journey-btn').click();
+    // Workshop: hub, a level list, a level in play and its tools
+    await page.locator('.workshop-btn').click();
     await page.waitForTimeout(500);
-    await page.locator('.stone').first().click();
+    await scan('workshop hub');
+    await page.locator('.hub-game').first().click();
+    await page.waitForTimeout(500);
+    await scan('workshop levels');
+    await page.locator('.overlay.workshop:not(.hidden) .stone').first().click();
+    await page.waitForTimeout(800);
+    await scan('workshop level');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    await page.locator('.journey-btn:not(.workshop-btn)').click();
+    await page.waitForTimeout(500);
+    await page.locator('.journey .stone').first().click();
     await page.waitForTimeout(400);
     await scan('journey map');
     await page.locator('.journey .level-sheet .cta').click();

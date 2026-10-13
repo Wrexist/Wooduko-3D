@@ -8,6 +8,28 @@ const starsRow = (n: number): HTMLSpanElement => {
   return row;
 };
 
+/**
+ * While the Workshop hub or a level list is open the Home card hides behind it. A class on the
+ * root (not `:has()`, which iOS 15.0-15.3 lacks) drives the CSS.
+ */
+function syncMenuClass(): void {
+  const open = document.querySelector('.overlay.workshop-hub:not(.hidden), .overlay.workshop:not(.hidden)');
+  document.documentElement.classList.toggle('workshop-menu', open !== null);
+}
+
+/** Overlay that keeps the root's `workshop-menu` class in step. */
+class WorkshopOverlay extends Overlay {
+  override show(): void {
+    super.show();
+    syncMenuClass();
+  }
+
+  override hide(): void {
+    super.hide();
+    syncMenuClass();
+  }
+}
+
 /** One past the last solved level (levels unlock in order). */
 const unlocked = (stars: readonly number[], total: number): number => {
   let n = 1;
@@ -16,7 +38,7 @@ const unlocked = (stars: readonly number[], total: number): number => {
 };
 
 /** A Workshop game's levels: a grid, best stars under each, later ones locked. */
-export class LevelPicker extends Overlay {
+export class LevelPicker extends WorkshopOverlay {
   private readonly grid = el('div', { class: 'k-grid' });
   private readonly note = el('p', { class: 'note' });
 
@@ -122,9 +144,21 @@ export class GameTools {
     this.node = el('div', { class: 'k-tools', hidden: '' }, [this.undo, this.hint]);
   }
 
-  /** Height (px) the tools take from the bottom of the screen. */
+  /** Short landscape screens dock the tools in a column on the left (see styles.css). */
+  private get docked(): boolean {
+    return this.node.classList.contains('side') || getComputedStyle(this.node).flexDirection === 'column';
+  }
+
+  /** Height (px) the tools take from the bottom of the screen (0 when docked at the side). */
   get height(): number {
-    return this.node.hidden ? 0 : window.innerHeight - this.node.getBoundingClientRect().top;
+    if (this.node.hidden || this.docked) return 0;
+    return window.innerHeight - this.node.getBoundingClientRect().top;
+  }
+
+  /** Width (px) the tools take from the left edge when docked at the side. */
+  get left(): number {
+    if (this.node.hidden || !this.docked) return 0;
+    return this.node.getBoundingClientRect().right;
   }
 
   set(canUndo: boolean, hinted: boolean): void {
@@ -185,8 +219,9 @@ export interface HubGame {
 }
 
 /** Workshop: one card per small wood game, with the stars earned in each. */
-export class WorkshopHub extends Overlay {
+export class WorkshopHub extends WorkshopOverlay {
   private readonly counts = new Map<string, HTMLSpanElement>();
+  private readonly buttons = new Map<string, { b: HTMLButtonElement; name: string; desc: string }>();
 
   constructor(games: readonly HubGame[], h: { onClose(): void }) {
     super('workshop-hub dialog-layer', 'hubTitle');
@@ -205,6 +240,7 @@ export class WorkshopHub extends Overlay {
         el('span', { class: 'hub-text' }, [el('strong', {}, [g.name]), el('small', {}, [g.desc])]),
         count,
       ]);
+      this.buttons.set(g.id, { b, name: g.name, desc: g.desc });
       b.addEventListener('click', () => g.open());
       list.append(b);
     }
@@ -219,6 +255,8 @@ export class WorkshopHub extends Overlay {
     if (!c) return;
     c.innerHTML = ICONS.star;
     c.append(`${num(earned)}/${num(total)}`);
-    c.setAttribute('aria-label', t('journey.stars', { n: earned }));
+    c.setAttribute('aria-hidden', 'true');
+    const x = this.buttons.get(id);
+    x?.b.setAttribute('aria-label', `${x.name}. ${x.desc}. ${t('journey.stars', { n: earned })}`);
   }
 }

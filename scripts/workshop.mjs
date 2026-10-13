@@ -252,6 +252,92 @@ const mem = await page.evaluate(async () => {
 for (const [name, [a, b]] of Object.entries(mem))
   check(`${name}: GPU memory flat after 12 levels`, b.geometries <= a.geometries && b.textures <= a.textures, `${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
 
+
+// ---------- layout: hub, level list and both games on small, landscape and tablet screens ----------
+for (const [vw, vh] of [
+  [320, 568],
+  [375, 667],
+  [568, 320],
+  [844, 390],
+  [1024, 768],
+]) {
+  const pg = await browser.newPage({ locale: 'sv-SE', viewport: { width: vw, height: vh } });
+  pg.on('pageerror', (e) => (errors++, console.log(`[${vw}x${vh}] pageerror:`, e.message)));
+  await pg.addInitScript(() => localStorage.setItem('grain_tutorial_v1', '1'));
+  await pg.goto(url);
+  await pg.waitForFunction(() => window.__grain);
+  await pg.waitForTimeout(400);
+  const tag = `${vw}x${vh}`;
+  const fits = (sel) =>
+    pg.evaluate((sel) => {
+      const r = document.querySelector(sel).getBoundingClientRect();
+      return r.top >= -1 && r.left >= -1 && r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1;
+    }, sel);
+  await pg.evaluate(() => window.__grain.game.openHub());
+  await pg.waitForTimeout(350);
+  check(`${tag}: hub fits`, await fits('.overlay.workshop-hub .card'));
+  await pg.evaluate(() => {
+    window.__grain.game.hub.hide();
+    window.__grain.game.klotski.openPicker();
+  });
+  await pg.waitForTimeout(350);
+  check(`${tag}: level list fits`, await fits('.overlay.workshop:not(.hidden) .card'));
+  const overlap = await pg.evaluate(() => {
+    const grid = document.querySelector('.overlay.workshop:not(.hidden) .k-grid');
+    const rs = [...grid.querySelectorAll('.stone')].slice(0, 6).map((b) => b.getBoundingClientRect());
+    const bad = rs.some((a, i) => rs.some((b, j) => i < j && a.right > b.left + 1 && b.right > a.left + 1 && a.bottom > b.top + 1 && b.bottom > a.top + 1));
+    return bad || grid.scrollWidth > grid.clientWidth + 1;
+  });
+  check(`${tag}: level stones don't overlap or scroll sideways`, !overlap);
+  // the puzzle sits between the top bar and the bottom tools, fully on screen
+  for (const [name, n] of [
+    ['klotski', 30],
+    ['plank', 40],
+  ]) {
+    const box = await pg.evaluate(
+      async ([name, n]) => {
+        const g = window.__grain.game;
+        const m = g[name];
+        m.picker.hide();
+        m.start(n);
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const v = m.view;
+        const corners = [];
+        if (name === 'klotski') {
+          const L = m.level;
+          for (const x of [-L.w / 2, L.w / 2]) for (const z of [-L.h / 2, L.h / 2 + 0.5]) corners.push([x, z]);
+        } else {
+          const L = m.level;
+          const half = Math.max(L.w, v.trayWidth) / 2;
+          const last = v.slot(L.pieces.length - 1);
+          for (const x of [-half, half]) for (const z of [0, last.z + 0.9]) corners.push([x, z]);
+        }
+        const pts = corners.map(([x, z]) => {
+          const q = v.camera.position.clone().set(x, 0.05, z).project(v.camera);
+          return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight];
+        });
+        const top = Math.min(...pts.map((p) => p[1]));
+        const bottom = Math.max(...pts.map((p) => p[1]));
+        const left = Math.min(...pts.map((p) => p[0]));
+        const right = Math.max(...pts.map((p) => p[0]));
+        const bar = m.bar.node.getBoundingClientRect().bottom;
+        const tr = m.tools.node.querySelector('button:not([hidden])').getBoundingClientRect();
+        const side = getComputedStyle(m.tools.node).flexDirection === 'column';
+        // tools at the bottom, or docked in a column on the left on short landscape screens
+        const tools = side ? innerHeight : tr.top;
+        const toolsRight = side ? tr.right : 0;
+        m.leave(false);
+        return { top, bottom, left, right, bar, tools, toolsRight };
+      },
+      [name, n],
+    );
+    const ok =
+      box.top >= box.bar - 2 && box.bottom <= box.tools + 2 && box.left >= box.toolsRight - 2 && box.right <= vw + 2;
+    check(`${tag}: ${name} puzzle between the bar and the tools`, ok, JSON.stringify(box, (k, v) => (typeof v === 'number' ? Math.round(v) : v)));
+  }
+  await pg.close();
+}
+
 await browser.close();
 console.log(errors ? `${errors} console error(s)` : 'no console errors');
 if (failed || errors) {

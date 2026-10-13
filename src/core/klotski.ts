@@ -145,52 +145,81 @@ export interface KMove {
   readonly steps: number;
 }
 
+/** Free cells for `p` in `dir` on an occupancy grid (its own cells count as free). */
+function roomIn(level: KLevel, g: Int16Array, p: KPiece, dir: KDir): number {
+  const [dr, dc] = DELTA[dir];
+  let n = 0;
+  for (;;) {
+    const r0 = p.r + dr * (n + 1);
+    const c0 = p.c + dc * (n + 1);
+    if (r0 < 0 || c0 < 0 || r0 + p.h > level.h || c0 + p.w > level.w) return n;
+    for (let r = r0; r < r0 + p.h; r++)
+      for (let c = c0; c < c0 + p.w; c++) {
+        const o = g[r * level.w + c];
+        if (o !== -1 && o !== p.id) return n;
+      }
+    n++;
+  }
+}
+
 /**
  * Breadth-first search over states (a move is one straight slide of any length).
- * Returns the fewest moves and the first move of one shortest solution, or null if unsolvable
- * or the search exceeds `limit` states.
+ * Returns one shortest solution as a list of moves (empty when already solved), or null if
+ * unsolvable or the search exceeds `limit` states. One occupancy grid per state keeps it fast
+ * enough for a hint on a phone.
  */
-export function search(
+export function searchPath(
   level: KLevel,
   pieces: readonly KPiece[] = level.pieces,
   limit = 400_000,
-): { moves: number; first: KMove | null } | null {
-  if (isSolved(level, pieces)) return { moves: 0, first: null };
+): KMove[] | null {
+  if (isSolved(level, pieces)) return [];
+  interface Node {
+    readonly ps: readonly KPiece[];
+    readonly parent: number;
+    readonly move: KMove | null;
+  }
+  const nodes: Node[] = [{ ps: pieces, parent: -1, move: null }];
   const seen = new Set<string>([stateKey(level, pieces)]);
-  let frontier: { ps: readonly KPiece[]; first: KMove | null }[] = [{ ps: pieces, first: null }];
-  for (let depth = 1; frontier.length; depth++) {
-    const next: { ps: readonly KPiece[]; first: KMove | null }[] = [];
-    for (const { ps, first } of frontier) {
-      for (const p of ps) {
-        for (const d of K_DIRS) {
-          const max = maxSlide(level, ps, p.id, d);
-          for (let n = 1; n <= max; n++) {
-            const moved = slide(level, ps, p.id, d, n);
-            if (!moved) continue;
-            const k = stateKey(level, moved);
-            if (seen.has(k)) continue;
-            const f = first ?? { id: p.id, dir: d, steps: n };
-            if (isSolved(level, moved)) return { moves: depth, first: f };
-            seen.add(k);
-            if (seen.size > limit) return null;
-            next.push({ ps: moved, first: f });
-          }
+  const path = (i: number): KMove[] => {
+    const out: KMove[] = [];
+    for (let k = i; k > 0; k = (nodes[k] as Node).parent) out.push((nodes[k] as Node).move as KMove);
+    return out.reverse();
+  };
+  for (let head = 0; head < nodes.length; head++) {
+    const ps = (nodes[head] as Node).ps;
+    const g = occupancy(level, ps);
+    for (const p of ps) {
+      for (const d of K_DIRS) {
+        const max = roomIn(level, g, p, d);
+        const [dr, dc] = DELTA[d];
+        for (let n = 1; n <= max; n++) {
+          const moved = ps.map((q) => (q.id === p.id ? { ...q, r: q.r + dr * n, c: q.c + dc * n } : q));
+          const k = stateKey(level, moved);
+          if (seen.has(k)) continue;
+          nodes.push({ ps: moved, parent: head, move: { id: p.id, dir: d, steps: n } });
+          if (isSolved(level, moved)) return path(nodes.length - 1);
+          seen.add(k);
+          if (seen.size > limit) return null;
         }
       }
     }
-    frontier = next;
   }
   return null;
 }
 
 /** Fewest moves to solve, or −1 if unsolvable (or the search exceeds `limit` states). */
 export function solve(level: KLevel, pieces: readonly KPiece[] = level.pieces, limit = 400_000): number {
-  return search(level, pieces, limit)?.moves ?? -1;
+  return searchPath(level, pieces, limit)?.length ?? -1;
 }
 
 /** The first move of a shortest solution from here (the hint), or null when solved / stuck. */
 export const nextMove = (level: KLevel, pieces: readonly KPiece[]): KMove | null =>
-  search(level, pieces)?.first ?? null;
+  searchPath(level, pieces)?.[0] ?? null;
+
+/** Where every piece is (order-independent): compare positions to reuse a hint plan. */
+export const positionKey = (pieces: readonly KPiece[]): string =>
+  pieces.map((p) => `${p.id}:${p.r},${p.c}`).join(' ');
 
 /** Stars for a finished level: par or better = 3, within 1.5× par = 2, else 1. Using a hint caps it at 2. */
 export function kStars(moves: number, par: number, hinted = false): number {
@@ -213,14 +242,15 @@ export const kUnlocked = (p: KProgress, total: number): number => {
   return Math.min(n, total);
 };
 
-export function kRecord(p: KProgress, level: number, stars: number, moves: number): KProgress {
+/** Keep the best stars, and the fewest moves unless `moves` is null (a solve with a hint). */
+export function kRecord(p: KProgress, level: number, stars: number, moves: number | null): KProgress {
   const s = [...p.stars];
   const b = [...p.best];
   while (s.length < level) s.push(0);
   while (b.length < level) b.push(0);
   s[level - 1] = Math.max(s[level - 1] ?? 0, stars);
   const old = b[level - 1] ?? 0;
-  b[level - 1] = old > 0 ? Math.min(old, moves) : moves;
+  if (moves !== null) b[level - 1] = old > 0 ? Math.min(old, moves) : moves;
   return { stars: s, best: b };
 }
 

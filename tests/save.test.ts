@@ -175,5 +175,13 @@ describe('settings camera migration', () => {
     expect(parseSettings(JSON.stringify({ camera: 'tilted' }), null).camera).toBe('tilted');
     const picked = serializeSettings({ ...DEFAULT_SETTINGS, camera: 'classic' });
     expect(parseSettings(picked, null).camera).toBe('classic');
+    // a later rev must not move a pick made under rev 2
+    expect(parseSettings(JSON.stringify({ camera: 'classic', rev: 3 }), null).camera).toBe('classic');
+  });
+
+  it('turns hints on once for settings saved before they became a perk', () => {
+    expect(parseSettings(JSON.stringify({ hints: false }), null).hints).toBe(true);
+    const off = serializeSettings({ ...DEFAULT_SETTINGS, hints: false });
+    expect(parseSettings(off, null).hints).toBe(false);
   });
 });

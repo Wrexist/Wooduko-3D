@@ -92,12 +92,12 @@ await wait(0.6);
 check(
   'map opens with level 1 current and level 2 locked',
   await page.evaluate(() => {
-    const s = [...document.querySelectorAll('.stone')];
+    const s = [...document.querySelectorAll('.journey .stone')];
     return s[0].classList.contains('current') && s[1].classList.contains('locked') && s.length === 100;
   }),
 );
 await page.screenshot({ path: `${out}/journey-map.png` });
-await page.locator('.stone').first().click();
+await page.locator('.journey .stone').first().click();
 await wait(0.4);
 check('level card lists goals and moves', (await page.locator('.journey .level-sheet').innerText()).includes('Score'));
 await page.screenshot({ path: `${out}/journey-level-card.png` });

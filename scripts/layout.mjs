@@ -22,7 +22,7 @@ const VIEWPORTS = {
   'desktop-1920x1080': [1920, 1080],
 };
 const seed = { a: 1, s: 1, jx: 0, jy: 0, t: 0.9 };
-// i5 horizontal, i5 vertical, plus: the widest/tallest footprints in each slot
+// the longest piece (i5) lying along the tray in both end slots, across it in the middle
 const save = {
   version: 1,
   score: 98765,
@@ -38,12 +38,11 @@ const save = {
       seed,
     },
   ],
-  tray: [
-    { shapeIndex: 7, seed },
-    { shapeIndex: 8, seed },
-    { shapeIndex: 34, seed },
-  ],
+  tray: [],
 };
+// i5: index 7 lies along x, 8 along z. Portrait trays run along x, landscape trays along z.
+const trayFor = (landscape) =>
+  (landscape ? [8, 7, 8] : [7, 8, 7]).map((shapeIndex) => ({ shapeIndex, seed }));
 
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 let failed = 0;
@@ -63,7 +62,7 @@ for (const [name, [width, height]] of Object.entries(VIEWPORTS)) {
     localStorage.setItem('grain_tutorial_v1', '1');
     localStorage.setItem('grain_best_v1', '123456');
     localStorage.setItem('grain_save_v1', s);
-  }, JSON.stringify(save));
+  }, JSON.stringify({ ...save, tray: trayFor(width / height > 1.15) }));
   await page.goto(url);
   await page.waitForFunction(() => window.__grain);
   await page.waitForTimeout(300);

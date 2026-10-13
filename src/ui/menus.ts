@@ -119,7 +119,7 @@ export class HomeMenu extends Overlay {
       this.journeyStars,
     );
     this.journeyBtn.addEventListener('click', h.onJourney);
-    const workshop = el('button', { class: 'journey-btn workshop-btn' }, [
+    const workshop = el('button', { class: 'workshop-btn' }, [
       el('span', { class: 'icon', html: ICONS.moves }),
       el('strong', {}, [t('mode.workshop')]),
     ]);
@@ -297,6 +297,7 @@ export class SettingsPanel extends Overlay {
   /** Hints are a Remove-ads perk: locked (off, with a tag) until it is owned. */
   private readonly hintsTag = el('small', { class: 'perk-tag' }, [t('settings.hintsLocked')]);
   private hasNoAds = false;
+  private hintsRow: HTMLDivElement = el('div');
   private last: Settings | null = null;
 
   private readonly reminderRow: HTMLDivElement;
@@ -333,7 +334,9 @@ export class SettingsPanel extends Overlay {
       this.toggles.set(key, sw);
       const label = el('span', { id }, [t(LABELS[key])]);
       if (key === 'hints') label.append(this.hintsTag);
-      list.append(el('div', { class: 'setting' }, [label, sw]));
+      const row = el('div', { class: 'setting' }, [label, sw]);
+      if (key === 'hints') this.hintsRow = row;
+      list.append(row);
     }
     this.reminderToggle = el('button', {
       class: 'toggle',
@@ -378,6 +381,8 @@ export class SettingsPanel extends Overlay {
     this.restore.hidden = !available || owned;
     this.owned.hidden = !owned;
     this.setOwned(owned);
+    // the hints perk can't be bought here (no store): don't show a switch that does nothing
+    this.hintsRow.hidden = !available && !owned;
     this.buy.textContent = price ? t('settings.removeAdsPrice', { price }) : t('settings.removeAds');
     this.privacy.hidden = !privacy;
   }

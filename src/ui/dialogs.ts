@@ -47,7 +47,7 @@ export class Overlay {
     this.lastFocus = document.activeElement;
     this.node.classList.remove('hidden');
     this.node.setAttribute('aria-hidden', 'false');
-    const first = this.card.querySelector<HTMLElement>('button');
+    const first = this.card.querySelector<HTMLElement>('button:not([hidden]):not([disabled])');
     first?.focus({ preventScroll: true });
   }
 

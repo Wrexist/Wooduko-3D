@@ -70,6 +70,9 @@ describe('klotski rules', () => {
     p = kRecord(p, 1, 1, 9);
     expect(p.stars).toEqual([2]);
     expect(p.best).toEqual([9]);
+    p = kRecord(p, 1, 2, null);
+    expect(p.best).toEqual([9]);
+    expect(kRecord({ stars: [], best: [] }, 1, 2, null).best).toEqual([0]);
     expect(kUnlocked(p, 30)).toBe(2);
     expect(parseKProgress(JSON.stringify(p))).toEqual(p);
     expect(parseKProgress('{bad')).toEqual({ stars: [], best: [] });
