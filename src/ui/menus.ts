@@ -75,7 +75,12 @@ export class HomeMenu extends Overlay {
   private readonly blitzSub = el('small', {}, [t('mode.blitzDesc')]);
   private readonly questsBtn = el('button', { class: 'ghost-btn quests-btn' });
   private readonly journeyBtn = el('button', { class: 'journey-btn' });
-  private readonly journeyText = el('strong');
+  /** "Journey" with the next level under it (two short lines, never a wrapped long one). */
+  private readonly journeyLevel = el('small');
+  private readonly journeyText = el('span', { class: 'jtext' }, [
+    el('strong', {}, [t('mode.journey')]),
+    this.journeyLevel,
+  ]);
   private readonly journeyStars = el('span', { class: 'jstars' });
   private readonly questsCount = el('span', { class: 'count' });
 
@@ -183,7 +188,7 @@ export class HomeMenu extends Overlay {
     const done = v.quests.filter((q) => q.progress >= q.target).length;
     this.questsCount.textContent = `${done}/${v.quests.length}`;
     this.questsBtn.classList.toggle('done', v.questsDone);
-    this.journeyText.textContent = t('journey.home', { n: v.journeyLevel });
+    this.journeyLevel.textContent = t('journey.level', { n: v.journeyLevel });
     this.journeyStars.innerHTML = ICONS.star;
     this.journeyStars.append(num(v.journeyStars));
     this.journeyBtn.setAttribute(
@@ -321,8 +326,13 @@ export class SettingsPanel extends Overlay {
     super('settings dialog-layer', 'settingsTitle');
     const list = el('div', { class: 'settings-list' });
     this.camera = cameraPicker(h.onCamera);
-    list.append(this.camera.node);
-    for (const key of Object.keys(LABELS) as ToggleKey[]) {
+    // two calm groups: sound first, then how the game looks and helps
+    const SOUND: readonly ToggleKey[] = ['sound', 'music', 'haptics'];
+    const order: ToggleKey[] = [...SOUND, 'hints', 'shake', 'reduceMotion'];
+    for (const key of order) {
+      if (key === 'sound') list.append(el('h3', { class: 'set-group' }, [t('settings.groupSound')]));
+      if (key === 'hints')
+        list.append(el('h3', { class: 'set-group' }, [t('settings.groupGame')]), this.camera.node);
       const id = `set-${key}`;
       const sw = el('button', {
         class: 'toggle',
@@ -356,7 +366,7 @@ export class SettingsPanel extends Overlay {
     this.restore.textContent = t('settings.restore');
     this.privacy.textContent = t('settings.privacy');
     this.owned.textContent = t('settings.adsRemoved');
-    const reset = el('button', { class: 'ghost-btn danger' }, [t('settings.reset')]);
+    const reset = el('button', { class: 'link-btn danger' }, [t('settings.reset')]);
     const done = el('button', { class: 'cta' }, [t('common.done')]);
     reset.addEventListener('click', h.onReset);
     done.addEventListener('click', h.onClose);
@@ -366,9 +376,12 @@ export class SettingsPanel extends Overlay {
     this.card.append(
       el('h2', { id: 'settingsTitle' }, [t('settings.title')]),
       list,
-      el('div', { class: 'stack' }, [done, this.owned, this.buy, this.restore, this.privacy, reset]),
+      el('div', { class: 'stack' }, [done, this.owned, this.buy, this.restore, this.privacy]),
       this.note,
-      el('p', { class: 'version' }, [`Grain ${__APP_VERSION__}`]),
+      el('div', { class: 'settings-foot' }, [
+        reset,
+        el('p', { class: 'version' }, [`Grain ${__APP_VERSION__}`]),
+      ]),
     );
   }
 

@@ -2413,3 +2413,102 @@ button {
     margin-top: 10px;
   }
 }
+
+/* ---------- calmer Home and Settings ---------- */
+/* Journey and Workshop: the same quiet card as the mode tiles; colour only on the icon */
+.journey-btn,
+.workshop-btn {
+  color: var(--ink);
+  background: var(--btn);
+  border: 1px solid var(--btn-line);
+  box-shadow: none;
+}
+.journey-btn:active,
+.workshop-btn:active {
+  box-shadow: none;
+}
+.journey-btn .icon {
+  color: #3fe0b4;
+}
+.workshop-btn .icon {
+  color: var(--honey);
+}
+.journey-btn .jstars svg {
+  color: #ffd77a;
+  filter: none;
+}
+.tile.daily {
+  border-color: var(--btn-line);
+}
+/* bottom row: quiet text and icon buttons */
+.tools .ghost-btn {
+  background: transparent;
+  border-color: transparent;
+}
+.tools .ghost-btn:active {
+  background: var(--btn);
+}
+.quests-btn.done {
+  border-color: transparent;
+}
+/* Home sits on a deeper scrim, so the board behind it reads as backdrop, not clutter */
+.overlay.home {
+  background: rgba(20, 10, 4, 0.72);
+}
+.set-group {
+  margin: 14px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: left;
+}
+.settings-list .set-group:first-child {
+  margin-top: 0;
+}
+.segmented button {
+  font-size: 13px;
+  padding-left: 2px;
+  padding-right: 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-foot {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  margin-top: 4px;
+}
+.settings-foot .link-btn {
+  margin-top: 0;
+}
+.jtext {
+  flex: 1;
+  display: grid;
+  text-align: left;
+  line-height: 1.15;
+}
+.jtext small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.link-btn.danger {
+  color: #ff9f86;
+}
+@media (max-height: 500px) {
+  .jtext small {
+    display: none;
+  }
+}
+@media (max-height: 500px) {
+  .workshop-btn {
+    flex-direction: row;
+    width: auto;
+    gap: 6px;
+    padding: 0 12px;
+  }
+}

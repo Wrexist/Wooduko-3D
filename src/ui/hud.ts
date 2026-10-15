@@ -5,9 +5,7 @@ import { el, ICONS, replay } from './dom';
 
 export interface HudHandlers {
   onPause(): void;
-  onRestart(): void;
   onSound(): void;
-  onCamera(): void;
 }
 
 /** Top bar: pause + restart (left), score + best + combo (centre), sound (right). */
@@ -27,30 +25,23 @@ export class Hud {
 
   constructor(h: HudHandlers) {
     const pause = el('button', { class: 'btn', 'aria-label': t('hud.pause'), html: ICONS.pause });
-    const restart = el('button', {
-      class: 'btn restart',
-      'aria-label': t('hud.restart'),
-      html: ICONS.restart,
-    });
     this.soundBtn = el('button', { class: 'btn', 'aria-label': t('hud.mute'), html: ICONS.soundOn });
     pause.addEventListener('click', h.onPause);
-    restart.addEventListener('click', h.onRestart);
     this.soundBtn.addEventListener('click', h.onSound);
-    const camera = el('button', { class: 'btn', 'aria-label': t('hud.camera'), html: ICONS.camera });
-    camera.addEventListener('click', h.onCamera);
     const best = el('div', { class: 'best' });
     best.innerHTML = ICONS.crown;
     best.append(this.bestVal);
     this.bestEl = best;
     this.node = el('div', { class: 'hud' }, [
-      el('div', { class: 'side' }, [pause, restart]),
+      // Restart lives in Pause and the camera angle in Settings: the board gets the attention
+      el('div', { class: 'side' }, [pause]),
       el('div', { class: 'scorebox' }, [
         el('div', { class: 'topline' }, [best, this.chip]),
         this.scoreEl,
         this.goals,
         this.combo.node,
       ]),
-      el('div', { class: 'side right' }, [camera, this.soundBtn]),
+      el('div', { class: 'side right' }, [this.soundBtn]),
     ]);
   }
 

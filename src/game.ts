@@ -6,7 +6,6 @@ import {
   FX,
   HAPTICS,
   LADDER,
-  CAMERA_VIEW_ORDER,
   JOURNEY,
   JOURNEY_FX,
   MODES,
@@ -260,9 +259,7 @@ export class Game {
     // ---------- UI ----------
     this.hud = new Hud({
       onPause: () => this.onPause(),
-      onRestart: () => void this.onRestart(),
       onSound: () => this.onSoundButton(),
-      onCamera: () => this.cycleCamera(),
     });
     this.home = new HomeMenu({
       onPlay: () => void this.onPlay(),
@@ -1444,18 +1441,6 @@ export class Game {
     s.setSetting('sound', on);
     this.store.getState().setSetting('music', on);
     this.sound.tick();
-  }
-
-  /** HUD camera button: next angle, with a smooth swing and a short label. */
-  private cycleCamera(): void {
-    const s = this.store.getState();
-    const i = CAMERA_VIEW_ORDER.indexOf(s.settings.camera);
-    const next = CAMERA_VIEW_ORDER[(i + 1) % CAMERA_VIEW_ORDER.length] ?? 'classic';
-    s.setSetting('camera', next);
-    this.sound.tick();
-    this.haptics.pulse(HAPTICS.snap);
-    const a = this.world.toScreen(...FX.toastAnchor, this.width, this.height);
-    this.toast.show(t('camera.toast', { name: t(`camera.${next}` as Key) }), '', a.y, 1);
   }
 
   private toggleSetting(key: ToggleKey): void {
