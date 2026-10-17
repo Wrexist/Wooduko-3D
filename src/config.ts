@@ -897,13 +897,29 @@ export const CHECKERS = {
 
 /** Workshop: Chess against the computer (board, discs and markers share the Checkers look). */
 export const CHESS = {
-  /** Disc tints (linear RGB) and the burned-in symbol on each (sRGB hex). */
+  /** Wood tints of the pieces (linear RGB): maple for you, walnut for the computer. */
   whiteTint: [1, 0.9, 0.76] as const,
   blackTint: [0.1, 0.04, 0.018] as const,
-  whiteInk: 0x2b1306,
-  blackInk: 0xe9cc96,
-  /** Symbol size on the disc top (units). */
-  glyph: 0.6,
+  /** Turned 3D pieces: size (squares per unit of the profiles), polish, and the knights' turn (radians). */
+  pieceScale: 1,
+  /** Pieces are stretched this much taller than the turned profiles (a tall, elegant set). */
+  pieceHeight: 1.3,
+  pieceRoughness: 0.42,
+  knightYaw: 2.4,
+  /** Camera direction (from the board to the eye): tilted so the pieces' shapes read. */
+  camDir: [0, 1, 0.95] as const,
+  /** Extra room past the far edge for the back row's tall pieces (squares). */
+  backRoom: 1.2,
+  /** Held / moving pieces: follow speed (1/s), lean per unit of speed, the most lean, how fast it eases. */
+  followRate: 26,
+  followRateY: 14,
+  tiltPerSpeed: 0.045,
+  tiltMax: 0.32,
+  tiltRate: 12,
+  /** A gliding piece rises this much mid-move; landing squashes and rocks (like a placed block). */
+  glideHop: 0.12,
+  squash: 0.12,
+  settleAngle: 0.07,
   /** Ring around a piece that can be taken, and the red square under a king in check. */
   check: 0xff4a3a,
   checkOpacity: 0.55,

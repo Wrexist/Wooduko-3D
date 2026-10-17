@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { BLOCK, CAMERA_VIEWS, CHECKERS, CHESS, RENDER, TABLE } from '../config';
+import { BLOCK, CHECKERS, CHESS, FX, RENDER, TABLE } from '../config';
 import type { LayoutSpec } from '../config';
 import { Sparkles } from '../fx/particles';
 import { easeInOutCubic, easeInQuad } from '../fx/tween';
 import { createCamera, fitCamera } from './camera';
-import { buildBoard, rimGeometry } from './checkersScene';
-import { glyphAtlas } from './chessGlyphs';
+import { buildBoard } from './checkersScene';
+import { pieceGeometries } from './chessPieces';
 import { linearColor } from './color';
 import { addLights } from './lights';
 import type { Textures } from './textures';
@@ -31,9 +31,20 @@ export interface ChessAnim {
   readonly hop: boolean;
 }
 
+/**
+ * A piece: `group` sits on its square (or follows the finger), `tilt` leans with its velocity and
+ * squashes when it lands (like a dragged block), `body` is the turned wood (knights turn to face).
+ */
 interface Piece {
   readonly group: THREE.Group;
-  readonly glyph: THREE.Mesh;
+  readonly tilt: THREE.Group;
+  readonly body: THREE.Mesh;
+  readonly white: boolean;
+  /** Last frame's position (for the lean) and the landing settle (−1 = none). */
+  readonly prev: THREE.Vector3;
+  settle: number;
+  sx: number;
+  sz: number;
 }
 
 interface Running {
@@ -60,13 +71,14 @@ export class ChessScene {
   private readonly pieces = new Map<number, Piece>();
   private readonly fading: Fading[] = [];
   private run: Running | null = null;
-  private readonly rimGeo = rimGeometry();
-  private readonly capGeo: THREE.CircleGeometry;
-  private readonly glyphGeos: THREE.BufferGeometry[] = [];
-  private readonly atlas: THREE.CanvasTexture;
-  private readonly rimMats: [THREE.MeshStandardMaterial, THREE.MeshStandardMaterial];
-  private readonly capMats: [THREE.MeshStandardMaterial, THREE.MeshStandardMaterial];
-  private readonly inkMats: [THREE.MeshBasicMaterial, THREE.MeshBasicMaterial];
+  private readonly pieceGeos = pieceGeometries();
+  /** Maple for you, walnut for the computer. */
+  private readonly woodMats: [THREE.MeshStandardMaterial, THREE.MeshStandardMaterial];
+  /** The piece following the finger, and where it's heading. */
+  private dragSq = -1;
+  private readonly dragTarget = new THREE.Vector3();
+  private readonly bodies: THREE.Object3D[] = [];
+  private readonly hits: THREE.Intersection[] = [];
   private readonly dotGeo = new THREE.CircleGeometry(0.16, 32).rotateX(-Math.PI / 2);
   private readonly ringGeo = new THREE.RingGeometry(0.41, 0.49, 48).rotateX(-Math.PI / 2);
   private readonly squareGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
@@ -104,53 +116,18 @@ export class ChessScene {
     this.disposeLights = addLights(this.scene);
     this.scene.add(this.table);
     this.sparkles = new Sparkles(this.scene, tex);
-    const { radius: R, height: H, edge: e } = CHECKERS;
-    this.capGeo = new THREE.CircleGeometry(R - e, 48).rotateX(-Math.PI / 2).translate(0, H, 0);
-    // one flat square per piece type, its UVs on that piece's cell of the atlas
-    for (let t = 0; t < 6; t++) {
-      const g = new THREE.PlaneGeometry(CHESS.glyph, CHESS.glyph)
-        .rotateX(-Math.PI / 2)
-        .translate(0, H + 0.003, 0);
-      const uv = g.attributes.uv as THREE.BufferAttribute;
-      for (let i = 0; i < uv.count; i++) uv.setX(i, (t + uv.getX(i)) / 6);
-      this.glyphGeos.push(g);
-    }
-    this.atlas = new THREE.CanvasTexture(glyphAtlas());
-    this.atlas.colorSpace = THREE.SRGBColorSpace;
-    this.atlas.anisotropy = 4;
-    const wood = (
-      map: THREE.Texture,
-      normal: THREE.Texture,
-      tint: readonly [number, number, number],
-      rough: number,
-    ) => {
+    const wood = (tint: readonly [number, number, number]) => {
       const m = new THREE.MeshStandardMaterial({
-        map,
-        normalMap: normal,
+        map: tex.side,
+        normalMap: tex.sideNormal,
         normalScale: new THREE.Vector2(BLOCK.normalScaleTop, BLOCK.normalScaleTop),
-        roughness: rough,
+        roughness: CHESS.pieceRoughness,
         metalness: 0,
       });
       m.color.setRGB(...tint);
       return m;
     };
-    this.rimMats = [
-      wood(tex.side, tex.sideNormal, CHESS.whiteTint, BLOCK.roughnessSide),
-      wood(tex.side, tex.sideNormal, CHESS.blackTint, BLOCK.roughnessSide),
-    ];
-    this.capMats = [
-      wood(tex.ring, tex.ringNormal, CHESS.whiteTint, BLOCK.roughnessTop),
-      wood(tex.ring, tex.ringNormal, CHESS.blackTint, BLOCK.roughnessTop),
-    ];
-    // unlit, like a burn mark: under the bright key light a lit dark ink washes out to caramel
-    const ink = (hex: number) =>
-      new THREE.MeshBasicMaterial({
-        map: this.atlas,
-        color: linearColor(hex),
-        transparent: true,
-        depthWrite: false,
-      });
-    this.inkMats = [ink(CHESS.whiteInk), ink(CHESS.blackInk)];
+    this.woodMats = [wood(CHESS.whiteTint), wood(CHESS.blackTint)];
     const flat = (hex: number, opacity: number) =>
       new THREE.MeshBasicMaterial({
         color: linearColor(hex),
@@ -198,22 +175,27 @@ export class ChessScene {
   sync(board: readonly number[]): void {
     this.run = null;
     this.endBounce();
+    this.dragSq = -1;
     for (const p of this.pieces.values()) p.group.removeFromParent();
     this.pieces.clear();
     board.forEach((v, s) => {
       if (!v) return;
       this.pieces.set(s, this.makePiece(v));
       this.place(s, 0);
+      const p = this.pieces.get(s);
+      p?.prev.copy(p.group.position);
     });
   }
 
   place(s: number, lift: number): void {
+    if (s === this.dragSq) this.dragSq = -1;
     this.pieces.get(s)?.group.position.set(centre(colOf(s)), CHECKERS.floorY + lift, centre(rowOf(s)));
   }
 
-  /** A piece following the finger (board position in squares, fractional). */
+  /** A piece following the finger (board position in squares, fractional): it eases after it and leans. */
   hover(s: number, col: number, row: number, lift: number): void {
-    this.pieces.get(s)?.group.position.set(col - SIZE / 2, CHECKERS.floorY + lift, row - SIZE / 2);
+    this.dragSq = s;
+    this.dragTarget.set(col - SIZE / 2, CHECKERS.floorY + lift, row - SIZE / 2);
   }
 
   animate(a: ChessAnim, done: () => void): void {
@@ -222,6 +204,7 @@ export class ChessScene {
 
   /** A piece let go on its square: the move happens at once. */
   drop(a: ChessAnim): void {
+    this.dragSq = -1;
     if (a.cap >= 0) this.capture(a.cap);
     this.move(a.from, a.to);
     if (a.rookFrom >= 0) this.move(a.rookFrom, a.rookTo);
@@ -327,6 +310,7 @@ export class ChessScene {
           );
     }
     this.checkMat.opacity = CHESS.checkOpacity * (0.8 + 0.2 * Math.sin(this.time * 5));
+    this.moveFeel(dt);
     for (let i = this.fading.length - 1; i >= 0; i--) {
       const f = this.fading[i];
       if (!f) continue;
@@ -346,7 +330,7 @@ export class ChessScene {
     const a = r.a;
     r.t = Math.min(1, r.t + dt / CHESS.moveDuration);
     const k = easeInOutCubic(r.t);
-    const lift = a.hop ? Math.sin(Math.PI * r.t) * CHESS.knightHop : Math.sin(Math.PI * r.t) * 0.05;
+    const lift = Math.sin(Math.PI * r.t) * (a.hop ? CHESS.knightHop : CHESS.glideHop);
     this.glide(a.from, a.to, k, lift);
     if (a.rookFrom >= 0) this.glide(a.rookFrom, a.rookTo, k, 0);
     if (a.cap >= 0 && !r.taken && r.t >= 0.6) {
@@ -380,12 +364,63 @@ export class ChessScene {
     this.pieces.delete(from);
     this.pieces.set(to, p);
     this.place(to, 0);
+    // land like a placed block: a quick squash and a small rocking settle
+    p.settle = 0;
+    p.sx = Math.random() - 0.5;
+    p.sz = Math.random() - 0.5;
+  }
+
+  /**
+   * Per frame, for every piece: the dragged one eases after the finger; anything moving leans
+   * into its motion (like a held block) and straightens when it stops; a landed piece squashes
+   * and rocks to rest. All time-based.
+   */
+  private moveFeel(dt: number): void {
+    if (dt <= 0) return;
+    const drag = this.dragSq >= 0 ? this.pieces.get(this.dragSq) : undefined;
+    if (drag) {
+      const g = drag.group.position;
+      const axz = 1 - Math.exp(-CHESS.followRate * dt);
+      g.x += (this.dragTarget.x - g.x) * axz;
+      g.z += (this.dragTarget.z - g.z) * axz;
+      g.y += (this.dragTarget.y - g.y) * (1 - Math.exp(-CHESS.followRateY * dt));
+    }
+    const ease = 1 - Math.exp(-CHESS.tiltRate * dt);
+    const cl = (x: number): number => Math.max(-CHESS.tiltMax, Math.min(CHESS.tiltMax, x));
+    for (const p of this.pieces.values()) {
+      const pos = p.group.position;
+      const vx = (pos.x - p.prev.x) / dt;
+      const vz = (pos.z - p.prev.z) / dt;
+      p.prev.copy(pos);
+      let rx = p.tilt.rotation.x + (cl(vz * CHESS.tiltPerSpeed) - p.tilt.rotation.x) * ease;
+      let rz = p.tilt.rotation.z + (cl(-vx * CHESS.tiltPerSpeed) - p.tilt.rotation.z) * ease;
+      let sy = 1;
+      if (p.settle >= 0) {
+        p.settle = Math.min(1, p.settle + dt / FX.squashDuration);
+        const k = p.settle;
+        const decay = Math.exp(-k * FX.squashDecay);
+        sy = 1 - CHESS.squash * decay * Math.cos(k * FX.squashFreq);
+        const w = CHESS.settleAngle * decay * Math.sin(k * FX.settleFreq);
+        rx += w * p.sx;
+        rz += w * p.sz;
+        if (k >= 1) p.settle = -1;
+      }
+      p.tilt.rotation.x = rx;
+      p.tilt.rotation.z = rz;
+      if (p.group !== this.bounceGroup()) p.tilt.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
+    }
+  }
+
+  private bounceGroup(): THREE.Group | undefined {
+    return this.bounceT < 1 ? this.pieces.get(this.bounceSq)?.group : undefined;
   }
 
   private promote(s: number, type: number): void {
     const p = this.pieces.get(s);
-    const g = this.glyphGeos[type - 1];
-    if (p && g) p.glyph.geometry = g;
+    const g = this.pieceGeos[type - 1];
+    if (!p || !g) return;
+    p.body.geometry = g;
+    p.body.rotation.y = type === 2 ? (p.white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI) : 0;
   }
 
   private capture(s: number): void {
@@ -404,7 +439,25 @@ export class ChessScene {
     this.fading.push({ group: p.group, t: 0 });
   }
 
-  squareAt(x: number, y: number, width: number, height: number): number {
+  /**
+   * The square under a screen point. A square `prefer` accepts (a legal target) wins; otherwise a
+   * touched piece's body wins (tall pieces hide the squares behind them); otherwise the board.
+   */
+  squareAt(x: number, y: number, width: number, height: number, prefer?: (s: number) => boolean): number {
+    const ground = this.groundSquare(x, y, width, height);
+    if (ground >= 0 && prefer?.(ground)) return ground;
+    this.ndc.set((x / width) * 2 - 1, -(y / height) * 2 + 1);
+    this.ray.setFromCamera(this.ndc, this.camera);
+    this.bodies.length = 0;
+    for (const pc of this.pieces.values()) this.bodies.push(pc.body);
+    this.hits.length = 0;
+    this.ray.intersectObjects(this.bodies, false, this.hits);
+    const hit = this.hits[0]?.object;
+    if (hit) for (const [sq, pc] of this.pieces) if (pc.body === hit && sq !== this.dragSq) return sq;
+    return ground;
+  }
+
+  private groundSquare(x: number, y: number, width: number, height: number): number {
     const p = this.pointSquares(x, y, width, height);
     if (!p) return -1;
     const c = Math.floor(p.col);
@@ -427,12 +480,13 @@ export class ChessScene {
       landscape: false,
       slots: [],
       hit: [0, 0],
-      bounds: { x0: -m, x1: m, z0: -m, z1: m },
+      // the back row's tall pieces stand up into the view: a little more room at the far edge
+      bounds: { x0: -m, x1: m, z0: -m - CHESS.backRoom, z1: m },
       dealFromX: 0,
       padTop: CHECKERS.padTop,
       padBottom: CHECKERS.padBottom,
     };
-    const dir = new THREE.Vector3(...CAMERA_VIEWS.top).normalize();
+    const dir = new THREE.Vector3(...CHESS.camDir).normalize();
     fitCamera(
       this.camera,
       width,
@@ -447,19 +501,19 @@ export class ChessScene {
   }
 
   private makePiece(v: number): Piece {
-    const k = v > 0 ? 0 : 1;
+    const white = v > 0;
+    const type = Math.abs(v);
     const group = new THREE.Group();
-    const rim = new THREE.Mesh(this.rimGeo, this.rimMats[k]);
-    const cap = new THREE.Mesh(this.capGeo, this.capMats[k]);
-    const glyph = new THREE.Mesh(this.glyphGeos[Math.abs(v) - 1], this.inkMats[k]);
-    glyph.renderOrder = 3;
-    rim.castShadow = true;
-    cap.castShadow = true;
-    rim.receiveShadow = true;
-    cap.receiveShadow = true;
-    group.add(rim, cap, glyph);
+    const tilt = new THREE.Group();
+    const body = new THREE.Mesh(this.pieceGeos[type - 1], this.woodMats[white ? 0 : 1]);
+    // knights look across the board, turned a little toward the other side
+    if (type === 2) body.rotation.y = white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    tilt.add(body);
+    group.add(tilt);
     this.scene.add(group);
-    return { group, glyph };
+    return { group, tilt, body, white, prev: new THREE.Vector3(), settle: -1, sx: 0, sz: 0 };
   }
 
   dispose(): void {
@@ -475,12 +529,9 @@ export class ChessScene {
       m.geometry.dispose();
       m.material.dispose();
     }
-    for (const g of [this.rimGeo, this.capGeo, ...this.glyphGeos, this.dotGeo, this.ringGeo, this.squareGeo])
-      g.dispose();
+    for (const g of [...this.pieceGeos, this.dotGeo, this.ringGeo, this.squareGeo]) g.dispose();
     for (const m of [
-      ...this.rimMats,
-      ...this.capMats,
-      ...this.inkMats,
+      ...this.woodMats,
       this.dotMat,
       this.selMat,
       this.lastMat,
@@ -489,7 +540,6 @@ export class ChessScene {
       this.waveMat,
     ])
       m.dispose();
-    this.atlas.dispose();
     this.disposeLights();
   }
 }

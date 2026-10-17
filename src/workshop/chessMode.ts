@@ -471,6 +471,9 @@ export class ChessMode {
     this.refresh();
   }
 
+  /** A square the selected piece can move to (taps prefer these over a piece standing in front). */
+  private readonly isTarget = (s: number): boolean => this.selMoves().some((m) => to64(mTo(m)) === s);
+
   private selMoves(): number[] {
     if (this.sel < 0) return [];
     const from = from64(this.sel);
@@ -1430,7 +1433,7 @@ export class ChessMode {
 
   private onDown(e: PointerEvent): void {
     if (!this.active || this.press || this.phase !== 'player' || this.view.busy || this.win.open) return;
-    const s = this.view.squareAt(e.clientX, e.clientY, this.width, this.height);
+    const s = this.view.squareAt(e.clientX, e.clientY, this.width, this.height, this.isTarget);
     if (s < 0) return;
     e.preventDefault();
     const v = this.pos.b[from64(s)] ?? 0;
@@ -1473,7 +1476,7 @@ export class ChessMode {
     if (!p || e.pointerId !== p.pointerId) return;
     this.press = null;
     if (this.phase !== 'player') return;
-    const s = commit ? this.view.squareAt(e.clientX, e.clientY, this.width, this.height) : -1;
+    const s = commit ? this.view.squareAt(e.clientX, e.clientY, this.width, this.height, this.isTarget) : -1;
     const ok = s >= 0 && this.selMoves().some((m) => to64(mTo(m)) === s);
     if (p.dragging) {
       if (ok) this.moveTo(s, true);

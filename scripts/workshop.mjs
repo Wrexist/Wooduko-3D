@@ -406,10 +406,13 @@ check(
 );
 const chessSq = (s) =>
   page.evaluate((s) => {
-    const v = window.__grain.game.chess.view;
+    const c = window.__grain.game.chess;
+    const v = c.view;
+    // a piece: tap its body (tall pieces hide the base); an empty square: its centre
+    const y = c.board64()[s] ? 0.12 : -0.06;
     const q = v.camera.position
       .clone()
-      .set((s % 8) - 3.5, -0.06, Math.floor(s / 8) - 3.5)
+      .set((s % 8) - 3.5, y, Math.floor(s / 8) - 3.5)
       .project(v.camera);
     return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight];
   }, s);
@@ -509,10 +512,12 @@ const sqOf = (name) => (8 - Number(name[1])) * 8 + (name.charCodeAt(0) - 97);
 const schoolSq = (name, mode) =>
   page.evaluate(
     ([s, mode]) => {
-      const v = window.__grain.game[mode].view;
+      const c = window.__grain.game[mode];
+      const v = c.view;
+      const y = c.board64()[s] ? 0.12 : -0.06;
       const q = v.camera.position
         .clone()
-        .set((s % 8) - 3.5, -0.06, Math.floor(s / 8) - 3.5)
+        .set((s % 8) - 3.5, y, Math.floor(s / 8) - 3.5)
         .project(v.camera);
       return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight];
     },
