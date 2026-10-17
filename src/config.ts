@@ -918,6 +918,25 @@ export const CHESS = {
   tiltRate: 12,
   /** A gliding piece rises this much mid-move; landing squashes and rocks (like a placed block). */
   glideHop: 0.12,
+  /** Board coordinates in the square corners. */
+  coordOpacity: 0.9,
+  coordOnLight: '#7a4220',
+  coordOnDark: '#ffe9c4',
+  /** Arrows (squares): shaft and head widths, head length, gap at the start, height, opacity, colours. */
+  arrowWidth: 0.2,
+  arrowHead: 0.5,
+  arrowHeadLength: 0.42,
+  arrowInset: 0.18,
+  arrowY: 0.03,
+  arrowOpacity: 0.78,
+  arrowBest: 0x5fd068,
+  arrowBad: 0xff6a4d,
+  arrowHint: 0xffc04a,
+  /** Captured pieces: size, spacing, gap from the board edge; room in front of the board for them. */
+  trayScale: 0.5,
+  trayStep: 0.42,
+  trayGap: 0.45,
+  frontRoom: 0.9,
   squash: 0.12,
   settleAngle: 0.07,
   /** Ring around a piece that can be taken, and the red square under a king in check. */
@@ -933,6 +952,8 @@ export const CHESS = {
   stepPause: 1.1,
   storageKey: 'grain_chess_v1',
   schoolKey: 'grain_chess_school_v1',
+  /** A game in progress (resumed from the level list). */
+  gameKey: 'grain_chess_game_v1',
   /** Daily training (spaced repetition): cards, rating, streak. */
   trainKey: 'grain_chess_train_v1',
   /** Training: pause after a card before the next one (seconds). */

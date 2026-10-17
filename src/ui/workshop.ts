@@ -272,6 +272,9 @@ export class WinCard extends Overlay {
   private readonly next = el('button', { class: 'cta' }, [t('workshop.next')]);
   private readonly title = el('h2', { id: 'kWinTitle' }, [t('workshop.solved')]);
   private readonly replay = el('button', { class: 'ghost-btn' }, [t('workshop.replay')]);
+  /** An optional extra action (Review game). */
+  private readonly extra = el('button', { class: 'ghost-btn k-extra', hidden: '' });
+  private extraRun: (() => void) | null = null;
 
   constructor(h: { onNext(): void; onReplay(): void; onLevels(): void }) {
     super('workshop-win dialog-layer', 'kWinTitle');
@@ -281,12 +284,13 @@ export class WinCard extends Overlay {
     this.next.addEventListener('click', h.onNext);
     replay.addEventListener('click', h.onReplay);
     levels.addEventListener('click', h.onLevels);
+    this.extra.addEventListener('click', () => this.extraRun?.());
     this.card.append(
       this.stars,
       this.title,
       this.stats,
       this.note,
-      el('div', { class: 'k-actions' }, [this.next, el('div', { class: 'pair' }, [replay, levels])]),
+      el('div', { class: 'k-actions' }, [this.next, this.extra, el('div', { class: 'pair' }, [replay, levels])]),
     );
   }
 
@@ -297,11 +301,14 @@ export class WinCard extends Overlay {
     hasNext: boolean,
     note = '',
     title?: string,
-    opts: { replay?: string; party?: boolean } = {},
+    opts: { replay?: string; party?: boolean; extra?: { label: string; run(): void } } = {},
   ): void {
     this.title.textContent = title ?? t('workshop.solved');
     this.replay.textContent = opts.replay ?? t('workshop.replay');
     this.card.classList.toggle('party', opts.party === true);
+    this.extra.hidden = !opts.extra;
+    this.extra.textContent = opts.extra?.label ?? '';
+    this.extraRun = opts.extra?.run ?? null;
     this.stars.hidden = stars === 0 && title !== undefined;
     this.stars.replaceChildren();
     for (let i = 0; i < 3; i++)

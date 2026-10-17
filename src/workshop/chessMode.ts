@@ -60,6 +60,9 @@ import {
 } from '../core/chessTrain';
 import type { TrainState } from '../core/chessTrain';
 import { floatText } from '../ui/floatText';
+import { nextMistake, openingOf, reviewGame, san, winChance } from '../core/chessReview';
+import type { Review } from '../core/chessReview';
+import { ReviewPanel } from '../ui/chessReviewPanel';
 import { kRecord, parseKProgress } from '../core/klotski';
 import type { KProgress } from '../core/klotski';
 import type { Haptics } from '../platform/haptics';
@@ -105,6 +108,44 @@ const TEACHER: ChessOpponent = { ms: 700, depth: 64, noise: 0, blunder: 0 };
 const COACH_KEY = 'grain_chess_coach';
 const FLAME =
   '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 3.2-.6 5-2.2 6.8C8.3 10.4 7 12 7 14.5A5 5 0 0 0 12 20a5 5 0 0 0 5-5.4c-.1-1.9-1-3.3-2-4.4.1 1.5-.4 2.7-1.5 3.3.4-3.6-.7-8.6-1.5-11.5z"/></svg>';
+
+/** A game in progress, saved on your turn so leaving never loses it. */
+interface SavedGame {
+  readonly n: number;
+  readonly fen: string;
+  readonly moves: readonly string[];
+  readonly helps: number;
+}
+
+function parseSavedGame(raw: string | null): SavedGame | null {
+  try {
+    const o = raw ? (JSON.parse(raw) as Partial<SavedGame>) : null;
+    if (!o || typeof o.n !== 'number' || typeof o.fen !== 'string' || !Array.isArray(o.moves)) return null;
+    return { n: o.n, fen: o.fen, moves: o.moves.map(String), helps: Number(o.helps) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+/** Pieces of each type (index = type) per side: [White, Black]. */
+function typeCounts(p: Pos): [number[], number[]] {
+  const out: [number[], number[]] = [new Array<number>(7).fill(0), new Array<number>(7).fill(0)];
+  for (let s = 0; s < 128; s++) {
+    if (s & 0x88) continue;
+    const v = p.b[s] ?? 0;
+    const side = out[v > 0 ? 0 : 1];
+    if (v) side[Math.abs(v)] = (side[Math.abs(v)] ?? 0) + 1;
+  }
+  return out;
+}
+
+/** The game review's state: positions scored so far, then the review and where you are in it. */
+interface Reviewing {
+  readonly evals: number[];
+  readonly bests: number[];
+  review: Review | null;
+  ply: number;
+}
 
 /** A training session: the cards in order, and how it's going. */
 interface Session {
@@ -223,6 +264,16 @@ export class ChessMode {
   private stepPar = 0;
   /** Seconds since the step was done (−1 = not yet): the next step follows after a beat. */
   private advanceT = -1;
+  // ---------- review, opening, resume ----------
+  private readonly reviewPanel: ReviewPanel;
+  private reviewing: Reviewing | null = null;
+  private evalId = 0;
+  private openingId = '';
+  private startCounts: [number[], number[]] = [[], []];
+  private readonly evalBar = el('div', { class: 'chess-eval', hidden: '', role: 'img' });
+  private readonly evalFill = el('i');
+  private readonly resumeBtn = el('button', { class: 'cta k-resume', hidden: '' });
+  private saved: SavedGame | null = null;
   // ---------- daily training ----------
   private train: TrainState = emptyTrain();
   private session: Session | null = null;
@@ -277,7 +328,7 @@ export class ChessMode {
             allOpen: true,
             head: this.buildTrainPanel(),
           }
-        : { foot: this.coachBtn },
+        : { foot: this.coachBtn, head: this.resumeBtn },
     );
     this.bar = new GameBar({
       onBack: () => this.leave(true),
@@ -293,7 +344,22 @@ export class ChessMode {
       onReplay: () => (this.session ? void this.startTraining() : this.start(this.n)),
       onLevels: () => this.leave(true),
     });
-    this.bar.node.append(this.strip);
+    this.bar.node.append(this.strip, this.evalBar);
+    this.evalBar.append(this.evalFill);
+    this.evalBar.setAttribute('aria-label', t('chess.eval'));
+    this.reviewPanel = new ReviewPanel({
+      onFirst: () => this.showPly(0),
+      onPrev: () => this.showPly((this.reviewing?.ply ?? 1) - 1),
+      onNext: () => this.showPly((this.reviewing?.ply ?? 0) + 1),
+      onMistake: () => {
+        const r = this.reviewing?.review;
+        if (r) this.showPly(nextMistake(r, (this.reviewing?.ply ?? 0) - 1) + 1);
+      },
+      onDone: () => this.leave(true),
+    });
+    this.resumeBtn.addEventListener('click', () => {
+      if (this.saved) this.resume(this.saved);
+    });
     this.coachBtn.addEventListener('click', () => {
       this.coachOn = !this.coachOn;
       this.syncCoachBtn();
@@ -330,7 +396,14 @@ export class ChessMode {
   }
 
   get nodes(): HTMLElement[] {
-    return [this.bar.node, this.tools.node, this.picker.node, this.win.node, this.promo.node];
+    return [
+      this.bar.node,
+      this.tools.node,
+      this.reviewPanel.node,
+      this.picker.node,
+      this.win.node,
+      this.promo.node,
+    ];
   }
 
   get starCount(): [number, number] {
@@ -341,12 +414,19 @@ export class ChessMode {
     this.picker.update(this.progress.stars);
     this.picker.show();
     if (this.school) void this.loadTrain().then(() => this.refreshTrainPanel());
+    else
+      void this.d.storage.get(CHESS.gameKey).then((raw) => {
+        this.saved = parseSavedGame(raw);
+        this.resumeBtn.hidden = !this.saved;
+        if (this.saved) this.resumeBtn.textContent = t('game.resume', { n: this.saved.n });
+      });
   }
 
   start(n: number): void {
     if (n < 1 || n > this.count) return;
     this.session = null;
     this.strip.hidden = true;
+    this.endReview();
     this.n = n;
     this.helps = 0;
     this.mistakes = 0;
@@ -366,6 +446,7 @@ export class ChessMode {
       this.lesson = null;
       this.reset(START_FEN);
       this.bar.coach('');
+      this.clearSaved();
       this.beginTurn();
     }
     this.resize(this.width, this.height, this.safeBottom);
@@ -376,6 +457,10 @@ export class ChessMode {
   private reset(fen: string): void {
     this.startFen = fen;
     this.pos = fromFen(fen);
+    this.startCounts = typeCounts(this.pos);
+    this.openingId = '';
+    this.view.arrows([]);
+    this.showEval(null);
     this.moves = [];
     this.last = [];
     this.resultT = -1;
@@ -391,6 +476,7 @@ export class ChessMode {
   leave(toLevels: boolean): void {
     this.session = null;
     this.strip.hidden = true;
+    this.endReview();
     this.askId++;
     this.reviewAt = -1;
     this.win.hide();
@@ -414,7 +500,7 @@ export class ChessMode {
       width,
       height,
       this.bar.bottom,
-      Math.max(safeBottom, this.tools.height),
+      Math.max(safeBottom, this.tools.height, this.reviewPanel.height),
       this.tools.left,
     );
   }
@@ -468,6 +554,8 @@ export class ChessMode {
     this.hintTo = -1;
     this.legal = legalMoves(this.pos);
     this.phase = 'player';
+    if (!this.lesson && !this.school) this.saveGame();
+    this.updateOpening();
     this.refresh();
   }
 
@@ -620,6 +708,7 @@ export class ChessMode {
   private end(s: Status): void {
     this.result = s;
     this.phase = 'over';
+    this.clearSaved();
     this.resultT = 0;
     this.sel = -1;
     this.tools.show(false);
@@ -665,6 +754,7 @@ export class ChessMode {
         this.n < this.count,
         this.helps ? t('chess.helped') : '',
         t('chess.won'),
+        { extra: { label: t('review.open'), run: () => this.startReview() } },
       );
       return;
     }
@@ -682,7 +772,171 @@ export class ChessMode {
       false,
       t(why[this.result]),
       this.result === 'mate' ? t('chess.lost') : t('chess.draw'),
+      { extra: { label: t('review.open'), run: () => this.startReview() } },
     );
+  }
+
+  // ---------- game review ----------
+
+  /** Score every position of the game in the worker (one after another), then step through it. */
+  private startReview(): void {
+    // the result card must not come back over the review
+    this.resultT = -1;
+    this.win.hide();
+    this.bar.coach('');
+    this.tools.show(false);
+    this.reviewing = { evals: [], bests: [], review: null, ply: this.moves.length };
+    this.reviewPanel.show(true);
+    this.bar.set(t('review.title'), t('journey.level', { n: this.n }), '');
+    this.resize(this.width, this.height, this.safeBottom);
+    this.askEval(0);
+  }
+
+  private askEval(k: number): void {
+    this.evalId = this.ask({ kind: 'eval', fen: this.startFen, moves: this.moves.slice(0, k) });
+  }
+
+  private onEval(r: ChessReply): void {
+    const rv = this.reviewing;
+    if (!rv || rv.review) return;
+    rv.evals.push(r.score ?? 0);
+    rv.bests.push(r.move);
+    const k = rv.evals.length;
+    this.reviewPanel.analysing(k / (this.moves.length + 1));
+    if (k <= this.moves.length) {
+      this.askEval(k);
+      return;
+    }
+    rv.review = reviewGame(this.moves, rv.evals, rv.bests);
+    this.reviewPanel.ready(rv.review);
+    void this.saveReviewMistakes(rv.review);
+    this.resize(this.width, this.height, this.safeBottom);
+    // open on your first slip (or the end, for a clean game)
+    const first = nextMistake(rv.review, -1);
+    if (first < 0) this.say(t('review.noMistakes'), 'good');
+    this.showPly(first >= 0 ? first + 1 : this.moves.length);
+  }
+
+  /** Show the position after `ply` moves, with that move's grade and the better move. */
+  private showPly(ply: number): void {
+    const rv = this.reviewing;
+    const r = rv?.review;
+    if (!rv || !r) return;
+    const k = Math.max(0, Math.min(this.moves.length, ply));
+    rv.ply = k;
+    const p = fromFen(this.startFen);
+    for (let i = 0; i < k - 1; i++) makeMove(p, this.moves[i] ?? 0);
+    const note = k > 0 ? r.notes[k - 1] : undefined;
+    const letters = t('chess.letters');
+    let text: string;
+    let tone: 'info' | 'good' | 'warn' | 'bad' = 'info';
+    const arrows: { from: number; to: number; color: number }[] = [];
+    if (note && k > 0) {
+      const played = san(p, note.move, letters);
+      const white = (k - 1) % 2 === 0;
+      const no = Math.floor((k - 1) / 2) + 1;
+      text = `${no}${white ? '.' : '…'} ${played}: ${t(`review.g.${note.grade}` as Key)}.`;
+      const weak = note.grade === 'inaccuracy' || note.grade === 'mistake' || note.grade === 'blunder';
+      if (weak && note.best) {
+        text += ` ${t('review.better', { move: san(p, note.best, letters) })}`;
+        arrows.push({ from: to64(mFrom(note.move)), to: to64(mTo(note.move)), color: CHESS.arrowBad });
+        arrows.push({ from: to64(mFrom(note.best)), to: to64(mTo(note.best)), color: CHESS.arrowBest });
+      }
+      tone =
+        note.grade === 'blunder'
+          ? 'bad'
+          : note.grade === 'mistake'
+            ? 'warn'
+            : note.grade === 'best'
+              ? 'good'
+              : 'info';
+      makeMove(p, note.move);
+    } else text = t('review.start');
+    this.pos = p;
+    this.last = note ? [to64(mFrom(note.move)), to64(mTo(note.move))] : [];
+    this.view.sync(this.board64());
+    this.view.arrows(arrows);
+    // the start position is scored for White, who moves first
+    this.showEval(note ? note.after : (rv.evals[0] ?? 0));
+    this.reviewPanel.at(k, this.moves.length, nextMistake(r, k - 1) >= 0);
+    this.say(text, tone);
+    this.refresh();
+    this.d.sound.tick();
+  }
+
+  private endReview(): void {
+    if (!this.reviewing) return;
+    this.reviewing = null;
+    this.askId++;
+    this.evalId = 0;
+    this.reviewPanel.show(false);
+    this.reviewPanel.node.hidden = true;
+    this.view.arrows([]);
+    this.showEval(null);
+  }
+
+  /** Your inaccuracies and worse become Daily training cards. */
+  private async saveReviewMistakes(r: Review): Promise<void> {
+    const weak = r.notes.filter(
+      (n) => n.ply % 2 === 0 && (n.grade === 'mistake' || n.grade === 'blunder') && n.best,
+    );
+    if (!weak.length) return;
+    await this.loadTrain();
+    const today = this.today();
+    for (const n of weak) {
+      const p = fromFen(this.startFen);
+      for (let i = 0; i < n.ply; i++) makeMove(p, this.moves[i] ?? 0);
+      this.train = addMistake(this.train, fullFen(p), uciOf(n.best), today);
+    }
+    this.saveTrain();
+  }
+
+  /** The bar of who stands better (White's view, centipawns); null hides it. */
+  private showEval(score: number | null): void {
+    const show = score !== null && (this.coachOn || this.reviewing !== null) && !this.lesson;
+    this.evalBar.hidden = !show;
+    if (!show) return;
+    const w = winChance(score);
+    this.evalFill.style.width = `${w}%`;
+    this.evalBar.classList.toggle('ahead', w >= 50);
+  }
+
+  // ---------- opening names, saved game ----------
+
+  private updateOpening(): void {
+    if (this.lesson || this.startFen !== START_FEN || this.moves.length > 24) return;
+    const id = openingOf(this.moves.map(uciOf));
+    if (id) this.openingId = id;
+  }
+
+  private saveGame(): void {
+    const g: SavedGame = { n: this.n, fen: this.startFen, moves: this.moves.map(uciOf), helps: this.helps };
+    void this.d.storage.set(CHESS.gameKey, JSON.stringify(g));
+  }
+
+  private clearSaved(): void {
+    this.saved = null;
+    this.resumeBtn.hidden = true;
+    void this.d.storage.set(CHESS.gameKey, '');
+  }
+
+  /** Pick a saved game up where you left it. */
+  private resume(g: SavedGame): void {
+    this.start(g.n);
+    this.reset(g.fen);
+    for (const u of g.moves) {
+      const m = moveOf(this.pos, u);
+      if (!m) break;
+      makeMove(this.pos, m);
+      this.moves.push(m);
+    }
+    this.helps = g.helps;
+    const lastMove = this.moves[this.moves.length - 1];
+    this.last = lastMove ? [to64(mFrom(lastMove)), to64(mTo(lastMove))] : [];
+    this.view.sync(this.board64());
+    if (status(this.pos) !== 'play') this.end(status(this.pos));
+    else if (this.pos.side === -1) this.think(chessOpponent(this.n));
+    else this.beginTurn();
   }
 
   // ---------- the coach (games) ----------
@@ -705,6 +959,7 @@ export class ChessMode {
       return;
     this.reviewAt = -1;
     if (this.lesson) return;
+    this.showEval(rv.playedScore);
     if (rv.grade === 'mistake' || rv.grade === 'blunder') {
       if (this.reviewFen && rv.best) void this.saveMistake(this.reviewFen, uciOf(rv.best));
       const label = t(rv.grade === 'blunder' ? 'coach.blunder' : 'coach.mistake');
@@ -1296,6 +1551,10 @@ export class ChessMode {
   private onReply(r: ChessReply): void {
     this.pending.delete(r.id);
     if (!this.active) return;
+    if (r.id === this.evalId) {
+      this.onEval(r);
+      return;
+    }
     if (r.id === this.reviewId) {
       if (this.lesson) this.onJudge(r);
       else this.onReview(r);
@@ -1378,6 +1637,21 @@ export class ChessMode {
       hint: mine ? this.hintTo : -1,
       danger: mine && this.coachOn && !this.lesson ? threatened(this.pos, 1).map(to64) : [],
     });
+    if (!this.reviewing)
+      this.view.arrows(
+        mine && this.sel >= 0 && this.hintTo >= 0
+          ? [{ from: this.sel, to: this.hintTo, color: CHESS.arrowHint }]
+          : [],
+      );
+    const now = typeCounts(this.pos);
+    const lost = (side: 0 | 1): number[] => {
+      const out: number[] = [];
+      for (const type of [5, 4, 3, 2, 1])
+        for (let i = 0; i < (this.startCounts[side][type] ?? 0) - (now[side][type] ?? 0); i++) out.push(type);
+      return out;
+    };
+    this.view.captured(lost(1), lost(0));
+    if (this.reviewing) return;
     if (this.lesson) this.refreshLessonBar();
     else this.refreshGameBar(check >= 0);
     this.tools.set(this.canUndo(), this.helps > 0);
@@ -1421,7 +1695,8 @@ export class ChessMode {
             ? t('chess.check')
             : t('checkers.yourMove');
     const adv = captured(this.pos, 1) - captured(this.pos, -1);
-    const name = t(`chess.opp${Math.min(5, Math.ceil(this.n / 3))}` as Key);
+    const opp = t(`chess.opp${Math.min(5, Math.ceil(this.n / 3))}` as Key);
+    const name = this.openingId ? `${opp} · ${t(`opening.${this.openingId}` as Key)}` : opp;
     this.bar.set(
       t('journey.level', { n: this.n }),
       big,

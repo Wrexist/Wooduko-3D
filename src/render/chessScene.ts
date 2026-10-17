@@ -16,6 +16,58 @@ const centre = (i: number): number => i - SIZE / 2 + 0.5;
 const rowOf = (s: number): number => s >> 3;
 const colOf = (s: number): number => s & 7;
 
+/** An arrow on the board (squares 0..63) in a colour (sRGB hex). */
+export interface ChessArrow {
+  readonly from: number;
+  readonly to: number;
+  readonly color: number;
+}
+
+/** Board coordinates in the square corners (files on the bottom row, ranks on the left file). */
+function coordTexture(): THREE.CanvasTexture {
+  const px = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = px * SIZE;
+  const g = c.getContext('2d');
+  if (g) {
+    g.font = `800 ${px * 0.24}px "DM Sans", system-ui, sans-serif`;
+    // deep brown on light squares, cream on dark ones (the square tints alone are too close)
+    const ink = (dark: boolean): string => (dark ? CHESS.coordOnDark : CHESS.coordOnLight);
+    for (let i = 0; i < SIZE; i++) {
+      g.fillStyle = ink(i % 2 === 1);
+      g.textAlign = 'left';
+      g.textBaseline = 'top';
+      g.fillText(String(SIZE - i), px * 0.07, i * px + px * 0.05);
+      g.fillStyle = ink((SIZE - 1 + i) % 2 === 1);
+      g.textAlign = 'right';
+      g.textBaseline = 'bottom';
+      g.fillText(String.fromCharCode(97 + i), i * px + px * 0.94, SIZE * px - px * 0.04);
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/** A flat arrow along +x from 0 to `len` (squares), lying on the board. */
+function arrowGeometry(len: number): THREE.ShapeGeometry {
+  const w = CHESS.arrowWidth / 2;
+  const hw = CHESS.arrowHead / 2;
+  const hl = Math.min(CHESS.arrowHeadLength, len * 0.6);
+  const start = CHESS.arrowInset;
+  const shape = new THREE.Shape();
+  shape.moveTo(start, -w);
+  shape.lineTo(len - hl, -w);
+  shape.lineTo(len - hl, -hw);
+  shape.lineTo(len, 0);
+  shape.lineTo(len - hl, hw);
+  shape.lineTo(len - hl, w);
+  shape.lineTo(start, w);
+  shape.closePath();
+  return new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2);
+}
+
 /** One move on screen (squares are 0..63, row 0 at the top). */
 export interface ChessAnim {
   readonly from: number;
@@ -78,6 +130,11 @@ export class ChessScene {
   private dragSq = -1;
   private readonly dragTarget = new THREE.Vector3();
   private readonly bodies: THREE.Object3D[] = [];
+  private readonly coords: THREE.Mesh;
+  private readonly arrowMeshes: THREE.Mesh<THREE.ShapeGeometry, THREE.MeshBasicMaterial>[] = [];
+  /** Captured pieces beside the board: yours in front, the computer's behind. */
+  private readonly trays = new THREE.Group();
+  private trayKey = '';
   private readonly hits: THREE.Intersection[] = [];
   private readonly dotGeo = new THREE.CircleGeometry(0.16, 32).rotateX(-Math.PI / 2);
   private readonly ringGeo = new THREE.RingGeometry(0.41, 0.49, 48).rotateX(-Math.PI / 2);
@@ -161,6 +218,77 @@ export class ChessScene {
     this.wave = add(this.ringGeo, this.waveMat, 0.03);
     this.wave.renderOrder = 5;
     buildBoard(tex, this.table, CHECKERS.light, CHECKERS.dark);
+    this.coords = new THREE.Mesh(
+      new THREE.PlaneGeometry(SIZE, SIZE).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        map: coordTexture(),
+        transparent: true,
+        opacity: CHESS.coordOpacity,
+        depthWrite: false,
+        toneMapped: false,
+        // the dark squares are pulled forward with a polygon offset: pull the labels further
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+      }),
+    );
+    this.coords.position.y = CHECKERS.floorY + 0.004;
+    this.coords.renderOrder = 1;
+    this.scene.add(this.coords, this.trays);
+  }
+
+  /** Arrows on the board (the hint, the better move, a review's best move); [] clears them. */
+  arrows(list: readonly ChessArrow[]): void {
+    for (const m of this.arrowMeshes) {
+      m.removeFromParent();
+      m.geometry.dispose();
+      m.material.dispose();
+    }
+    this.arrowMeshes.length = 0;
+    for (const a of list) {
+      const x0 = centre(colOf(a.from));
+      const z0 = centre(rowOf(a.from));
+      const dx = centre(colOf(a.to)) - x0;
+      const dz = centre(rowOf(a.to)) - z0;
+      const m = new THREE.Mesh(
+        arrowGeometry(Math.hypot(dx, dz)),
+        new THREE.MeshBasicMaterial({
+          color: linearColor(a.color),
+          transparent: true,
+          opacity: CHESS.arrowOpacity,
+          depthWrite: false,
+          toneMapped: false,
+        }),
+      );
+      m.position.set(x0, CHECKERS.floorY + CHESS.arrowY, z0);
+      m.rotation.y = -Math.atan2(dz, dx);
+      m.renderOrder = 4;
+      this.scene.add(m);
+      this.arrowMeshes.push(m);
+    }
+  }
+
+  /**
+   * Captured pieces in two rows on the table: what you took (dark pieces) in front of the board,
+   * what the computer took behind it. Types, most valuable first.
+   */
+  captured(byYou: readonly number[], byComputer: readonly number[]): void {
+    const key = `${byYou.join('')}|${byComputer.join('')}`;
+    if (key === this.trayKey) return;
+    this.trayKey = key;
+    for (const c of [...this.trays.children]) c.removeFromParent();
+    const row = (types: readonly number[], white: boolean, z: number): void =>
+      types.forEach((type, i) => {
+        const m = new THREE.Mesh(this.pieceGeos[type - 1], this.woodMats[white ? 0 : 1]);
+        m.scale.setScalar(CHESS.trayScale);
+        m.position.set(-SIZE / 2 + 0.3 + i * CHESS.trayStep, 0, z);
+        if (type === 2) m.rotation.y = white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI;
+        m.castShadow = true;
+        this.trays.add(m);
+      });
+    const edge = SIZE / 2 + CHECKERS.wallGap + TABLE.bevel + CHESS.trayGap;
+    row(byYou, false, edge);
+    row(byComputer, true, -edge);
   }
 
   setBackground(color: string): void {
@@ -481,7 +609,7 @@ export class ChessScene {
       slots: [],
       hit: [0, 0],
       // the back row's tall pieces stand up into the view: a little more room at the far edge
-      bounds: { x0: -m, x1: m, z0: -m - CHESS.backRoom, z1: m },
+      bounds: { x0: -m, x1: m, z0: -m - CHESS.backRoom, z1: m + CHESS.frontRoom },
       dealFromX: 0,
       padTop: CHECKERS.padTop,
       padBottom: CHECKERS.padBottom,
@@ -529,6 +657,12 @@ export class ChessScene {
       m.geometry.dispose();
       m.material.dispose();
     }
+    this.arrows([]);
+    for (const c of [...this.trays.children]) c.removeFromParent();
+    const cm = this.coords.material as THREE.MeshBasicMaterial;
+    cm.map?.dispose();
+    cm.dispose();
+    this.coords.geometry.dispose();
     for (const g of [...this.pieceGeos, this.dotGeo, this.ringGeo, this.squareGeo]) g.dispose();
     for (const m of [
       ...this.woodMats,

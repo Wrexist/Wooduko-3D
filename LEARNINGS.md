@@ -71,3 +71,5 @@
 - **Python on Windows writes CRLF:** a one-off Python edit (text mode) turned a whole file into CRLF and broke escaped newline strings. Edit with Node (`fs`) or the editor instead.
 
 - **Tall 3D chess pieces hide the squares behind them:** with a tilted camera the e1 king covers the e2 square on screen, so tapping the base of a square picks the wrong piece. Hit testing tries, in order: a legal target square under the finger, then the piece body the ray touches, then the board. Browser checks tap a piece's body (a raised point), not its base.
+
+- **A hidden result card can come back:** the chess controller shows its result card from `update()` once `resultT` passes the delay and the card isn't open. Hiding the card to open the review brought it straight back over the review. Anything that replaces the card must also stop that timer (`resultT = -1`).

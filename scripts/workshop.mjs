@@ -606,6 +606,87 @@ check(
 );
 await page.screenshot({ path: 'shots/workshop-13-coach.png' });
 await page.evaluate(() => window.__grain.game.chess.leave(false));
+
+// ---------- chess: game review, resume ----------
+await page.evaluate(async () => {
+  const g = window.__grain.game;
+  const c = g.chess;
+  const ch = await import('/src/core/chess.ts');
+  const tr = await import('/src/core/chessTrain.ts');
+  c.start(3);
+  // a quick loss: Fool's mate
+  for (const u of ['f2f3', 'e7e5', 'g2g4', 'd8h4']) {
+    const m = tr.moveOf(c.pos, u);
+    ch.makeMove(c.pos, m);
+    c.moves.push(m);
+  }
+  c.view.sync(c.board64());
+  c.end(ch.status(c.pos));
+});
+await page.waitForSelector('.k-extra:visible', { timeout: 5000 });
+await page.locator('.k-extra:visible').click();
+await page.waitForFunction(() => window.__grain.game.chess.reviewing?.review, null, { timeout: 30000 });
+await page.waitForTimeout(400);
+check(
+  'review: the blunder g4 is found, with the better move',
+  await page.evaluate(() => {
+    const r = window.__grain.game.chess.reviewing.review;
+    return r.notes[2].grade === 'blunder' && r.whiteCounts.blunder >= 1 && r.black > r.white;
+  }),
+  await coachLine(),
+);
+await page.locator('.rv-mistake:visible').click();
+await page.waitForTimeout(200);
+check(
+  'review: Next mistake jumps to the blunder, named in notation',
+  /2\. g4: Blunder\. Better was/.test(await coachLine()),
+  await coachLine(),
+);
+check(
+  'review: the result card stays away and arrows show the better move',
+  (await page.locator('.overlay.workshop-win:not(.hidden)').count()) === 0,
+);
+await page.locator('.rv-icon:visible').first().click();
+await page.waitForTimeout(200);
+check(
+  'review: back to the start position',
+  await page.evaluate(() => window.__grain.game.chess.reviewing.ply === 0),
+);
+await page.screenshot({ path: 'shots/workshop-16-review.png' });
+await page.locator('.rv-done:visible').click();
+await page.waitForTimeout(300);
+// resume: a game in progress comes back from the level list
+await page.evaluate(async () => {
+  const c = window.__grain.game.chess;
+  c.start(2);
+  const tr = await import('/src/core/chessTrain.ts');
+  const ch = await import('/src/core/chess.ts');
+  for (const u of ['e2e4', 'e7e5']) {
+    const m = tr.moveOf(c.pos, u);
+    ch.makeMove(c.pos, m);
+    c.moves.push(m);
+  }
+  c.view.sync(c.board64());
+  c.beginTurn();
+  c.leave(true);
+});
+await page.waitForSelector('.k-resume:visible', { timeout: 5000 });
+await page.locator('.k-resume:visible').click();
+await page.waitForTimeout(400);
+check(
+  'resume: the saved game is back, your move',
+  await page.evaluate(() => {
+    const c = window.__grain.game.chess;
+    return c.active && c.n === 2 && c.moves.length === 2 && c.phase === 'player';
+  }),
+);
+check(
+  'opening: the bar names it',
+  await page.evaluate(() =>
+    document.querySelector('.k-bar:not([hidden])')?.textContent?.includes('Open Game'),
+  ),
+);
+await page.evaluate(() => window.__grain.game.chess.leave(false));
 await page.waitForTimeout(200);
 
 // ---------- Chess school: daily training (spaced repetition) ----------

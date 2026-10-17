@@ -2919,3 +2919,225 @@ button {
     animation: none;
   }
 }
+
+/* ---------- Chess: who stands better, resume, review ---------- */
+.chess-eval {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 7px;
+  margin: 8px auto 0;
+  width: min(100%, 360px);
+  border-radius: 4px;
+  background: #3a1a0c;
+  box-shadow: inset 0 0 0 1px rgba(255, 246, 230, 0.12);
+  overflow: hidden;
+  pointer-events: none;
+}
+.chess-eval[hidden] {
+  display: none;
+}
+.chess-eval i {
+  display: block;
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, #fff1d6, #f2d39c);
+  transition: width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.chess-eval::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(240, 185, 74, 0.7);
+}
+.k-resume {
+  width: 100%;
+  margin: 14px 0 0;
+  flex-shrink: 0;
+}
+.k-resume[hidden],
+.k-extra[hidden] {
+  display: none;
+}
+.k-extra {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.rv {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 16px calc(var(--safe-bottom, 0px) + 14px);
+  background: linear-gradient(to top, rgba(30, 16, 8, 0.92) 70%, rgba(30, 16, 8, 0));
+  color: var(--ink);
+  animation: rv-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.rv[hidden] {
+  display: none;
+}
+@keyframes rv-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+.rv-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.rv-progress[hidden],
+.rv-summary[hidden],
+.rv-nav[hidden] {
+  display: none;
+}
+.rv-track {
+  display: block;
+  width: min(100%, 320px);
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 246, 230, 0.12);
+  overflow: hidden;
+}
+.rv-track i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #f6d48a, #f0b94a);
+  transition: width 0.25s ease;
+}
+.rv-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  max-width: 480px;
+  margin: 0 auto 10px;
+}
+.rv-side {
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 246, 230, 0.07);
+}
+.rv-side.you {
+  box-shadow: inset 0 0 0 1px rgba(240, 185, 74, 0.4);
+}
+.rv-side small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.rv-acc {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 1.15;
+  color: var(--gold-float);
+  font-variant-numeric: tabular-nums;
+}
+.rv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+.rv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.rv-chip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.rv-chip.g-best i {
+  background: #5fd068;
+}
+.rv-chip.g-inaccuracy i {
+  background: #f0c84a;
+}
+.rv-chip.g-mistake i {
+  background: #f39a4a;
+}
+.rv-chip.g-blunder i {
+  background: #ff5a45;
+}
+.rv-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.rv-steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.rv-icon {
+  pointer-events: auto;
+}
+.rv-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.rv-icon:disabled {
+  opacity: 0.35;
+}
+.rv-ply {
+  min-width: 72px;
+  text-align: center;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rv-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.rv-actions button {
+  flex: 1;
+}
+/* short landscape screens: summary and steps side by side, without the chips */
+@media (max-height: 500px) and (orientation: landscape) {
+  .rv {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding-top: 8px;
+  }
+  .rv-summary {
+    margin: 0;
+    min-width: 280px;
+  }
+  .rv-chips {
+    display: none;
+  }
+  .rv-acc {
+    font-size: 22px;
+  }
+  .rv-nav {
+    margin: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rv {
+    animation: none;
+  }
+}
