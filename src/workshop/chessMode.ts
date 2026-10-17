@@ -41,6 +41,7 @@ import type { Lesson, Reason, Step } from '../core/chessSchool';
 import {
   addLessonCards,
   addMistake,
+  asWhite,
   buildSession,
   dayOf,
   drillOf,
@@ -107,6 +108,9 @@ const PROMOS = [QUEEN, 4, 3, KNIGHT] as const;
 const TEACHER: ChessOpponent = { ms: 700, depth: 64, noise: 0, blunder: 0 };
 const COACH_KEY = 'grain_chess_coach';
 const TEACH_KEY = 'grain_chess_teach';
+const COLOR_KEY = 'grain_chess_color';
+type ColorPick = 'white' | 'black' | 'random';
+const COLOR_ORDER: readonly ColorPick[] = ['white', 'black', 'random'];
 const VIEW_KEY = 'grain_chess_view';
 
 /** One sentence for the idea behind a move. */
@@ -131,6 +135,8 @@ const FLAME =
 /** A game in progress, saved on your turn so leaving never loses it. */
 interface SavedGame {
   readonly n: number;
+  /** Your side: 1 White, −1 Black. */
+  readonly you: 1 | -1;
   readonly fen: string;
   readonly moves: readonly string[];
   readonly helps: number;
@@ -140,7 +146,13 @@ function parseSavedGame(raw: string | null): SavedGame | null {
   try {
     const o = raw ? (JSON.parse(raw) as Partial<SavedGame>) : null;
     if (!o || typeof o.n !== 'number' || typeof o.fen !== 'string' || !Array.isArray(o.moves)) return null;
-    return { n: o.n, fen: o.fen, moves: o.moves.map(String), helps: Number(o.helps) || 0 };
+    return {
+      n: o.n,
+      you: o.you === -1 ? -1 : 1,
+      fen: o.fen,
+      moves: o.moves.map(String),
+      helps: Number(o.helps) || 0,
+    };
   } catch {
     return null;
   }
@@ -247,6 +259,13 @@ export class ChessMode {
   /** This game was played with teach mode on at some point (it caps the stars). */
   private teachUsed = false;
   private topView = true;
+  /** Your side in this game (lessons and training are always White), and the colour you pick. */
+  private you: 1 | -1 = 1;
+  private colorPick: ColorPick = 'white';
+  private readonly colorBtn = el('button', { class: 'k-switch' });
+  /** Game square (0x88) → screen square (0..63, turned round when you play Black), and back. */
+  private readonly v64 = (s: number): number => (this.you === 1 ? to64(s) : 63 - to64(s));
+  private readonly x88 = (i: number): number => from64(this.you === 1 ? i : 63 - i);
   active = false;
   private progress: KProgress = { stars: [], best: [] };
   private n = 1;
@@ -299,6 +318,9 @@ export class ChessMode {
   private startCounts: [number[], number[]] = [[], []];
   private readonly evalBar = el('div', { class: 'chess-eval', hidden: '', role: 'img' });
   private readonly evalFill = el('i');
+  /** The moves so far in notation, scrolling along under the bar (games and the review). */
+  private readonly moveList = el('ol', { class: 'chess-moves', hidden: '' });
+  private moveListKey = '';
   private readonly resumeBtn = el('button', { class: 'cta k-resume', hidden: '' });
   private saved: SavedGame | null = null;
   // ---------- daily training ----------
@@ -356,7 +378,10 @@ export class ChessMode {
             head: this.buildTrainPanel(),
             foot: this.viewBtn,
           }
-        : { foot: el('div', { class: 'k-switches' }, [this.coachBtn, this.viewBtn]), head: this.resumeBtn },
+        : {
+            foot: el('div', { class: 'k-switches' }, [this.colorBtn, this.coachBtn, this.viewBtn]),
+            head: this.resumeBtn,
+          },
     );
     this.bar = new GameBar({
       onBack: () => this.leave(true),
@@ -374,7 +399,12 @@ export class ChessMode {
       onReplay: () => (this.session ? void this.startTraining() : this.start(this.n)),
       onLevels: () => this.leave(true),
     });
-    this.bar.node.append(this.strip, this.evalBar);
+    this.bar.node.append(this.strip, this.evalBar, this.moveList);
+    this.moveList.setAttribute('aria-label', t('chess.moves'));
+    this.moveList.addEventListener('click', (e) => {
+      const li = (e.target as HTMLElement).closest<HTMLElement>('[data-ply]');
+      if (li && this.reviewing?.review) this.showPly(Number(li.dataset.ply));
+    });
     this.evalBar.append(this.evalFill);
     this.evalBar.setAttribute('aria-label', t('chess.eval'));
     this.reviewPanel = new ReviewPanel({
@@ -383,7 +413,7 @@ export class ChessMode {
       onNext: () => this.showPly((this.reviewing?.ply ?? 0) + 1),
       onMistake: () => {
         const r = this.reviewing?.review;
-        if (r) this.showPly(nextMistake(r, (this.reviewing?.ply ?? 0) - 1) + 1);
+        if (r) this.showPly(nextMistake(r, (this.reviewing?.ply ?? 0) - 1, this.you === 1) + 1);
       },
       onDone: () => this.leave(true),
     });
@@ -396,6 +426,16 @@ export class ChessMode {
       void d.storage.set(COACH_KEY, this.coachOn ? '1' : '0');
     });
     this.syncCoachBtn();
+    this.colorBtn.addEventListener('click', () => {
+      this.colorPick = COLOR_ORDER[(COLOR_ORDER.indexOf(this.colorPick) + 1) % COLOR_ORDER.length] ?? 'white';
+      this.syncColorBtn();
+      void d.storage.set(COLOR_KEY, this.colorPick);
+    });
+    this.syncColorBtn();
+    void d.storage.get(COLOR_KEY).then((raw) => {
+      this.colorPick = COLOR_ORDER.includes(raw as ColorPick) ? (raw as ColorPick) : 'white';
+      this.syncColorBtn();
+    });
     this.viewBtn.addEventListener('click', () => {
       this.topView = !this.topView;
       this.syncViewBtn();
@@ -437,6 +477,10 @@ export class ChessMode {
   private syncCoachBtn(): void {
     this.coachBtn.textContent = t(this.coachOn ? 'coach.on' : 'coach.off');
     this.coachBtn.setAttribute('aria-pressed', String(this.coachOn));
+  }
+
+  private syncColorBtn(): void {
+    this.colorBtn.textContent = t(`color.${this.colorPick}` as Key);
   }
 
   private syncViewBtn(): void {
@@ -515,6 +559,15 @@ export class ChessMode {
     this.strip.hidden = true;
     this.endReview();
     this.view.setTop(this.topView);
+    this.you =
+      this.school || this.colorPick === 'white'
+        ? 1
+        : this.colorPick === 'black'
+          ? -1
+          : Math.random() < 0.5
+            ? 1
+            : -1;
+    this.view.setFlip(this.you === -1);
     this.teachUsed = false;
     this.teachMove = 0;
     this.n = n;
@@ -537,7 +590,8 @@ export class ChessMode {
       this.reset(START_FEN);
       this.bar.coach('');
       this.clearSaved();
-      this.beginTurn();
+      if (this.you === -1) this.think(chessOpponent(this.n));
+      else this.beginTurn();
     }
     this.resize(this.width, this.height, this.safeBottom);
     this.d.sound.tick();
@@ -545,6 +599,7 @@ export class ChessMode {
 
   /** A fresh board from `fen`. */
   private reset(fen: string): void {
+    this.moveListKey = '';
     this.startFen = fen;
     this.pos = fromFen(fen);
     this.startCounts = typeCounts(this.pos);
@@ -635,7 +690,7 @@ export class ChessMode {
 
   private board64(): number[] {
     const out = new Array<number>(64).fill(0);
-    for (let i = 0; i < 64; i++) out[i] = this.pos.b[from64(i)] ?? 0;
+    for (let i = 0; i < 64; i++) out[i] = this.pos.b[this.x88(i)] ?? 0;
     return out;
   }
 
@@ -652,11 +707,11 @@ export class ChessMode {
   }
 
   /** A square the selected piece can move to (taps prefer these over a piece standing in front). */
-  private readonly isTarget = (s: number): boolean => this.selMoves().some((m) => to64(mTo(m)) === s);
+  private readonly isTarget = (s: number): boolean => this.selMoves().some((m) => this.v64(mTo(m)) === s);
 
   private selMoves(): number[] {
     if (this.sel < 0) return [];
-    const from = from64(this.sel);
+    const from = this.x88(this.sel);
     return this.legal.filter((m) => mFrom(m) === from);
   }
 
@@ -668,11 +723,11 @@ export class ChessMode {
     const castle = (f & F_CASTLE) !== 0;
     const short = to > from;
     return {
-      from: to64(from),
-      to: to64(to),
-      cap: f & F_EP ? to64(to + (side === 1 ? 16 : -16)) : f & F_CAPTURE ? to64(to) : -1,
-      rookFrom: castle ? to64(short ? from + 3 : from - 4) : -1,
-      rookTo: castle ? to64(short ? from + 1 : from - 1) : -1,
+      from: this.v64(from),
+      to: this.v64(to),
+      cap: f & F_EP ? this.v64(to + (side === 1 ? 16 : -16)) : f & F_CAPTURE ? this.v64(to) : -1,
+      rookFrom: castle ? this.v64(short ? from + 3 : from - 4) : -1,
+      rookTo: castle ? this.v64(short ? from + 1 : from - 1) : -1,
       promo: mPromo(m),
       hop: Math.abs(this.pos.b[from] ?? 0) === KNIGHT,
     };
@@ -680,7 +735,7 @@ export class ChessMode {
 
   /** Your move to square `to` (asks which piece when a pawn promotes). */
   private moveTo(to: number, dropped: boolean): void {
-    const options = this.selMoves().filter((m) => to64(mTo(m)) === to);
+    const options = this.selMoves().filter((m) => this.v64(mTo(m)) === to);
     const first = options[0];
     if (first === undefined) return;
     const step = this.step;
@@ -830,13 +885,13 @@ export class ChessMode {
 
   /** Checkmate with the computer to move = you won. */
   private get won(): boolean {
-    return this.result === 'mate' && this.pos.side === -1;
+    return this.result === 'mate' && this.pos.side === -this.you;
   }
 
   private showResult(): void {
     const stats = [
       { label: t('workshop.statMoves'), value: num(this.yourMoves()) },
-      { label: t('workshop.statTaken'), value: num(captured(this.pos, 1)) },
+      { label: t('workshop.statTaken'), value: num(captured(this.pos, this.you)) },
       { label: t('workshop.statHelp'), value: num(this.helps) },
     ];
     if (this.won) {
@@ -900,11 +955,11 @@ export class ChessMode {
       return;
     }
     rv.review = reviewGame(this.moves, rv.evals, rv.bests);
-    this.reviewPanel.ready(rv.review);
+    this.reviewPanel.ready(rv.review, this.you === 1);
     void this.saveReviewMistakes(rv.review);
     this.resize(this.width, this.height, this.safeBottom);
     // open on your first slip (or the end, for a clean game)
-    const first = nextMistake(rv.review, -1);
+    const first = nextMistake(rv.review, -1, this.you === 1);
     if (first < 0) this.say(t('review.noMistakes'), 'good');
     this.showPly(first >= 0 ? first + 1 : this.moves.length);
   }
@@ -931,8 +986,16 @@ export class ChessMode {
       const weak = note.grade === 'inaccuracy' || note.grade === 'mistake' || note.grade === 'blunder';
       if (weak && note.best) {
         text += ` ${t('review.better', { move: san(p, note.best, letters) })} ${ideaText(explainMove(p, note.best, rv.evals[k - 1] ?? 0))}`;
-        arrows.push({ from: to64(mFrom(note.move)), to: to64(mTo(note.move)), color: CHESS.arrowBad });
-        arrows.push({ from: to64(mFrom(note.best)), to: to64(mTo(note.best)), color: CHESS.arrowBest });
+        arrows.push({
+          from: this.v64(mFrom(note.move)),
+          to: this.v64(mTo(note.move)),
+          color: CHESS.arrowBad,
+        });
+        arrows.push({
+          from: this.v64(mFrom(note.best)),
+          to: this.v64(mTo(note.best)),
+          color: CHESS.arrowBest,
+        });
       }
       tone =
         note.grade === 'blunder'
@@ -945,12 +1008,12 @@ export class ChessMode {
       makeMove(p, note.move);
     } else text = t('review.start');
     this.pos = p;
-    this.last = note ? [to64(mFrom(note.move)), to64(mTo(note.move))] : [];
+    this.last = note ? [this.v64(mFrom(note.move)), this.v64(mTo(note.move))] : [];
     this.view.sync(this.board64());
     this.view.arrows(arrows);
     // the start position is scored for White, who moves first
     this.showEval(note ? note.after : (rv.evals[0] ?? 0));
-    this.reviewPanel.at(k, this.moves.length, nextMistake(r, k - 1) >= 0);
+    this.reviewPanel.at(k, this.moves.length, nextMistake(r, k - 1, this.you === 1) >= 0);
     this.say(text, tone);
     this.refresh();
     this.d.sound.tick();
@@ -970,7 +1033,8 @@ export class ChessMode {
   /** Your inaccuracies and worse become Daily training cards. */
   private async saveReviewMistakes(r: Review): Promise<void> {
     const weak = r.notes.filter(
-      (n) => n.ply % 2 === 0 && (n.grade === 'mistake' || n.grade === 'blunder') && n.best,
+      (n) =>
+        n.ply % 2 === (this.you === 1 ? 0 : 1) && (n.grade === 'mistake' || n.grade === 'blunder') && n.best,
     );
     if (!weak.length) return;
     await this.loadTrain();
@@ -978,7 +1042,8 @@ export class ChessMode {
     for (const n of weak) {
       const p = fromFen(this.startFen);
       for (let i = 0; i < n.ply; i++) makeMove(p, this.moves[i] ?? 0);
-      this.train = addMistake(this.train, fullFen(p), uciOf(n.best), today);
+      const card = asWhite(fullFen(p), uciOf(n.best));
+      this.train = addMistake(this.train, card.fen, card.best, today);
     }
     this.saveTrain();
   }
@@ -988,9 +1053,46 @@ export class ChessMode {
     const show = score !== null && (this.coachOn || this.reviewing !== null) && !this.lesson;
     this.evalBar.hidden = !show;
     if (!show) return;
-    const w = winChance(score);
+    const w = winChance(score * this.you);
     this.evalFill.style.width = `${w}%`;
     this.evalBar.classList.toggle('ahead', w >= 50);
+  }
+
+  /**
+   * The move list: rebuilt only when the moves change, the current one lit (the last move, or the
+   * review's position), scrolled into view.
+   */
+  private refreshMoveList(): void {
+    const show = !this.lesson && !this.school && this.moves.length > 0;
+    if (this.moveList.hidden === show) {
+      // the bar grows or shrinks: the board refits under it
+      this.moveList.hidden = !show;
+      this.resize(this.width, this.height, this.safeBottom);
+    }
+    if (!show) return;
+    const key = this.moves.join(',');
+    if (key !== this.moveListKey) {
+      this.moveListKey = key;
+      const p = fromFen(this.startFen);
+      const letters = t('chess.letters');
+      const items: HTMLElement[] = [];
+      this.moves.forEach((m, i) => {
+        const li = el('li', { 'data-ply': String(i + 1) }, [san(p, m, letters)]);
+        if (i % 2 === 0) li.dataset.no = `${i / 2 + 1}.`;
+        items.push(li);
+        makeMove(p, m);
+      });
+      this.moveList.replaceChildren(...items);
+    }
+    const cur = this.reviewing ? this.reviewing.ply : this.moves.length;
+    let lit: HTMLElement | null = null;
+    for (const li of this.moveList.children as HTMLCollectionOf<HTMLElement>) {
+      const on = Number(li.dataset.ply) === cur;
+      li.classList.toggle('cur', on);
+      if (on) lit = li;
+    }
+    // keep the current move in view (the list scrolls sideways)
+    if (lit) this.moveList.scrollLeft = lit.offsetLeft - this.moveList.clientWidth / 2 + lit.offsetWidth / 2;
   }
 
   // ---------- opening names, saved game ----------
@@ -1002,7 +1104,13 @@ export class ChessMode {
   }
 
   private saveGame(): void {
-    const g: SavedGame = { n: this.n, fen: this.startFen, moves: this.moves.map(uciOf), helps: this.helps };
+    const g: SavedGame = {
+      n: this.n,
+      you: this.you,
+      fen: this.startFen,
+      moves: this.moves.map(uciOf),
+      helps: this.helps,
+    };
     void this.d.storage.set(CHESS.gameKey, JSON.stringify(g));
   }
 
@@ -1015,6 +1123,9 @@ export class ChessMode {
   /** Pick a saved game up where you left it. */
   private resume(g: SavedGame): void {
     this.start(g.n);
+    this.askId++;
+    this.you = g.you;
+    this.view.setFlip(this.you === -1);
     this.reset(g.fen);
     for (const u of g.moves) {
       const m = moveOf(this.pos, u);
@@ -1024,10 +1135,10 @@ export class ChessMode {
     }
     this.helps = g.helps;
     const lastMove = this.moves[this.moves.length - 1];
-    this.last = lastMove ? [to64(mFrom(lastMove)), to64(mTo(lastMove))] : [];
+    this.last = lastMove ? [this.v64(mFrom(lastMove)), this.v64(mTo(lastMove))] : [];
     this.view.sync(this.board64());
     if (status(this.pos) !== 'play') this.end(status(this.pos));
-    else if (this.pos.side === -1) this.think(chessOpponent(this.n));
+    else if (this.pos.side !== this.you) this.think(chessOpponent(this.n));
     else this.beginTurn();
   }
 
@@ -1051,7 +1162,7 @@ export class ChessMode {
       return;
     this.reviewAt = -1;
     if (this.lesson) return;
-    this.showEval(rv.playedScore);
+    this.showEval(rv.playedScore * this.you);
     if (rv.grade === 'mistake' || rv.grade === 'blunder') {
       if (this.reviewFen && rv.best) void this.saveMistake(this.reviewFen, uciOf(rv.best));
       const label = t(rv.grade === 'blunder' ? 'coach.blunder' : 'coach.mistake');
@@ -1068,8 +1179,8 @@ export class ChessMode {
     if (!this.canUndo()) return;
     this.undo();
     if (!best || !this.legal.includes(best)) return;
-    this.sel = to64(mFrom(best));
-    this.hintTo = to64(mTo(best));
+    this.sel = this.v64(mFrom(best));
+    this.hintTo = this.v64(mTo(best));
     this.liftNow = 0;
     this.say(t('coach.show'), 'info');
     this.refresh();
@@ -1265,8 +1376,8 @@ export class ChessMode {
 
   private showMove(m: number): void {
     if (this.sel >= 0) this.view.place(this.sel, 0);
-    this.sel = to64(mFrom(m));
-    this.hintTo = to64(mTo(m));
+    this.sel = this.v64(mFrom(m));
+    this.hintTo = this.v64(mTo(m));
     this.liftNow = 0;
   }
 
@@ -1588,7 +1699,9 @@ export class ChessMode {
 
   private async saveMistake(fen: string, best: string): Promise<void> {
     await this.loadTrain();
-    this.train = addMistake(this.train, fen, best, this.today());
+    // cards are always White to move: a mistake made as Black is mirrored
+    const card = asWhite(fen, best);
+    this.train = addMistake(this.train, card.fen, card.best, this.today());
     this.saveTrain();
   }
 
@@ -1672,7 +1785,7 @@ export class ChessMode {
   private canUndo(): boolean {
     return (
       !this.lesson &&
-      this.moves.length > 0 &&
+      this.moves.length > (this.you === -1 ? 1 : 0) &&
       (this.phase === 'player' || this.phase === 'thinking') &&
       !this.view.busy
     );
@@ -1690,7 +1803,7 @@ export class ChessMode {
     }
     this.helps++;
     const prev = this.pos.undo[this.pos.undo.length - 1];
-    this.last = prev ? [to64(mFrom(prev.m)), to64(mTo(prev.m))] : [];
+    this.last = prev ? [this.v64(mFrom(prev.m)), this.v64(mTo(prev.m))] : [];
     this.bar.coach('');
     this.view.sync(this.board64());
     this.d.sound.returnPiece();
@@ -1721,9 +1834,9 @@ export class ChessMode {
   private refresh(): void {
     const mine = this.phase === 'player';
     const sel = this.selMoves();
-    const targets = mine ? [...new Set(sel.map((m) => to64(mTo(m))))] : [];
-    const takes = new Set(sel.filter((m) => mFlags(m) & F_CAPTURE).map((m) => to64(mTo(m))));
-    const check = inCheck(this.pos) ? to64(this.pos.king(this.pos.side)) : -1;
+    const targets = mine ? [...new Set(sel.map((m) => this.v64(mTo(m))))] : [];
+    const takes = new Set(sel.filter((m) => mFlags(m) & F_CAPTURE).map((m) => this.v64(mTo(m))));
+    const check = inCheck(this.pos) ? this.v64(this.pos.king(this.pos.side)) : -1;
     this.view.mark({
       dots: targets.filter((s) => !takes.has(s)),
       rings: targets.filter((s) => takes.has(s)),
@@ -1731,14 +1844,20 @@ export class ChessMode {
       last: this.last,
       check,
       hint: mine ? this.hintTo : -1,
-      danger: mine && this.coachOn && !this.lesson ? threatened(this.pos, 1).map(to64) : [],
+      danger: mine && this.coachOn && !this.lesson ? threatened(this.pos, this.you).map(this.v64) : [],
     });
     if (!this.reviewing)
       this.view.arrows(
         mine && this.sel >= 0 && this.hintTo >= 0
           ? [{ from: this.sel, to: this.hintTo, color: CHESS.arrowHint }]
           : mine && this.teachMove
-            ? [{ from: to64(mFrom(this.teachMove)), to: to64(mTo(this.teachMove)), color: CHESS.arrowBest }]
+            ? [
+                {
+                  from: this.v64(mFrom(this.teachMove)),
+                  to: this.v64(mTo(this.teachMove)),
+                  color: CHESS.arrowBest,
+                },
+              ]
             : [],
       );
     const now = typeCounts(this.pos);
@@ -1748,7 +1867,8 @@ export class ChessMode {
         for (let i = 0; i < (this.startCounts[side][type] ?? 0) - (now[side][type] ?? 0); i++) out.push(type);
       return out;
     };
-    this.view.captured(lost(1), lost(0));
+    this.view.captured(lost(this.you === 1 ? 1 : 0), lost(this.you === 1 ? 0 : 1), this.you === 1);
+    this.refreshMoveList();
     if (this.reviewing) return;
     if (this.lesson) this.refreshLessonBar();
     else this.refreshGameBar(check >= 0);
@@ -1780,7 +1900,7 @@ export class ChessMode {
   private refreshGameBar(check: boolean): void {
     const big =
       this.phase === 'thinking' || this.phase === 'moving'
-        ? this.pos.side === -1
+        ? this.pos.side !== this.you
           ? t('checkers.thinking')
           : t('checkers.yourMove')
         : this.phase === 'over'
@@ -1792,7 +1912,7 @@ export class ChessMode {
           : check
             ? t('chess.check')
             : t('checkers.yourMove');
-    const adv = captured(this.pos, 1) - captured(this.pos, -1);
+    const adv = captured(this.pos, this.you) - captured(this.pos, this.you === 1 ? -1 : 1);
     const opp = t(`chess.opp${Math.min(5, Math.ceil(this.n / 3))}` as Key);
     const name = this.openingId ? `${opp} · ${t(`opening.${this.openingId}` as Key)}` : opp;
     this.bar.set(
@@ -1809,10 +1929,10 @@ export class ChessMode {
     const s = this.view.squareAt(e.clientX, e.clientY, this.width, this.height, this.isTarget);
     if (s < 0) return;
     e.preventDefault();
-    const v = this.pos.b[from64(s)] ?? 0;
+    const v = this.pos.b[this.x88(s)] ?? 0;
     let grab = false;
-    if (v > 0 && s !== this.sel) {
-      if (this.legal.some((m) => to64(mFrom(m)) === s)) {
+    if (v * this.you > 0 && s !== this.sel) {
+      if (this.legal.some((m) => this.v64(mFrom(m)) === s)) {
         if (this.sel >= 0) this.view.place(this.sel, 0);
         this.sel = s;
         this.hintTo = -1;
@@ -1850,7 +1970,7 @@ export class ChessMode {
     this.press = null;
     if (this.phase !== 'player') return;
     const s = commit ? this.view.squareAt(e.clientX, e.clientY, this.width, this.height, this.isTarget) : -1;
-    const ok = s >= 0 && this.selMoves().some((m) => to64(mTo(m)) === s);
+    const ok = s >= 0 && this.selMoves().some((m) => this.v64(mTo(m)) === s);
     if (p.dragging) {
       if (ok) this.moveTo(s, true);
       else {
@@ -1860,7 +1980,7 @@ export class ChessMode {
       return;
     }
     if (ok && s === p.s) this.moveTo(s, false);
-    else if (!p.grab && this.sel >= 0 && (this.pos.b[from64(s)] ?? 0) <= 0) {
+    else if (!p.grab && this.sel >= 0 && (this.pos.b[this.x88(s)] ?? 0) * this.you <= 0) {
       this.view.place(this.sel, 0);
       this.sel = -1;
       this.hintTo = -1;

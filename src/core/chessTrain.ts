@@ -98,6 +98,17 @@ export function attacksFrom(p: Pos, s: number): number[] {
 
 const sqName = (s: number): string => String.fromCharCode(97 + (s & 7)) + String(8 - (s >> 4));
 
+/** A move name on the mirrored board (ranks flipped): e7e5 ↔ e2e4. */
+export const mirrorUci = (u: string): string => {
+  const f = (sq: string): string => sq.charAt(0) + String(9 - Number(sq.charAt(1)));
+  return f(u.slice(0, 2)) + f(u.slice(2, 4)) + u.slice(4);
+};
+
+/** A position and its better move as a White-to-move card (Black's are mirrored). */
+export function asWhite(fen: string, best: string): { fen: string; best: string } {
+  return fen.split(' ')[1] === 'b' ? { fen: mirrorFen(fen), best: mirrorUci(best) } : { fen, best };
+}
+
 /** Long algebraic with the promotion letter ("e7e8q"). */
 export const uciOf = (m: number): string =>
   sqName(mFrom(m)) + sqName(mTo(m)) + (mPromo(m) ? (' nbrq'[mPromo(m) - 1] ?? '') : '');

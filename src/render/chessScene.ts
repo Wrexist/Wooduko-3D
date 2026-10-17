@@ -24,7 +24,8 @@ export interface ChessArrow {
 }
 
 /** Board coordinates in the square corners (files on the bottom row, ranks on the left file). */
-function coordTexture(): THREE.CanvasTexture {
+/** `flip`: the board turned round (you play Black): h..a along the bottom, 1..8 down the side. */
+function coordTexture(flip: boolean): THREE.CanvasTexture {
   const px = 128;
   const c = document.createElement('canvas');
   c.width = c.height = px * SIZE;
@@ -37,11 +38,11 @@ function coordTexture(): THREE.CanvasTexture {
       g.fillStyle = ink(i % 2 === 1);
       g.textAlign = 'left';
       g.textBaseline = 'top';
-      g.fillText(String(SIZE - i), px * 0.07, i * px + px * 0.05);
+      g.fillText(String(flip ? i + 1 : SIZE - i), px * 0.07, i * px + px * 0.05);
       g.fillStyle = ink((SIZE - 1 + i) % 2 === 1);
       g.textAlign = 'right';
       g.textBaseline = 'bottom';
-      g.fillText(String.fromCharCode(97 + i), i * px + px * 0.94, SIZE * px - px * 0.04);
+      g.fillText(String.fromCharCode(flip ? 104 - i : 97 + i), i * px + px * 0.94, SIZE * px - px * 0.04);
     }
   }
   const t = new THREE.CanvasTexture(c);
@@ -144,6 +145,9 @@ export class ChessScene {
   private trayKey = '';
   /** Straight down onto the board (the default), or the angled view. */
   private top = true;
+  /** The board turned round (you play Black): knights face the other way, coordinates read h..a. */
+  private flip = false;
+  private readonly coordMaps: [THREE.CanvasTexture, THREE.CanvasTexture];
   private readonly hits: THREE.Intersection[] = [];
   private readonly dotGeo = new THREE.CircleGeometry(0.16, 32).rotateX(-Math.PI / 2);
   private readonly ringGeo = new THREE.RingGeometry(0.41, 0.49, 48).rotateX(-Math.PI / 2);
@@ -230,7 +234,7 @@ export class ChessScene {
     this.coords = new THREE.Mesh(
       new THREE.PlaneGeometry(SIZE, SIZE).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({
-        map: coordTexture(),
+        map: (this.coordMaps = [coordTexture(false), coordTexture(true)])[0],
         transparent: true,
         opacity: CHESS.coordOpacity,
         depthWrite: false,
@@ -248,6 +252,17 @@ export class ChessScene {
 
   setTop(on: boolean): void {
     this.top = on;
+  }
+
+  /** Turn the board round (you play Black). Call before `sync`. */
+  setFlip(on: boolean): void {
+    this.flip = on;
+    (this.coords.material as THREE.MeshBasicMaterial).map = this.coordMaps[on ? 1 : 0];
+  }
+
+  /** Knights look across the board, toward the other side. */
+  private knightYaw(white: boolean): number {
+    return (white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI) + (this.flip ? Math.PI : 0);
   }
 
   /** Arrows on the board (the hint, the better move, a review's best move); [] clears them. */
@@ -285,8 +300,8 @@ export class ChessScene {
    * Captured pieces in two rows on the table: what you took (dark pieces) in front of the board,
    * what the computer took behind it. Types, most valuable first.
    */
-  captured(byYou: readonly number[], byComputer: readonly number[]): void {
-    const key = `${byYou.join('')}|${byComputer.join('')}`;
+  captured(byYou: readonly number[], byComputer: readonly number[], youWhite = true): void {
+    const key = `${byYou.join('')}|${byComputer.join('')}|${youWhite ? 1 : 0}`;
     if (key === this.trayKey) return;
     this.trayKey = key;
     for (const c of [...this.trays.children]) c.removeFromParent();
@@ -295,13 +310,13 @@ export class ChessScene {
         const m = new THREE.Mesh(this.pieceGeos[type - 1], this.woodMats[white ? 0 : 1]);
         m.scale.setScalar(CHESS.trayScale);
         m.position.set(-SIZE / 2 + 0.3 + i * CHESS.trayStep, 0, z);
-        if (type === 2) m.rotation.y = white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI;
+        if (type === 2) m.rotation.y = this.knightYaw(white);
         m.castShadow = true;
         this.trays.add(m);
       });
     const edge = SIZE / 2 + CHECKERS.wallGap + TABLE.bevel + CHESS.trayGap;
-    row(byYou, false, edge);
-    row(byComputer, true, -edge);
+    row(byYou, !youWhite, edge);
+    row(byComputer, youWhite, -edge);
   }
 
   setBackground(color: string): void {
@@ -562,7 +577,7 @@ export class ChessScene {
     if (!p || !g) return;
     p.body.geometry = g;
     p.slit.visible = type === 3;
-    p.body.rotation.y = type === 2 ? (p.white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI) : 0;
+    p.body.rotation.y = type === 2 ? this.knightYaw(p.white) : 0;
   }
 
   private capture(s: number): void {
@@ -654,7 +669,7 @@ export class ChessScene {
     const tilt = new THREE.Group();
     const body = new THREE.Mesh(this.pieceGeos[type - 1], this.woodMats[white ? 0 : 1]);
     // knights look across the board, turned a little toward the other side
-    if (type === 2) body.rotation.y = white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI;
+    if (type === 2) body.rotation.y = this.knightYaw(white);
     body.castShadow = true;
     body.receiveShadow = true;
     const slit = new THREE.Mesh(this.slitGeo, this.slitMat);
@@ -681,7 +696,7 @@ export class ChessScene {
     this.arrows([]);
     for (const c of [...this.trays.children]) c.removeFromParent();
     const cm = this.coords.material as THREE.MeshBasicMaterial;
-    cm.map?.dispose();
+    for (const m of this.coordMaps) m.dispose();
     cm.dispose();
     this.coords.geometry.dispose();
     this.slitMat.dispose();

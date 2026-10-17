@@ -626,6 +626,40 @@ await page.waitForTimeout(200);
 check('teach: off again clears it', await page.evaluate(() => window.__grain.game.chess.teachMove === 0));
 await page.evaluate(() => window.__grain.game.chess.leave(false));
 
+// playing as Black: the computer opens, the board is turned round, the move list grows
+await page.evaluate(() => {
+  localStorage.setItem('grain_chess_color', 'black');
+  const c = window.__grain.game.chess;
+  c.colorPick = 'black';
+  c.start(1);
+});
+await page.waitForFunction(
+  () => window.__grain.game.chess.phase === 'player' && window.__grain.game.chess.moves.length === 1,
+  null,
+  { timeout: 20000 },
+);
+check(
+  'black: the computer opens and the board is turned round',
+  await page.evaluate(() => {
+    const c = window.__grain.game.chess;
+    // your king (Black, on e8) sits on the bottom row of the screen
+    return c.you === -1 && c.board64()[60 - 1] === -6;
+  }),
+);
+check(
+  'black: the move list shows the opening move',
+  await page.evaluate(() => {
+    const li = document.querySelector('.chess-moves:not([hidden]) li[data-no="1."]');
+    return !!li && li.textContent.length >= 2 && li.classList.contains('cur');
+  }),
+);
+await page.evaluate(() => {
+  localStorage.setItem('grain_chess_color', 'white');
+  const c = window.__grain.game.chess;
+  c.colorPick = 'white';
+  c.leave(false);
+});
+
 // ---------- chess: game review, resume ----------
 await page.evaluate(async () => {
   const g = window.__grain.game;

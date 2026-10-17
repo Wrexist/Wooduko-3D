@@ -3165,3 +3165,49 @@ button {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* ---------- Chess: the move list under the bar ---------- */
+.chess-moves {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 2px;
+  margin: 8px auto 0;
+  padding: 0 4px;
+  width: min(100%, 420px);
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  pointer-events: auto;
+  mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+}
+.chess-moves::-webkit-scrollbar {
+  display: none;
+}
+.chess-moves[hidden] {
+  display: none;
+}
+.chess-moves li {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.chess-moves li[data-no]::before {
+  content: attr(data-no) ' ';
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.chess-moves li.cur {
+  color: var(--pill-ink);
+  background: linear-gradient(180deg, var(--pill-top), var(--honey));
+}
+@media (prefers-reduced-motion: reduce) {
+  .chess-moves {
+    scroll-behavior: auto;
+  }
+}

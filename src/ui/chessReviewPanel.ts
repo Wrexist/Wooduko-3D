@@ -75,7 +75,7 @@ export class ReviewPanel {
   }
 
   /** The analysis is in: accuracies count up, then the steps appear. */
-  ready(r: Review): void {
+  ready(r: Review, youWhite = true): void {
     this.progress.hidden = true;
     const side = (label: string, acc: number, c: GradeCounts, you: boolean): HTMLElement => {
       const pct = el('b', { class: 'rv-acc' });
@@ -97,8 +97,12 @@ export class ReviewPanel {
       ]);
     };
     this.summary.replaceChildren(
-      side(t('review.you'), r.white, r.whiteCounts, true),
-      side(t('review.computer'), r.black, r.blackCounts, false),
+      youWhite
+        ? side(t('review.you'), r.white, r.whiteCounts, true)
+        : side(t('review.you'), r.black, r.blackCounts, true),
+      youWhite
+        ? side(t('review.computer'), r.black, r.blackCounts, false)
+        : side(t('review.computer'), r.white, r.whiteCounts, false),
     );
     this.summary.hidden = false;
     this.nav.hidden = false;

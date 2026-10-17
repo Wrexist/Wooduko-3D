@@ -4,6 +4,7 @@ import { goalHint, stepAllows } from '../src/core/chessSchool';
 import {
   addLessonCards,
   addMistake,
+  asWhite,
   allPuzzles,
   buildSession,
   drillOf,
@@ -15,6 +16,7 @@ import {
   intervalFor,
   MAX_MISTAKES,
   mirrorFen,
+  mirrorUci,
   moveOf,
   newCard,
   OPENINGS,
@@ -246,5 +248,19 @@ describe('puzzles', () => {
       n++;
     }
     if (all.length) expect(n).toBeGreaterThan(100);
+  });
+});
+
+describe('mistakes made as Black', () => {
+  it('become White-to-move cards on the mirrored board', () => {
+    const fen = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2';
+    const card = asWhite(fen, 'b8c6');
+    expect(card.fen.split(' ')[1]).toBe('w');
+    expect(card.best).toBe('b1c3');
+    const p = fromFen(card.fen);
+    expect(moveOf(p, card.best)).not.toBe(0);
+    expect(mirrorUci('e7e8q')).toBe('e2e1q');
+    // White's own stay as they are
+    expect(asWhite(START_FEN, 'e2e4')).toEqual({ fen: START_FEN, best: 'e2e4' });
   });
 });
