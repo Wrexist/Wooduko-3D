@@ -2512,3 +2512,19 @@ button {
     padding: 0 12px;
   }
 }
+/* short landscape phones: Workshop games side by side, without the one-line description */
+@media (max-height: 500px) and (orientation: landscape) {
+  .hub-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .hub-game {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .hub-text small {
+    display: none;
+  }
+}

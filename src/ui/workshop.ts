@@ -206,6 +206,7 @@ export class WinCard extends Overlay {
   private readonly stats = el('dl', { class: 'k-stats' });
   private readonly note = el('p', { class: 'k-note' });
   private readonly next = el('button', { class: 'cta' }, [t('workshop.next')]);
+  private readonly title = el('h2', { id: 'kWinTitle' }, [t('workshop.solved')]);
 
   constructor(h: { onNext(): void; onReplay(): void; onLevels(): void }) {
     super('workshop-win dialog-layer', 'kWinTitle');
@@ -217,14 +218,17 @@ export class WinCard extends Overlay {
     levels.addEventListener('click', h.onLevels);
     this.card.append(
       this.stars,
-      el('h2', { id: 'kWinTitle' }, [t('workshop.solved')]),
+      this.title,
       this.stats,
       this.note,
       el('div', { class: 'k-actions' }, [this.next, el('div', { class: 'pair' }, [replay, levels])]),
     );
   }
 
-  present(stars: number, stats: readonly WinStat[], hasNext: boolean, note = ''): void {
+  /** `title` replaces "Solved!" (a lost game); a lost game (0 stars) shows no star row. */
+  present(stars: number, stats: readonly WinStat[], hasNext: boolean, note = '', title?: string): void {
+    this.title.textContent = title ?? t('workshop.solved');
+    this.stars.hidden = stars === 0 && title !== undefined;
     this.stars.replaceChildren();
     for (let i = 0; i < 3; i++)
       this.stars.append(el('i', { class: i < stars ? 'on' : '', html: ICONS.star, style: `--i:${i}` }));

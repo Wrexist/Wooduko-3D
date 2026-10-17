@@ -13,7 +13,11 @@ const check = (name, ok, info = '') => {
   if (!ok) failed++;
 };
 
-const page = await browser.newPage({ locale: 'en-US', viewport: { width: 390, height: 844 }, hasTouch: true });
+const page = await browser.newPage({
+  locale: 'en-US',
+  viewport: { width: 390, height: 844 },
+  hasTouch: true,
+});
 page.on('console', (m) => m.type() === 'error' && (errors++, console.log('console.error:', m.text())));
 page.on('pageerror', (e) => (errors++, console.log('pageerror:', e.message)));
 await page.addInitScript(() => {
@@ -32,15 +36,21 @@ check('workshop hub opens', (await page.locator('.overlay.workshop-hub:not(.hidd
 await page.screenshot({ path: 'shots/workshop-0-hub.png' });
 await page.getByRole('button', { name: /Sliding blocks/ }).click();
 await page.waitForTimeout(300);
-check('level list opens', await page.locator('.overlay.workshop:not(.hidden)').count() === 1);
+check('level list opens', (await page.locator('.overlay.workshop:not(.hidden)').count()) === 1);
 await page.screenshot({ path: 'shots/workshop-1-levels.png' });
-check('only level 1 is open', (await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level:not([disabled])').count()) === 1);
+check(
+  'only level 1 is open',
+  (await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level:not([disabled])').count()) === 1,
+);
 await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level').first().click();
 await page.waitForTimeout(500);
-check('level is on screen, Home hidden', await page.evaluate(() => {
-  const k = window.__grain.game.klotski;
-  return k.active && getComputedStyle(document.querySelector('.overlay.home')).display === 'none';
-}));
+check(
+  'level is on screen, Home hidden',
+  await page.evaluate(() => {
+    const k = window.__grain.game.klotski;
+    return k.active && getComputedStyle(document.querySelector('.overlay.home')).display === 'none';
+  }),
+);
 await page.screenshot({ path: 'shots/workshop-2-level.png' });
 
 // shortest solution as (piece id, dir, steps), found in the page with the game's own rules
@@ -51,7 +61,9 @@ const plan = await page.evaluate(() => {
   const key = (ps) => ps.map((p) => `${p.r},${p.c}`).join(';');
   const occ = (ps, skip) => {
     const g = new Array(L.w * L.h).fill(-1);
-    for (const p of ps) if (p.id !== skip) for (let r = p.r; r < p.r + p.h; r++) for (let c = p.c; c < p.c + p.w; c++) g[r * L.w + c] = p.id;
+    for (const p of ps)
+      if (p.id !== skip)
+        for (let r = p.r; r < p.r + p.h; r++) for (let c = p.c; c < p.c + p.w; c++) g[r * L.w + c] = p.id;
     return g;
   };
   const D = { up: [-1, 0], down: [1, 0], left: [0, -1], right: [0, 1] };
@@ -62,7 +74,8 @@ const plan = await page.evaluate(() => {
       const r0 = p.r + D[d][0] * (n + 1);
       const c0 = p.c + D[d][1] * (n + 1);
       if (r0 < 0 || c0 < 0 || r0 + p.h > L.h || c0 + p.w > L.w) return n;
-      for (let r = r0; r < r0 + p.h; r++) for (let c = c0; c < c0 + p.w; c++) if (g[r * L.w + c] !== -1) return n;
+      for (let r = r0; r < r0 + p.h; r++)
+        for (let c = c0; c < c0 + p.w; c++) if (g[r * L.w + c] !== -1) return n;
       n++;
     }
   };
@@ -75,7 +88,9 @@ const plan = await page.evaluate(() => {
       for (const p of ps)
         for (const d of dirs)
           for (let n = 1; n <= room(ps, p, d); n++) {
-            const moved = ps.map((q) => (q.id === p.id ? { ...q, r: q.r + D[d][0] * n, c: q.c + D[d][1] * n } : q));
+            const moved = ps.map((q) =>
+              q.id === p.id ? { ...q, r: q.r + D[d][0] * n, c: q.c + D[d][1] * n } : q,
+            );
             const kk = key(moved);
             if (prev.has(kk)) continue;
             prev.set(kk, [key(ps), p.id, d, n, ps]);
@@ -129,12 +144,20 @@ const after = await page.evaluate(() => {
 });
 check('moves counted', after.moves === (plan?.length ?? -1), `${after.moves}`);
 check('solved card shows', after.win);
-check('three stars saved', after.saved === JSON.stringify({ stars: [3], best: [plan?.length] }), after.saved ?? 'nothing');
+check(
+  'three stars saved',
+  after.saved === JSON.stringify({ stars: [3], best: [plan?.length] }),
+  after.saved ?? 'nothing',
+);
 await page.screenshot({ path: 'shots/workshop-3-solved.png' });
 
 await page.getByRole('button', { name: 'Next level' }).click();
 await page.waitForTimeout(400);
-const k = () => page.evaluate(() => { const k = window.__grain.game.klotski; return { moves: k.moves, hinted: k.hinted, hist: k.history.length }; });
+const k = () =>
+  page.evaluate(() => {
+    const k = window.__grain.game.klotski;
+    return { moves: k.moves, hinted: k.hinted, hist: k.history.length };
+  });
 await page.getByRole('button', { name: 'Hint' }).click();
 await page.waitForTimeout(700);
 const h1 = await k();
@@ -146,17 +169,30 @@ check('undo takes it back', h2.moves === 0 && h2.hist === 0, JSON.stringify(h2))
 await page.screenshot({ path: 'shots/workshop-4-tools.png' });
 await page.getByRole('button', { name: 'Back' }).click();
 await page.waitForTimeout(300);
-check('level 2 unlocked', (await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level:not([disabled])').count()) === 2);
+check(
+  'level 2 unlocked',
+  (await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level:not([disabled])').count()) === 2,
+);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
-check('Escape goes back to the hub', (await page.locator('.overlay.workshop-hub:not(.hidden)').count()) === 1);
+check(
+  'Escape goes back to the hub',
+  (await page.locator('.overlay.workshop-hub:not(.hidden)').count()) === 1,
+);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
-check('back on Home', await page.evaluate(() => {
-  const k = window.__grain.game.klotski;
-  return !k.active && !k.picker.open && !window.__grain.game.hub.open && getComputedStyle(document.querySelector('.overlay.home')).display !== 'none';
-}));
-
+check(
+  'back on Home',
+  await page.evaluate(() => {
+    const k = window.__grain.game.klotski;
+    return (
+      !k.active &&
+      !k.picker.open &&
+      !window.__grain.game.hub.open &&
+      getComputedStyle(document.querySelector('.overlay.home')).display !== 'none'
+    );
+  }),
+);
 
 // ---------- Plank fit ----------
 await page.getByRole('button', { name: /Workshop/ }).click();
@@ -185,7 +221,10 @@ for (const p of pieces) {
   const look = await page.evaluate((id) => ({ ...window.__grain.game.plank.look.get(id) }), p.id);
   const w = Math.max(...p.cells.map((c) => c[1])) + 1;
   const h = Math.max(...p.cells.map((c) => c[0])) + 1;
-  const goal = await page.evaluate(([r, c, w, h]) => window.__grain.game.plank.view.cellCentre(r, c, w, h), [p.sol.r, p.sol.c, w, h]);
+  const goal = await page.evaluate(
+    ([r, c, w, h]) => window.__grain.game.plank.view.cellCentre(r, c, w, h),
+    [p.sol.r, p.sol.c, w, h],
+  );
   const [x0, y0] = await proj(look.x, look.z, topY);
   const [x1, y1] = await proj(goal.x, goal.z, topY);
   await page.mouse.move(x0, y0);
@@ -198,7 +237,12 @@ for (const p of pieces) {
 await page.waitForTimeout(1300);
 const pk = await page.evaluate(() => {
   const m = window.__grain.game.plank;
-  return { placed: m.placed.length, total: m.level.pieces.length, win: m.win.open, saved: localStorage.getItem('grain_plank_v1') };
+  return {
+    placed: m.placed.length,
+    total: m.level.pieces.length,
+    win: m.win.open,
+    saved: localStorage.getItem('grain_plank_v1'),
+  };
 });
 check('plank pieces placed by drag', pk.placed === pk.total, `${pk.placed}/${pk.total}`);
 check('plank solved card', pk.win);
@@ -216,17 +260,135 @@ const before = await page.evaluate(() => {
 const [tx, ty] = await proj(before.look.x, before.look.z, 0);
 await page.mouse.click(tx, ty);
 await page.waitForTimeout(400);
-const turned = await page.evaluate((id) => JSON.stringify(window.__grain.game.plank.cells.get(id)), before.id);
+const turned = await page.evaluate(
+  (id) => JSON.stringify(window.__grain.game.plank.cells.get(id)),
+  before.id,
+);
 check('tap turns a loose piece', turned !== before.cells, `${before.cells} -> ${turned}`);
 await page.getByRole('button', { name: 'Hint' }).click();
 await page.waitForTimeout(500);
-const hinted = await page.evaluate(() => ({ placed: window.__grain.game.plank.placed.length, hints: window.__grain.game.plank.hints }));
+const hinted = await page.evaluate(() => ({
+  placed: window.__grain.game.plank.placed.length,
+  hints: window.__grain.game.plank.hints,
+}));
 check('hint places a piece', hinted.placed === 1 && hinted.hints === 1, JSON.stringify(hinted));
 await page.screenshot({ path: 'shots/workshop-7-plank-hint.png' });
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
 check('plank: Escape leaves the level', await page.evaluate(() => !window.__grain.game.plank.active));
 
+// ---------- Checkers ----------
+// from Plank's level list, Escape goes back to the hub
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+await page.getByRole('button', { name: /Checkers/ }).click();
+await page.waitForTimeout(300);
+await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level').first().click();
+await page.waitForTimeout(500);
+check(
+  'checkers: level 1 starts on your move',
+  await page.evaluate(() => {
+    const c = window.__grain.game.checkers;
+    return c.active && c.phase === 'player' && c.legal.length === 7;
+  }),
+);
+const sqScreen = (s) =>
+  page.evaluate((s) => {
+    const v = window.__grain.game.checkers.view;
+    const q = v.camera.position
+      .clone()
+      .set((s % 8) - 3.5, -0.06, Math.floor(s / 8) - 3.5)
+      .project(v.camera);
+    return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight];
+  }, s);
+const tapSq = async (s) => {
+  const [x, y] = await sqScreen(s);
+  await page.mouse.click(x, y);
+};
+const ckPhase = (want) =>
+  page.waitForFunction((want) => want.includes(window.__grain.game.checkers.phase), want, { timeout: 20000 });
+// three moves with real taps (disc, then each landing square); the computer answers each
+for (let i = 0; i < 3; i++) {
+  await ckPhase(['player', 'over']);
+  const m = await page.evaluate(() => {
+    const c = window.__grain.game.checkers;
+    return c.phase === 'player' ? c.legal[0] : null;
+  });
+  if (!m) break;
+  await tapSq(m.from);
+  await page.waitForTimeout(120);
+  for (const s of m.path) {
+    await ckPhase(['player']);
+    await tapSq(s);
+    await page.waitForTimeout(450);
+  }
+}
+await ckPhase(['player', 'over']);
+const ck = await page.evaluate(() => {
+  const c = window.__grain.game.checkers;
+  return { turns: c.turns, hist: c.history.length, helped: c.helped };
+});
+check(
+  'checkers: three moves played by tapping, computer replied',
+  ck.turns === 3 && ck.hist === 3,
+  JSON.stringify(ck),
+);
+await page.screenshot({ path: 'shots/workshop-8-checkers.png' });
+await page.getByRole('button', { name: /Undo/ }).click();
+await page.waitForTimeout(200);
+const ckUndo = await page.evaluate(() => {
+  const c = window.__grain.game.checkers;
+  return { turns: c.turns, helped: c.helped, phase: c.phase };
+});
+check(
+  'checkers: undo takes back your move and the reply',
+  ckUndo.turns === 2 && ckUndo.helped && ckUndo.phase === 'player',
+  JSON.stringify(ckUndo),
+);
+await page.getByRole('button', { name: /Hint/ }).click();
+await page.waitForFunction(() => window.__grain.game.checkers.sel >= 0, null, { timeout: 15000 });
+check(
+  'checkers: hint picks up a disc that can move',
+  await page.evaluate(() => {
+    const c = window.__grain.game.checkers;
+    return c.legal.some((m) => m.from === c.sel && m.path[0] === c.hintTo);
+  }),
+);
+// a won position: one jump left takes the computer's last disc
+await page.evaluate(() => {
+  const c = window.__grain.game.checkers;
+  const b = new Array(64).fill(0);
+  for (const s of [40, 42, 44, 46, 49, 51, 53, 55, 56, 58, 60, 62]) b[s] = 1;
+  b[33] = -1;
+  c.board = b;
+  c.helped = false;
+  c.view.sync(b);
+  c.beginTurn();
+});
+await tapSq(42);
+await page.waitForTimeout(120);
+await tapSq(24);
+await page.waitForSelector('.workshop-win:not(.hidden)', { timeout: 8000 });
+const ckWin = await page.evaluate(() => ({
+  title: document.querySelector('.workshop-win:not(.hidden) h2')?.textContent,
+  saved: JSON.parse(localStorage.getItem('grain_checkers_v1') ?? '{}'),
+}));
+check(
+  'checkers: win card and three stars saved',
+  ckWin.title === 'You won!' && ckWin.saved.stars?.[0] === 3,
+  JSON.stringify(ckWin),
+);
+await page.screenshot({ path: 'shots/workshop-9-checkers-won.png' });
+await page.locator('.workshop-win:not(.hidden)').getByRole('button', { name: 'Levels' }).click();
+await page.waitForTimeout(300);
+check(
+  'checkers: level 2 unlocked',
+  (await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level:not([disabled])').count()) === 2,
+);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
 
 // ---------- memory: cycling levels must not grow GPU resources ----------
 const mem = await page.evaluate(async () => {
@@ -234,7 +396,11 @@ const mem = await page.evaluate(async () => {
   const info = g.renderer.gl.info.memory;
   const wait = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const out = {};
-  for (const [name, m] of [['klotski', g.klotski], ['plank', g.plank]]) {
+  for (const [name, m] of [
+    ['klotski', g.klotski],
+    ['plank', g.plank],
+    ['checkers', g.checkers],
+  ]) {
     m.start(1);
     await wait();
     const a = { ...info };
@@ -250,8 +416,11 @@ const mem = await page.evaluate(async () => {
   return out;
 });
 for (const [name, [a, b]] of Object.entries(mem))
-  check(`${name}: GPU memory flat after 12 levels`, b.geometries <= a.geometries && b.textures <= a.textures, `${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
-
+  check(
+    `${name}: GPU memory flat after 12 levels`,
+    b.geometries <= a.geometries && b.textures <= a.textures,
+    `${JSON.stringify(a)} -> ${JSON.stringify(b)}`,
+  );
 
 // ---------- layout: hub, level list and both games on small, landscape and tablet screens ----------
 for (const [vw, vh] of [
@@ -285,7 +454,16 @@ for (const [vw, vh] of [
   const overlap = await pg.evaluate(() => {
     const grid = document.querySelector('.overlay.workshop:not(.hidden) .k-grid');
     const rs = [...grid.querySelectorAll('.k-level')].slice(0, 6).map((b) => b.getBoundingClientRect());
-    const bad = rs.some((a, i) => rs.some((b, j) => i < j && a.right > b.left + 1 && b.right > a.left + 1 && a.bottom > b.top + 1 && b.bottom > a.top + 1));
+    const bad = rs.some((a, i) =>
+      rs.some(
+        (b, j) =>
+          i < j &&
+          a.right > b.left + 1 &&
+          b.right > a.left + 1 &&
+          a.bottom > b.top + 1 &&
+          b.bottom > a.top + 1,
+      ),
+    );
     return bad || grid.scrollWidth > grid.clientWidth + 1;
   });
   check(`${tag}: level stones don't overlap or scroll sideways`, !overlap);
@@ -293,6 +471,7 @@ for (const [vw, vh] of [
   for (const [name, n] of [
     ['klotski', 30],
     ['plank', 40],
+    ['checkers', 15],
   ]) {
     const box = await pg.evaluate(
       async ([name, n]) => {
@@ -305,7 +484,10 @@ for (const [vw, vh] of [
         const corners = [];
         if (name === 'klotski') {
           const L = m.level;
-          for (const x of [-L.w / 2, L.w / 2]) for (const z of [-L.h / 2, L.h / 2 + 0.5]) corners.push([x, z]);
+          for (const x of [-L.w / 2, L.w / 2])
+            for (const z of [-L.h / 2, L.h / 2 + 0.5]) corners.push([x, z]);
+        } else if (name === 'checkers') {
+          for (const x of [-4, 4]) for (const z of [-4, 4]) corners.push([x, z]);
         } else {
           const L = m.level;
           const half = Math.max(L.w, v.trayWidth) / 2;
@@ -332,8 +514,15 @@ for (const [vw, vh] of [
       [name, n],
     );
     const ok =
-      box.top >= box.bar - 2 && box.bottom <= box.tools + 2 && box.left >= box.toolsRight - 2 && box.right <= vw + 2;
-    check(`${tag}: ${name} puzzle between the bar and the tools`, ok, JSON.stringify(box, (k, v) => (typeof v === 'number' ? Math.round(v) : v)));
+      box.top >= box.bar - 2 &&
+      box.bottom <= box.tools + 2 &&
+      box.left >= box.toolsRight - 2 &&
+      box.right <= vw + 2;
+    check(
+      `${tag}: ${name} puzzle between the bar and the tools`,
+      ok,
+      JSON.stringify(box, (k, v) => (typeof v === 'number' ? Math.round(v) : v)),
+    );
   }
   await pg.close();
 }

@@ -850,6 +850,51 @@ export const PLANK = {
   storageKey: 'grain_plank_v1',
 } as const;
 
+/** Workshop: Checkers (English draughts against the computer). */
+export const CHECKERS = {
+  /** Gap between the outer squares and the carved wall (units). */
+  wallGap: 0.07,
+  /** The board sits high in the slab so the low discs don't sit in a deep well. */
+  floorY: -0.24,
+  /** Square tints (sRGB hex, multiply the side-grain texture). */
+  light: 0xf3dcb4,
+  dark: 0x41190a,
+  /** Disc size (units) and its rounded edge. */
+  radius: 0.4,
+  height: 0.18,
+  edge: 0.05,
+  /** Disc tints (linear RGB): pale maple for you, dark walnut for the computer. */
+  playerTint: [1, 0.9, 0.76] as const,
+  computerTint: [0.1, 0.04, 0.018] as const,
+  /** Crown inlay on a king, and every marker (sRGB hex). */
+  crown: 0xf0b94a,
+  marker: 0xffb23c,
+  /** Opacity of the move dots, the lit squares of discs that must jump / the selected disc, and the last move. */
+  dotOpacity: 0.9,
+  mustOpacity: 0.5,
+  selOpacity: 0.75,
+  lastOpacity: 0.22,
+  /** Selected disc lift (units) and how fast it eases there (1/s). */
+  lift: 0.14,
+  liftRate: 18,
+  /** A press moving less than this (px) is a tap. */
+  tapPx: 10,
+  /** Seconds per step and per jump, and the hop height (units) of each. */
+  stepDuration: 0.2,
+  jumpDuration: 0.3,
+  stepHop: 0.12,
+  jumpHop: 0.42,
+  /** A captured disc sinks and fades over this many seconds. */
+  captureFade: 0.28,
+  /** The computer waits at least this long before it moves, so its reply reads as a reply. */
+  thinkMin: 0.45,
+  /** Pause after the last move before the result card. */
+  resultDelay: 0.8,
+  padTop: 16,
+  padBottom: 40,
+  storageKey: 'grain_checkers_v1',
+} as const;
+
 export const HAPTICS = {
   pickup: 8,
   /** Tiny tick when a dragged piece snaps to a new cell. */

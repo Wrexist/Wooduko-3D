@@ -54,3 +54,7 @@
 - **Carving a table hole from a 2D shape (Workshop):** `ExtrudeGeometry` + `rotateX(+π/2)` maps shape *y* to world *+z* (not −z). The first Klotski tray had its exit notch on the wrong edge because of a sign flip. Also: an extruded hole is narrowed by `bevelSize` on each side, so outset the hole by the bevel (as `table.ts` does).
 
 - **120 Hz is not available to us on iPhone (Oct 2026):** WKWebView caps `requestAnimationFrame` at 60 fps on ProMotion screens even with `CADisableMinimumFrameDurationOnPhone` set (WebKit bug 294338; the "near 60fps" flag only affects Safari). Aim for a steady 60 instead; motion is dt-based, so it will feel right at 120 the day WebKit allows it. Pixel ratio is capped at 3 with the adaptive step-down in `renderer.ts`.
+
+- **Checkers AI belongs in a Web Worker:** a depth-9 alpha-beta search takes up to ~1.6 s on a desktop (more on a phone), which freezes the frame loop on the main thread. The opponent runs in `src/workshop/checkersWorker.ts` (Vite `new Worker(new URL(..., import.meta.url), { type: 'module' })`); if the worker can't start or dies, the controller answers on the main thread. Never import the worker file from the main thread (its `self.onmessage = …` would take over `window.onmessage`): shared code lives in `checkersAsk.ts`.
+
+- **Flat markers need `toneMapped: false`:** translucent amber markers drawn through the tone mapper came out pale cream and vanished against light wood. Marker materials skip tone mapping, and the dark squares are deep walnut so amber reads on them.
