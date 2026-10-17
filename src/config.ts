@@ -905,11 +905,17 @@ export const CHESS = {
   /** Pieces are stretched this much taller than the turned profiles (a tall, elegant set). */
   pieceHeight: 1.3,
   pieceRoughness: 0.42,
+  /** The groove cut into the bishop's mitre (sRGB hex). */
+  slit: 0x2a1206,
   knightYaw: 2.4,
   /** Camera direction (from the board to the eye): tilted so the pieces' shapes read. */
   camDir: [0, 1, 0.95] as const,
   /** Extra room past the far edge for the back row's tall pieces (squares). */
   backRoom: 1.2,
+  /** From above (the default): almost straight down, with less room needed past the edges. */
+  camTop: [0, 1, 0.14] as const,
+  backRoomTop: 0.75,
+  frontRoomTop: 0.75,
   /** Held / moving pieces: follow speed (1/s), lean per unit of speed, the most lean, how fast it eases. */
   followRate: 26,
   followRateY: 14,

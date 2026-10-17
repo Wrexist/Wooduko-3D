@@ -3141,3 +3141,27 @@ button {
     animation: none;
   }
 }
+
+/* ---------- Chess: teach mode, view switch ---------- */
+.k-tools.three {
+  gap: 8px;
+}
+.k-tools.three .k-tool {
+  flex: 1;
+  min-width: 0;
+  max-width: 140px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.k-teach.on {
+  color: var(--pill-ink);
+  background: linear-gradient(180deg, var(--pill-top), var(--honey));
+  border-color: var(--pill-edge);
+  box-shadow: 0 0 14px rgba(240, 185, 74, 0.45);
+}
+.k-switches {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}

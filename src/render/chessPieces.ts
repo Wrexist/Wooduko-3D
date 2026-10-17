@@ -237,3 +237,13 @@ export function pieceGeometries(): THREE.BufferGeometry[] {
     return g;
   });
 }
+
+/** The bishop's mitre cut: a dark diagonal groove, so a bishop reads from above (not like a pawn). */
+export function bishopSlit(): THREE.BufferGeometry {
+  const s = CHESS.pieceScale;
+  return new THREE.BoxGeometry(0.055, 0.09, 0.29)
+    .rotateX(0.5)
+    .rotateY(Math.PI / 4)
+    .translate(0, 0.79, 0)
+    .scale(s, s * CHESS.pieceHeight, s);
+}

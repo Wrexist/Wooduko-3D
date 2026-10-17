@@ -1,9 +1,11 @@
 // Workshop → Chess: game review and opening names (pure; no Three.js / DOM).
 import {
+  attacked,
   F_CAPTURE,
   F_CASTLE,
   F_EP,
   inCheck,
+  KING,
   legalMoves,
   makeMove,
   MATE,
@@ -15,7 +17,8 @@ import {
   unmakeMove,
 } from './chess';
 import type { Pos } from './chess';
-import { gradeOf } from './chessSchool';
+import { gradeOf, threatened } from './chessSchool';
+import { attacksFrom } from './chessTrain';
 import type { Grade } from './chessSchool';
 
 /** Centipawns as a winning chance for White, 0..100 (Lichess's curve, so numbers match players' feel). */
@@ -226,4 +229,70 @@ export function san(p: Pos, m: number, letters = 'NBRQK'): string {
   const mate = check && legalMoves(p).length === 0;
   unmakeMove(p);
   return out + (mate ? '#' : check ? '+' : '');
+}
+
+// ---------- why a move is good ----------
+
+/**
+ * The idea behind a (best) move, for one short sentence. Checked from the most concrete down:
+ * mate, winning material, promotion, saving or defending a piece, castling, a check, a threat,
+ * then opening principles (develop, take the centre).
+ */
+export type Idea =
+  | { readonly kind: 'mate' }
+  | { readonly kind: 'mateSoon'; readonly n: number }
+  | { readonly kind: 'win'; readonly piece: number }
+  | { readonly kind: 'promote' }
+  | { readonly kind: 'save'; readonly piece: number }
+  | { readonly kind: 'defend'; readonly piece: number }
+  | { readonly kind: 'castle' }
+  | { readonly kind: 'check' }
+  | { readonly kind: 'threat'; readonly piece: number }
+  | { readonly kind: 'develop'; readonly piece: number }
+  | { readonly kind: 'centre' }
+  | { readonly kind: 'trade' }
+  | { readonly kind: 'improve' };
+
+const VALUE = [0, 1, 3, 3, 5, 9, 100];
+
+/** Why `m` is good for the side to move in `p`; `score` is the engine's score after it (mover's view). */
+export function explainMove(p: Pos, m: number, score: number): Idea {
+  const side = p.side;
+  const from = mFrom(m);
+  const to = mTo(m);
+  const type = Math.abs(p.b[from] ?? 0);
+  const target = Math.abs(p.b[to] ?? 0);
+  const flags = mFlags(m);
+  const weakBefore = threatened(p, side);
+  makeMove(p, m);
+  const check = inCheck(p);
+  const mate = check && legalMoves(p).length === 0;
+  const weakAfter = threatened(p, side);
+  // what the moved piece now attacks: enemy pieces worth more than it, or left undefended
+  const hits = attacksFrom(p, to).filter((s) => {
+    const v = (p.b[s] ?? 0) * side;
+    if (v >= 0) return false;
+    const t = -v;
+    if (t === KING) return false;
+    return (VALUE[t] ?? 0) > (VALUE[type] ?? 0) || !attacked(p, s, -side as 1 | -1);
+  });
+  const recapture = target > 0 && attacked(p, to, -side as 1 | -1);
+  unmakeMove(p);
+  if (mate) return { kind: 'mate' };
+  if (score > MATE - 200) return { kind: 'mateSoon', n: Math.max(1, Math.ceil((MATE - score) / 2)) };
+  if (mPromo(m)) return { kind: 'promote' };
+  if (target && (!recapture || (VALUE[target] ?? 0) > (VALUE[type] ?? 0))) return { kind: 'win', piece: target };
+  if (weakBefore.includes(from) && !weakAfter.includes(to)) return { kind: 'save', piece: type };
+  const saved = weakBefore.find((s) => s !== from && !weakAfter.includes(s));
+  if (saved !== undefined) return { kind: 'defend', piece: Math.abs(p.b[saved] ?? 0) };
+  if (flags & F_CASTLE) return { kind: 'castle' };
+  if (target && recapture) return { kind: 'trade' };
+  const big = hits.map((s) => Math.abs(p.b[s] ?? 0)).sort((a, b) => b - a)[0];
+  if (big) return { kind: 'threat', piece: big };
+  if (check) return { kind: 'check' };
+  const backRank = side === 1 ? from >> 4 === 7 : from >> 4 === 0;
+  if ((type === 2 || type === 3) && backRank) return { kind: 'develop', piece: type };
+  const centre = [0x33, 0x34, 0x43, 0x44];
+  if (type === PAWN && centre.includes(to)) return { kind: 'centre' };
+  return { kind: 'improve' };
 }

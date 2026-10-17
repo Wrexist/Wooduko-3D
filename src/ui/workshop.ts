@@ -196,8 +196,13 @@ export class GameTools {
   readonly node: HTMLDivElement;
   private readonly undo: HTMLButtonElement;
   private readonly hint: HTMLButtonElement;
+  private readonly teach = el(
+    'button',
+    { class: 'ghost-btn k-tool k-teach', 'aria-pressed': 'false', hidden: '' },
+    [el('span', { html: CAP }), t('teach.tool')],
+  );
 
-  constructor(h: { onUndo?(): void; onHint(): void }, hintNote: string) {
+  constructor(h: { onUndo?(): void; onHint(): void; onTeach?(): void }, hintNote: string) {
     this.undo = el('button', { class: 'ghost-btn k-tool' }, [el('span', { html: UNDO }), t('workshop.undo')]);
     this.hint = el('button', { class: 'ghost-btn k-tool' }, [el('span', { html: BULB }), t('workshop.hint')]);
     this.hint.setAttribute('aria-description', hintNote);
@@ -205,7 +210,23 @@ export class GameTools {
     if (onUndo) this.undo.addEventListener('click', () => onUndo());
     else this.undo.hidden = true;
     this.hint.addEventListener('click', h.onHint);
-    this.node = el('div', { class: 'k-tools', hidden: '' }, [this.undo, this.hint]);
+    const onTeach = h.onTeach;
+    if (onTeach) {
+      this.teach.hidden = false;
+      this.teach.setAttribute('aria-description', t('teach.note'));
+      this.teach.addEventListener('click', () => onTeach());
+    }
+    this.node = el('div', { class: `k-tools${onTeach ? ' three' : ''}`, hidden: '' }, [
+      this.undo,
+      this.hint,
+      this.teach,
+    ]);
+  }
+
+  /** Teach mode on or off (the button stays lit while on). */
+  setTeach(on: boolean): void {
+    this.teach.setAttribute('aria-pressed', String(on));
+    this.teach.classList.toggle('on', on);
   }
 
   /** Short landscape screens dock the tools in a column on the left (see styles.css). */
@@ -290,7 +311,11 @@ export class WinCard extends Overlay {
       this.title,
       this.stats,
       this.note,
-      el('div', { class: 'k-actions' }, [this.next, this.extra, el('div', { class: 'pair' }, [replay, levels])]),
+      el('div', { class: 'k-actions' }, [
+        this.next,
+        this.extra,
+        el('div', { class: 'pair' }, [replay, levels]),
+      ]),
     );
   }
 
@@ -334,6 +359,9 @@ const UNDO =
 
 const BULB =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>';
+
+const CAP =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>';
 
 const BACK =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';

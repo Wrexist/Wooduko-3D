@@ -60,8 +60,8 @@ import {
 } from '../core/chessTrain';
 import type { TrainState } from '../core/chessTrain';
 import { floatText } from '../ui/floatText';
-import { nextMistake, openingOf, reviewGame, san, winChance } from '../core/chessReview';
-import type { Review } from '../core/chessReview';
+import { explainMove, nextMistake, openingOf, reviewGame, san, winChance } from '../core/chessReview';
+import type { Idea, Review } from '../core/chessReview';
 import { ReviewPanel } from '../ui/chessReviewPanel';
 import { kRecord, parseKProgress } from '../core/klotski';
 import type { KProgress } from '../core/klotski';
@@ -106,6 +106,25 @@ const PROMOS = [QUEEN, 4, 3, KNIGHT] as const;
 /** The lessons' opponent: full strength, quick. */
 const TEACHER: ChessOpponent = { ms: 700, depth: 64, noise: 0, blunder: 0 };
 const COACH_KEY = 'grain_chess_coach';
+const TEACH_KEY = 'grain_chess_teach';
+const VIEW_KEY = 'grain_chess_view';
+
+/** One sentence for the idea behind a move. */
+function ideaText(i: Idea): string {
+  switch (i.kind) {
+    case 'mateSoon':
+      return t('idea.mateSoon', { n: i.n });
+    case 'win':
+    case 'threat':
+      return t(`idea.${i.kind}`, { piece: t(`coach.p${i.piece}` as Key) });
+    case 'save':
+    case 'defend':
+    case 'develop':
+      return t(`idea.${i.kind}`, { piece: t(`coach.p${i.piece}` as Key) });
+    default:
+      return t(`idea.${i.kind}` as Key);
+  }
+}
 const FLAME =
   '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 3.2-.6 5-2.2 6.8C8.3 10.4 7 12 7 14.5A5 5 0 0 0 12 20a5 5 0 0 0 5-5.4c-.1-1.9-1-3.3-2-4.4.1 1.5-.4 2.7-1.5 3.3.4-3.6-.7-8.6-1.5-11.5z"/></svg>';
 
@@ -220,6 +239,14 @@ export class ChessMode {
   readonly win: WinCard;
   private readonly promo = new PromoPicker();
   private readonly coachBtn = el('button', { class: 'k-switch', 'aria-pressed': 'true' });
+  private readonly viewBtn = el('button', { class: 'k-switch', 'aria-pressed': 'true' });
+  /** Teach mode: the best move and why, every turn. Shared by both chess modes (one board view too). */
+  private teachOn = false;
+  private teachId = 0;
+  private teachMove = 0;
+  /** This game was played with teach mode on at some point (it caps the stars). */
+  private teachUsed = false;
+  private topView = true;
   active = false;
   private progress: KProgress = { stars: [], best: [] };
   private n = 1;
@@ -327,8 +354,9 @@ export class ChessMode {
             titles: LESSONS.map((l) => t(`school.${l.id}` as Key)),
             allOpen: true,
             head: this.buildTrainPanel(),
+            foot: this.viewBtn,
           }
-        : { foot: this.coachBtn, head: this.resumeBtn },
+        : { foot: el('div', { class: 'k-switches' }, [this.coachBtn, this.viewBtn]), head: this.resumeBtn },
     );
     this.bar = new GameBar({
       onBack: () => this.leave(true),
@@ -336,7 +364,9 @@ export class ChessMode {
         this.session ? this.loadCard() : this.lesson ? this.loadStep(this.stepIdx) : this.start(this.n),
     });
     this.tools = new GameTools(
-      school ? { onHint: () => this.hint() } : { onUndo: () => this.undo(), onHint: () => this.hint() },
+      school
+        ? { onHint: () => this.hint() }
+        : { onUndo: () => this.undo(), onHint: () => this.hint(), onTeach: () => this.toggleTeach() },
       school ? t('school.tryHint') : t('chess.helpNote'),
     );
     this.win = new WinCard({
@@ -366,6 +396,20 @@ export class ChessMode {
       void d.storage.set(COACH_KEY, this.coachOn ? '1' : '0');
     });
     this.syncCoachBtn();
+    this.viewBtn.addEventListener('click', () => {
+      this.topView = !this.topView;
+      this.syncViewBtn();
+      void d.storage.set(VIEW_KEY, this.topView ? 'top' : 'tilted');
+    });
+    this.syncViewBtn();
+    void d.storage.get(VIEW_KEY).then((raw) => {
+      this.topView = raw !== 'tilted';
+      this.syncViewBtn();
+    });
+    void d.storage.get(TEACH_KEY).then((raw) => {
+      this.teachOn = raw === '1';
+      this.tools.setTeach(this.teachOn);
+    });
     const c = d.canvas;
     c.addEventListener('pointerdown', (e) => this.onDown(e));
     c.addEventListener('pointermove', (e) => this.onMove(e));
@@ -393,6 +437,49 @@ export class ChessMode {
   private syncCoachBtn(): void {
     this.coachBtn.textContent = t(this.coachOn ? 'coach.on' : 'coach.off');
     this.coachBtn.setAttribute('aria-pressed', String(this.coachOn));
+  }
+
+  private syncViewBtn(): void {
+    this.viewBtn.textContent = t(this.topView ? 'view.top' : 'view.tilted');
+    this.viewBtn.setAttribute('aria-pressed', String(this.topView));
+    this.view.setTop(this.topView);
+    if (this.active) this.resize(this.width, this.height, this.safeBottom);
+  }
+
+  // ---------- teach mode ----------
+
+  private toggleTeach(): void {
+    this.teachOn = !this.teachOn;
+    this.tools.setTeach(this.teachOn);
+    void this.d.storage.set(TEACH_KEY, this.teachOn ? '1' : '0');
+    if (this.teachOn) this.askTeach();
+    else {
+      this.teachMove = 0;
+      this.teachId = 0;
+      this.bar.coach('');
+      this.refresh();
+      this.resize(this.width, this.height, this.safeBottom);
+    }
+  }
+
+  /** On your turn in a game: ask for the best move, to show it with its idea. */
+  private askTeach(): void {
+    if (!this.teachOn || this.lesson || this.school || this.phase !== 'player' || this.reviewing) return;
+    this.teachUsed = true;
+    this.teachMove = 0;
+    this.say(t('teach.thinking'), 'info');
+    this.teachId = this.ask({ kind: 'eval', fen: this.startFen, moves: [...this.moves] });
+  }
+
+  private onTeach(r: ChessReply): void {
+    if (!this.teachOn || this.phase !== 'player' || !r.move || !this.legal.includes(r.move)) return;
+    this.teachMove = r.move;
+    const idea = explainMove(this.pos, r.move, r.score ?? 0);
+    this.say(
+      `${t('teach.best', { move: san(this.pos, r.move, t('chess.letters')) })} ${ideaText(idea)}`,
+      'good',
+    );
+    this.refresh();
   }
 
   get nodes(): HTMLElement[] {
@@ -427,6 +514,9 @@ export class ChessMode {
     this.session = null;
     this.strip.hidden = true;
     this.endReview();
+    this.view.setTop(this.topView);
+    this.teachUsed = false;
+    this.teachMove = 0;
     this.n = n;
     this.helps = 0;
     this.mistakes = 0;
@@ -556,6 +646,8 @@ export class ChessMode {
     this.phase = 'player';
     if (!this.lesson && !this.school) this.saveGame();
     this.updateOpening();
+    this.teachMove = 0;
+    if (this.teachOn) this.askTeach();
     this.refresh();
   }
 
@@ -714,8 +806,8 @@ export class ChessMode {
     this.tools.show(false);
     this.reviewAt = -1;
     if (this.won) {
-      this.solvedStars = chessStars(this.helps);
-      this.save(this.solvedStars, this.helps ? null : this.yourMoves());
+      this.solvedStars = this.teachUsed ? 1 : chessStars(this.helps);
+      this.save(this.solvedStars, this.helps || this.teachUsed ? null : this.yourMoves());
       this.d.sound.boardClear();
       this.d.haptics.pulse(HAPTICS.boardClear);
     } else {
@@ -752,7 +844,7 @@ export class ChessMode {
         this.solvedStars,
         stats,
         this.n < this.count,
-        this.helps ? t('chess.helped') : '',
+        this.teachUsed ? t('teach.helped') : this.helps ? t('chess.helped') : '',
         t('chess.won'),
         { extra: { label: t('review.open'), run: () => this.startReview() } },
       );
@@ -838,7 +930,7 @@ export class ChessMode {
       text = `${no}${white ? '.' : '…'} ${played}: ${t(`review.g.${note.grade}` as Key)}.`;
       const weak = note.grade === 'inaccuracy' || note.grade === 'mistake' || note.grade === 'blunder';
       if (weak && note.best) {
-        text += ` ${t('review.better', { move: san(p, note.best, letters) })}`;
+        text += ` ${t('review.better', { move: san(p, note.best, letters) })} ${ideaText(explainMove(p, note.best, rv.evals[k - 1] ?? 0))}`;
         arrows.push({ from: to64(mFrom(note.move)), to: to64(mTo(note.move)), color: CHESS.arrowBad });
         arrows.push({ from: to64(mFrom(note.best)), to: to64(mTo(note.best)), color: CHESS.arrowBest });
       }
@@ -1555,6 +1647,10 @@ export class ChessMode {
       this.onEval(r);
       return;
     }
+    if (r.id === this.teachId) {
+      this.onTeach(r);
+      return;
+    }
     if (r.id === this.reviewId) {
       if (this.lesson) this.onJudge(r);
       else this.onReview(r);
@@ -1641,7 +1737,9 @@ export class ChessMode {
       this.view.arrows(
         mine && this.sel >= 0 && this.hintTo >= 0
           ? [{ from: this.sel, to: this.hintTo, color: CHESS.arrowHint }]
-          : [],
+          : mine && this.teachMove
+            ? [{ from: to64(mFrom(this.teachMove)), to: to64(mTo(this.teachMove)), color: CHESS.arrowBest }]
+            : [],
       );
     const now = typeCounts(this.pos);
     const lost = (side: 0 | 1): number[] => {

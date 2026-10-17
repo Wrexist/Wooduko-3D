@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fromFen, legalMoves, makeMove, MATE, START_FEN } from '../src/core/chess';
 import {
+  explainMove,
   moveAccuracy,
   nextMistake,
   OPENING_NAMES,
@@ -94,5 +95,24 @@ describe('opening names', () => {
     for (const [line] of OPENING_NAMES) play(START_FEN, line);
     for (const id of openingIds())
       for (const d of Object.values(dictionaries)) expect(d[`opening.${id}` as Key], id).toBeTruthy();
+  });
+});
+
+describe('explainMove', () => {
+  const idea = (fen: string, before: string, u: string, score = 0): string => {
+    const { p } = play(fen, before);
+    return explainMove(p, moveOf(p, u), score).kind;
+  };
+
+  it('names the idea, most concrete first', () => {
+    expect(idea(START_FEN, 'f2f3 e7e5 g2g4', 'd8h4')).toBe('mate');
+    expect(idea('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1', '', 'a1a2', MATE - 3)).toBe('mateSoon');
+    expect(idea('4k3/8/8/3q4/8/8/8/3RK3 w - - 0 1', '', 'd1d5')).toBe('win');
+    expect(idea('k7/4P3/8/8/8/8/8/4K3 w - - 0 1', '', 'e7e8q')).toBe('promote');
+    expect(idea(START_FEN, 'e2e4 e7e5 g1f3 b8c6 f1c4 g8f6', 'e1g1')).toBe('castle');
+    expect(idea(START_FEN, '', 'g1f3')).toBe('develop');
+    expect(idea(START_FEN, '', 'e2e4')).toBe('centre');
+    // the knight on f3 is attacked by a pawn: moving it away saves it
+    expect(idea(START_FEN, 'g1f3 e7e5 b1c3 e5e4', 'f3d4')).toBe('save');
   });
 });

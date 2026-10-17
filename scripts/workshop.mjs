@@ -607,6 +607,25 @@ check(
 await page.screenshot({ path: 'shots/workshop-13-coach.png' });
 await page.evaluate(() => window.__grain.game.chess.leave(false));
 
+// teach mode: the best move and why, every turn (and the board seen from above by default)
+await page.evaluate(() => window.__grain.game.chess.start(1));
+await page.waitForTimeout(300);
+check(
+  'view: chess starts seen from above',
+  await page.evaluate(() => window.__grain.game.chess.view.top === true),
+);
+await page.locator('.k-teach:visible').click();
+await page.waitForFunction(() => window.__grain.game.chess.teachMove, null, { timeout: 15000 });
+check(
+  'teach: the best move is shown with its idea',
+  /^Best move: \S+\. \S/.test(await coachLine()),
+  await coachLine(),
+);
+await page.locator('.k-teach:visible').click();
+await page.waitForTimeout(200);
+check('teach: off again clears it', await page.evaluate(() => window.__grain.game.chess.teachMove === 0));
+await page.evaluate(() => window.__grain.game.chess.leave(false));
+
 // ---------- chess: game review, resume ----------
 await page.evaluate(async () => {
   const g = window.__grain.game;

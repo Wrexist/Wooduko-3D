@@ -5,7 +5,7 @@ import { Sparkles } from '../fx/particles';
 import { easeInOutCubic, easeInQuad } from '../fx/tween';
 import { createCamera, fitCamera } from './camera';
 import { buildBoard } from './checkersScene';
-import { pieceGeometries } from './chessPieces';
+import { bishopSlit, pieceGeometries } from './chessPieces';
 import { linearColor } from './color';
 import { addLights } from './lights';
 import type { Textures } from './textures';
@@ -91,6 +91,8 @@ interface Piece {
   readonly group: THREE.Group;
   readonly tilt: THREE.Group;
   readonly body: THREE.Mesh;
+  /** The bishop's groove (hidden on other pieces; a promotion can turn it on). */
+  readonly slit: THREE.Mesh;
   readonly white: boolean;
   /** Last frame's position (for the lean) and the landing settle (−1 = none). */
   readonly prev: THREE.Vector3;
@@ -124,6 +126,11 @@ export class ChessScene {
   private readonly fading: Fading[] = [];
   private run: Running | null = null;
   private readonly pieceGeos = pieceGeometries();
+  private readonly slitGeo = bishopSlit();
+  private readonly slitMat = new THREE.MeshStandardMaterial({
+    color: linearColor(CHESS.slit),
+    roughness: 0.8,
+  });
   /** Maple for you, walnut for the computer. */
   private readonly woodMats: [THREE.MeshStandardMaterial, THREE.MeshStandardMaterial];
   /** The piece following the finger, and where it's heading. */
@@ -135,6 +142,8 @@ export class ChessScene {
   /** Captured pieces beside the board: yours in front, the computer's behind. */
   private readonly trays = new THREE.Group();
   private trayKey = '';
+  /** Straight down onto the board (the default), or the angled view. */
+  private top = true;
   private readonly hits: THREE.Intersection[] = [];
   private readonly dotGeo = new THREE.CircleGeometry(0.16, 32).rotateX(-Math.PI / 2);
   private readonly ringGeo = new THREE.RingGeometry(0.41, 0.49, 48).rotateX(-Math.PI / 2);
@@ -235,6 +244,10 @@ export class ChessScene {
     this.coords.position.y = CHECKERS.floorY + 0.004;
     this.coords.renderOrder = 1;
     this.scene.add(this.coords, this.trays);
+  }
+
+  setTop(on: boolean): void {
+    this.top = on;
   }
 
   /** Arrows on the board (the hint, the better move, a review's best move); [] clears them. */
@@ -548,6 +561,7 @@ export class ChessScene {
     const g = this.pieceGeos[type - 1];
     if (!p || !g) return;
     p.body.geometry = g;
+    p.slit.visible = type === 3;
     p.body.rotation.y = type === 2 ? (p.white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI) : 0;
   }
 
@@ -609,12 +623,17 @@ export class ChessScene {
       slots: [],
       hit: [0, 0],
       // the back row's tall pieces stand up into the view: a little more room at the far edge
-      bounds: { x0: -m, x1: m, z0: -m - CHESS.backRoom, z1: m + CHESS.frontRoom },
+      bounds: {
+        x0: -m,
+        x1: m,
+        z0: -m - (this.top ? CHESS.backRoomTop : CHESS.backRoom),
+        z1: m + (this.top ? CHESS.frontRoomTop : CHESS.frontRoom),
+      },
       dealFromX: 0,
       padTop: CHECKERS.padTop,
       padBottom: CHECKERS.padBottom,
     };
-    const dir = new THREE.Vector3(...CHESS.camDir).normalize();
+    const dir = new THREE.Vector3(...(this.top ? CHESS.camTop : CHESS.camDir)).normalize();
     fitCamera(
       this.camera,
       width,
@@ -638,10 +657,12 @@ export class ChessScene {
     if (type === 2) body.rotation.y = white ? CHESS.knightYaw : CHESS.knightYaw - Math.PI;
     body.castShadow = true;
     body.receiveShadow = true;
-    tilt.add(body);
+    const slit = new THREE.Mesh(this.slitGeo, this.slitMat);
+    slit.visible = type === 3;
+    tilt.add(body, slit);
     group.add(tilt);
     this.scene.add(group);
-    return { group, tilt, body, white, prev: new THREE.Vector3(), settle: -1, sx: 0, sz: 0 };
+    return { group, tilt, body, slit, white, prev: new THREE.Vector3(), settle: -1, sx: 0, sz: 0 };
   }
 
   dispose(): void {
@@ -663,7 +684,8 @@ export class ChessScene {
     cm.map?.dispose();
     cm.dispose();
     this.coords.geometry.dispose();
-    for (const g of [...this.pieceGeos, this.dotGeo, this.ringGeo, this.squareGeo]) g.dispose();
+    this.slitMat.dispose();
+    for (const g of [...this.pieceGeos, this.slitGeo, this.dotGeo, this.ringGeo, this.squareGeo]) g.dispose();
     for (const m of [
       ...this.woodMats,
       this.dotMat,
