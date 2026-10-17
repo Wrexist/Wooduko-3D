@@ -58,3 +58,8 @@
 - **Checkers AI belongs in a Web Worker:** a depth-9 alpha-beta search takes up to ~1.6 s on a desktop (more on a phone), which freezes the frame loop on the main thread. The opponent runs in `src/workshop/checkersWorker.ts` (Vite `new Worker(new URL(..., import.meta.url), { type: 'module' })`); if the worker can't start or dies, the controller answers on the main thread. Never import the worker file from the main thread (its `self.onmessage = …` would take over `window.onmessage`): shared code lives in `checkersAsk.ts`.
 
 - **Flat markers need `toneMapped: false`:** translucent amber markers drawn through the tone mapper came out pale cream and vanished against light wood. Marker materials skip tone mapping, and the dark squares are deep walnut so amber reads on them.
+
+- **Chess engine: a clock-stopped search is mid-line:** the engine aborts by throwing when its time runs out, which leaves moves made on the board. `think`/`scoreAll` unwind the move stack back to where they started (`unwind`); without it the next legal-move list came from a corrupted position. Rules are pinned by perft tests (start, Kiwipete, positions 3–5).
+
+- **Lit dark ink washes out:** the scene's key light is bright enough that a dark-brown `MeshStandardMaterial` symbol rendered as caramel. Burned-in chess symbols use unlit `MeshBasicMaterial`.
+

@@ -44,6 +44,7 @@ import type { KeyValueStore } from './platform/storage';
 import { KlotskiMode } from './workshop/klotskiMode';
 import { PlankMode } from './workshop/plankMode';
 import { CheckersMode } from './workshop/checkersMode';
+import { ChessMode } from './workshop/chessMode';
 import { WorkshopHub } from './ui/workshop';
 import { GOAL_ICON, goalLabel, JourneyMap, LevelIntro } from './ui/journey';
 import { LevelDecor } from './render/levelDecor';
@@ -85,6 +86,9 @@ export interface GameDeps {
 const CHECKERS_ICON =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></svg>';
 
+const CHESS_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 21h10M8 17h8l-1-5H9z"/><path d="M9 12c-1-2 0-5 3-7 2 1 3 3 3 7"/><path d="M12 2v3M10.5 3.5h3"/></svg>';
+
 const PLANK_ICON =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h10v6h6v10H4z"/><path d="M4 12h6v8M10 4v8"/></svg>';
 
@@ -117,8 +121,9 @@ export class Game {
   private readonly klotski: KlotskiMode;
   private readonly plank: PlankMode;
   private readonly checkers: CheckersMode;
+  private readonly chess: ChessMode;
   /** Every Workshop game (each owns a scene, a level list, a bar, tools and a solved card). */
-  private readonly workshop: readonly (KlotskiMode | PlankMode | CheckersMode)[];
+  private readonly workshop: readonly (KlotskiMode | PlankMode | CheckersMode | ChessMode)[];
   private readonly hub: WorkshopHub;
   private readonly drag: DragController;
 
@@ -212,7 +217,8 @@ export class Game {
     this.klotski = new KlotskiMode(wsDeps);
     this.plank = new PlankMode(wsDeps);
     this.checkers = new CheckersMode(wsDeps);
-    this.workshop = [this.klotski, this.plank, this.checkers];
+    this.chess = new ChessMode(wsDeps);
+    this.workshop = [this.klotski, this.plank, this.checkers, this.chess];
     this.hub = new WorkshopHub(
       [
         {
@@ -246,6 +252,17 @@ export class Game {
             this.sound.tick();
             this.hub.hide();
             this.checkers.openPicker();
+          },
+        },
+        {
+          id: 'chess',
+          icon: CHESS_ICON,
+          name: t('workshop.chess'),
+          desc: t('workshop.chessDesc'),
+          open: () => {
+            this.sound.tick();
+            this.hub.hide();
+            this.chess.openPicker();
           },
         },
       ],
@@ -717,6 +734,7 @@ export class Game {
     this.hub.setStars('klotski', ...this.klotski.starCount);
     this.hub.setStars('plank', ...this.plank.starCount);
     this.hub.setStars('checkers', ...this.checkers.starCount);
+    this.hub.setStars('chess', ...this.chess.starCount);
     this.hub.show();
   }
 

@@ -9,7 +9,7 @@
 
 ## Wood workshop: small wood-themed games (requested Oct 12 2026, not promoted yet)
 Same table, wood textures, sounds and haptics; one tile on Home ("Workshop"), each game ~2–5 min, offline, no timers by default.
-- **Wood chess**: carved pieces on the same board look, vs. a small offline engine (3 levels); daily chess puzzle (mate in 2)
+- **Wood chess**: BUILT on branch `workshop-klotski` (15 opponents up to a ~depth-11 alpha-beta engine in a Web Worker, burned-in symbols on discs, promotion picker). Still open: daily chess puzzle (mate in 2)
 - **Checkers (Dam)**: BUILT on branch `workshop-klotski` (15 computer opponents, depth 1 → 9; the computer thinks in a Web Worker; undo/hint cap stars at two)
 - **Plank fit (tangram-style)**: BUILT on branch `workshop-klotski` (40 generated levels, tap to turn, hints cost stars)
 - **Wooden sliding puzzle (Klotski)**: BUILT on branch `workshop-klotski` (30 levels, stars vs. solver par, `npm run workshop`)

@@ -2515,7 +2515,7 @@ button {
 /* short landscape phones: Workshop games side by side, without the one-line description */
 @media (max-height: 500px) and (orientation: landscape) {
   .hub-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
   }
   .hub-game {
@@ -2527,4 +2527,40 @@ button {
   .hub-text small {
     display: none;
   }
+}
+
+/* ---------- Chess: promotion picker ---------- */
+.chess-promo .card {
+  max-width: 340px;
+  text-align: center;
+}
+.chess-promo h2 {
+  margin: 0 0 14px;
+}
+.promo-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.promo-btn {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 240, 210, 0.6);
+  background: radial-gradient(circle at 40% 35%, #f6e2bd, #d9b07a);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.promo-btn:active {
+  transform: scale(0.94);
+}
+.promo-btn:focus-visible {
+  outline: 2px solid var(--honey);
+  outline-offset: 3px;
+}
+.promo-btn img {
+  width: 100%;
+  height: 100%;
 }

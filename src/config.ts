@@ -895,6 +895,24 @@ export const CHECKERS = {
   storageKey: 'grain_checkers_v1',
 } as const;
 
+/** Workshop: Chess against the computer (board, discs and markers share the Checkers look). */
+export const CHESS = {
+  /** Disc tints (linear RGB) and the burned-in symbol on each (sRGB hex). */
+  whiteTint: [1, 0.9, 0.76] as const,
+  blackTint: [0.1, 0.04, 0.018] as const,
+  whiteInk: 0x2b1306,
+  blackInk: 0xe9cc96,
+  /** Symbol size on the disc top (units). */
+  glyph: 0.6,
+  /** Ring around a piece that can be taken, and the red square under a king in check. */
+  check: 0xff4a3a,
+  checkOpacity: 0.55,
+  /** Seconds for a piece to glide one move; knights hop this high (units). */
+  moveDuration: 0.26,
+  knightHop: 0.3,
+  storageKey: 'grain_chess_v1',
+} as const;
+
 export const HAPTICS = {
   pickup: 8,
   /** Tiny tick when a dragged piece snaps to a new cell. */

@@ -45,7 +45,7 @@ const POOL = 16;
 const centre = (i: number): number => i - SIZE / 2 + 0.5;
 
 /** The rim of a disc: a lathe of a rounded rectangle profile (the top is a separate cap). */
-function rimGeometry(): THREE.LatheGeometry {
+export function rimGeometry(): THREE.LatheGeometry {
   const { radius: R, height: H, edge: e } = CHECKERS;
   const pts: THREE.Vector2[] = [new THREE.Vector2(R - e, 0)];
   const arc = (cx: number, cy: number, a0: number, a1: number): void => {
@@ -58,6 +58,74 @@ function rimGeometry(): THREE.LatheGeometry {
   pts.push(new THREE.Vector2(R, H - e));
   arc(R - e, H - e, 0, Math.PI / 2);
   return new THREE.LatheGeometry(pts, 48);
+}
+
+/** The slab with a carved 8×8 board: light squares under, dark squares (one merged mesh) on top. */
+export function buildBoard(tex: Textures, table: THREE.Group, lightHex: number, darkHex: number): void {
+  const g = CHECKERS.wallGap + TABLE.bevel;
+  const h = SIZE / 2 + g;
+  const T = TABLE.halfSize;
+  const s = new THREE.Shape();
+  s.moveTo(-T, -T);
+  s.lineTo(T, -T);
+  s.lineTo(T, T);
+  s.lineTo(-T, T);
+  s.lineTo(-T, -T);
+  const hole = new THREE.Path();
+  hole.moveTo(-h, -h);
+  hole.lineTo(-h, h);
+  hole.lineTo(h, h);
+  hole.lineTo(h, -h);
+  hole.lineTo(-h, -h);
+  s.holes.push(hole);
+  const slabGeo = new THREE.ExtrudeGeometry(s, {
+    depth: TABLE.depth,
+    bevelEnabled: true,
+    bevelThickness: TABLE.bevel,
+    bevelSize: TABLE.bevel,
+    bevelSegments: TABLE.bevelSegments,
+    curveSegments: TABLE.curveSegments,
+  });
+  slabGeo.rotateX(Math.PI / 2);
+  slabGeo.translate(0, -TABLE.bevel, 0);
+  const slab = new THREE.Mesh(
+    slabGeo,
+    new THREE.MeshStandardMaterial({ map: tex.table, roughness: TABLE.roughness }),
+  );
+  slab.receiveShadow = true;
+  // light squares: one plane under everything; dark squares: one merged mesh on top
+  const lightGeo = new THREE.PlaneGeometry(SIZE + 0.4, SIZE + 0.4).rotateX(-Math.PI / 2);
+  const light = new THREE.Mesh(
+    lightGeo,
+    new THREE.MeshStandardMaterial({
+      map: tex.side,
+      color: linearColor(lightHex),
+      roughness: TABLE.boardRoughness,
+    }),
+  );
+  light.position.y = CHECKERS.floorY;
+  light.receiveShadow = true;
+  const parts: THREE.BufferGeometry[] = [];
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++)
+      if (isDark(r, c))
+        parts.push(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(centre(c), 0, centre(r)));
+  const darkGeo = mergeGeometries(parts);
+  for (const p of parts) p.dispose();
+  const dark = new THREE.Mesh(
+    darkGeo,
+    new THREE.MeshStandardMaterial({
+      map: tex.side,
+      color: linearColor(darkHex),
+      roughness: TABLE.boardRoughness,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    }),
+  );
+  dark.position.y = CHECKERS.floorY + 0.001;
+  dark.receiveShadow = true;
+  table.add(slab, light, dark);
 }
 
 /**
@@ -428,71 +496,7 @@ export class CheckersScene {
   }
 
   private buildTable(): void {
-    const tex = this.tex;
-    const g = CHECKERS.wallGap + TABLE.bevel;
-    const h = SIZE / 2 + g;
-    const T = TABLE.halfSize;
-    const s = new THREE.Shape();
-    s.moveTo(-T, -T);
-    s.lineTo(T, -T);
-    s.lineTo(T, T);
-    s.lineTo(-T, T);
-    s.lineTo(-T, -T);
-    const hole = new THREE.Path();
-    hole.moveTo(-h, -h);
-    hole.lineTo(-h, h);
-    hole.lineTo(h, h);
-    hole.lineTo(h, -h);
-    hole.lineTo(-h, -h);
-    s.holes.push(hole);
-    const slabGeo = new THREE.ExtrudeGeometry(s, {
-      depth: TABLE.depth,
-      bevelEnabled: true,
-      bevelThickness: TABLE.bevel,
-      bevelSize: TABLE.bevel,
-      bevelSegments: TABLE.bevelSegments,
-      curveSegments: TABLE.curveSegments,
-    });
-    slabGeo.rotateX(Math.PI / 2);
-    slabGeo.translate(0, -TABLE.bevel, 0);
-    const slab = new THREE.Mesh(
-      slabGeo,
-      new THREE.MeshStandardMaterial({ map: tex.table, roughness: TABLE.roughness }),
-    );
-    slab.receiveShadow = true;
-    // light squares: one plane under everything; dark squares: one merged mesh on top
-    const lightGeo = new THREE.PlaneGeometry(SIZE + 0.4, SIZE + 0.4).rotateX(-Math.PI / 2);
-    const light = new THREE.Mesh(
-      lightGeo,
-      new THREE.MeshStandardMaterial({
-        map: tex.side,
-        color: linearColor(CHECKERS.light),
-        roughness: TABLE.boardRoughness,
-      }),
-    );
-    light.position.y = CHECKERS.floorY;
-    light.receiveShadow = true;
-    const parts: THREE.BufferGeometry[] = [];
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++)
-        if (isDark(r, c))
-          parts.push(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(centre(c), 0, centre(r)));
-    const darkGeo = mergeGeometries(parts);
-    for (const p of parts) p.dispose();
-    const dark = new THREE.Mesh(
-      darkGeo,
-      new THREE.MeshStandardMaterial({
-        map: tex.side,
-        color: linearColor(CHECKERS.dark),
-        roughness: TABLE.boardRoughness,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1,
-      }),
-    );
-    dark.position.y = CHECKERS.floorY + 0.001;
-    dark.receiveShadow = true;
-    this.table.add(slab, light, dark);
+    buildBoard(this.tex, this.table, CHECKERS.light, CHECKERS.dark);
   }
 
   dispose(): void {

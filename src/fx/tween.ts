@@ -6,6 +6,7 @@ export const linear: Ease = (k) => k;
 export const easeOutCubic: Ease = (k) => 1 - (1 - k) ** 3;
 export const easeInCubic: Ease = (k) => k * k * k;
 export const easeInQuad: Ease = (k) => k * k;
+export const easeInOutCubic: Ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2);
 const BACK = 1.5;
 export const easeOutBack: Ease = (k) => 1 + (BACK + 1) * (k - 1) ** 3 + BACK * (k - 1) ** 2;
 

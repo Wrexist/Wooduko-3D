@@ -390,6 +390,110 @@ await page.waitForTimeout(200);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
 
+// ---------- Chess ----------
+await page.getByRole('button', { name: /Workshop/ }).click();
+await page.waitForTimeout(300);
+await page.getByRole('button', { name: /^Chess/ }).click();
+await page.waitForTimeout(300);
+await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level').first().click();
+await page.waitForTimeout(500);
+check(
+  'chess: level 1 starts with 20 moves',
+  await page.evaluate(() => {
+    const c = window.__grain.game.chess;
+    return c.active && c.phase === 'player' && c.legal.length === 20;
+  }),
+);
+const chessSq = (s) =>
+  page.evaluate((s) => {
+    const v = window.__grain.game.chess.view;
+    const q = v.camera.position
+      .clone()
+      .set((s % 8) - 3.5, -0.06, Math.floor(s / 8) - 3.5)
+      .project(v.camera);
+    return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight];
+  }, s);
+const tapChess = async (s) => {
+  const [x, y] = await chessSq(s);
+  await page.mouse.click(x, y);
+};
+const chessIdle = () =>
+  page.waitForFunction(() => ['player', 'over'].includes(window.__grain.game.chess.phase), null, {
+    timeout: 20000,
+  });
+// e2-e4 by two taps; the computer answers
+await tapChess(6 * 8 + 4);
+await page.waitForTimeout(150);
+await tapChess(4 * 8 + 4);
+await page.waitForFunction(() => window.__grain.game.chess.moves.length === 2, null, { timeout: 20000 });
+await chessIdle();
+check(
+  'chess: e2-e4 by tapping, computer replied',
+  await page.evaluate(() => window.__grain.game.chess.moves.length === 2),
+);
+await page.screenshot({ path: 'shots/workshop-10-chess.png' });
+await page.getByRole('button', { name: /Undo/ }).click();
+await page.waitForTimeout(200);
+check(
+  'chess: undo takes back both moves',
+  await page.evaluate(() => {
+    const c = window.__grain.game.chess;
+    return c.moves.length === 0 && c.helps === 1 && c.legal.length === 20;
+  }),
+);
+await page.getByRole('button', { name: /Hint/ }).click();
+await page.waitForFunction(() => window.__grain.game.chess.sel >= 0, null, { timeout: 15000 });
+check(
+  'chess: hint picks up a piece that can reach the pulsing square',
+  await page.evaluate(() => {
+    const c = window.__grain.game.chess;
+    return c.selMoves().some((m) => ((m >> 7) & 127) === (c.hintTo >> 3) * 16 + (c.hintTo & 7));
+  }),
+);
+// Scholar's mate set up from real moves, then Qxf7# by dragging
+await page.evaluate(async () => {
+  const ch = await import('/src/core/chess.ts');
+  const c = window.__grain.game.chess;
+  c.start(1);
+  for (const name of ['e2e4', 'e7e5', 'f1c4', 'b8c6', 'd1h5', 'g8f6']) {
+    const m = ch.legalMoves(c.pos).find((x) => ch.moveName(x) === name);
+    ch.makeMove(c.pos, m);
+    c.moves.push(m);
+  }
+  c.view.sync(c.board64());
+  c.beginTurn();
+});
+{
+  const [x0, y0] = await chessSq(3 * 8 + 7); // h5
+  const [x1, y1] = await chessSq(1 * 8 + 5); // f7
+  await page.mouse.move(x0, y0);
+  await page.mouse.down();
+  await page.mouse.move((x0 + x1) / 2, (y0 + y1) / 2, { steps: 4 });
+  await page.mouse.move(x1, y1, { steps: 4 });
+  await page.mouse.up();
+}
+await page.waitForSelector('.workshop-win:not(.hidden)', { timeout: 8000 });
+const chessWin = await page.evaluate(() => ({
+  title: document.querySelector('.workshop-win:not(.hidden) h2')?.textContent,
+  saved: JSON.parse(localStorage.getItem('grain_chess_v1') ?? '{}'),
+}));
+check(
+  'chess: checkmate by drag shows the win card and saves three stars',
+  chessWin.title === 'Checkmate!' && chessWin.saved.stars?.[0] === 3,
+  JSON.stringify(chessWin),
+);
+await page.screenshot({ path: 'shots/workshop-11-chess-won.png' });
+await page.locator('.workshop-win:not(.hidden)').getByRole('button', { name: 'Levels' }).click();
+await page.waitForTimeout(300);
+check(
+  'chess: level 2 unlocked',
+  (await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level:not([disabled])').count()) === 2,
+);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+
 // ---------- memory: cycling levels must not grow GPU resources ----------
 const mem = await page.evaluate(async () => {
   const g = window.__grain.game;
@@ -400,6 +504,7 @@ const mem = await page.evaluate(async () => {
     ['klotski', g.klotski],
     ['plank', g.plank],
     ['checkers', g.checkers],
+    ['chess', g.chess],
   ]) {
     m.start(1);
     await wait();
@@ -472,6 +577,7 @@ for (const [vw, vh] of [
     ['klotski', 30],
     ['plank', 40],
     ['checkers', 15],
+    ['chess', 15],
   ]) {
     const box = await pg.evaluate(
       async ([name, n]) => {
@@ -486,7 +592,7 @@ for (const [vw, vh] of [
           const L = m.level;
           for (const x of [-L.w / 2, L.w / 2])
             for (const z of [-L.h / 2, L.h / 2 + 0.5]) corners.push([x, z]);
-        } else if (name === 'checkers') {
+        } else if (name === 'checkers' || name === 'chess') {
           for (const x of [-4, 4]) for (const z of [-4, 4]) corners.push([x, z]);
         } else {
           const L = m.level;
