@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BLOCK, CAMERA_VIEWS, CHECKERS, CHESS, RENDER, TABLE } from '../config';
 import type { LayoutSpec } from '../config';
+import { Sparkles } from '../fx/particles';
 import { easeInOutCubic, easeInQuad } from '../fx/tween';
 import { createCamera, fitCamera } from './camera';
 import { buildBoard, rimGeometry } from './checkersScene';
@@ -75,6 +76,10 @@ export class ChessScene {
   private readonly checkMat: THREE.MeshBasicMaterial;
   /** Coach: rings on your pieces that can be taken for free (or by something cheaper). */
   private readonly dangerMat: THREE.MeshBasicMaterial;
+  /** A gold ring that sweeps out from a solved square. */
+  private readonly waveMat: THREE.MeshBasicMaterial;
+  private readonly wave: THREE.Mesh;
+  private waveT = 1;
   private readonly dangers: THREE.Mesh[] = [];
   private readonly dots: THREE.Mesh[] = [];
   private readonly rings: THREE.Mesh[] = [];
@@ -83,6 +88,11 @@ export class ChessScene {
   private readonly checkSquare: THREE.Mesh;
   private time = 0;
   private hintTo = -1;
+  /** Celebrations: sparkles, and a piece that bounces on its square. */
+  private readonly sparkles: Sparkles;
+  private bounceSq = -1;
+  private bounceT = 1;
+  private readonly projected = new THREE.Vector3();
   private readonly camPos = new THREE.Vector3();
   private readonly ray = new THREE.Raycaster();
   private readonly ndc = new THREE.Vector2();
@@ -93,6 +103,7 @@ export class ChessScene {
     this.scene.background = new THREE.Color(RENDER.background);
     this.disposeLights = addLights(this.scene);
     this.scene.add(this.table);
+    this.sparkles = new Sparkles(this.scene, tex);
     const { radius: R, height: H, edge: e } = CHECKERS;
     this.capGeo = new THREE.CircleGeometry(R - e, 48).rotateX(-Math.PI / 2).translate(0, H, 0);
     // one flat square per piece type, its UVs on that piece's cell of the atlas
@@ -153,6 +164,8 @@ export class ChessScene {
     this.lastMat = flat(CHECKERS.marker, CHECKERS.lastOpacity);
     this.checkMat = flat(CHESS.check, CHESS.checkOpacity);
     this.dangerMat = flat(CHESS.danger, CHESS.dangerOpacity);
+    this.waveMat = flat(CHESS.wave, 0);
+    this.waveMat.blending = THREE.AdditiveBlending;
     const y = CHECKERS.floorY;
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, dy: number): THREE.Mesh => {
       const m = new THREE.Mesh(geo, mat);
@@ -168,6 +181,8 @@ export class ChessScene {
     for (let i = 0; i < POOL; i++) this.dots.push(add(this.dotGeo, this.dotMat, 0.016));
     for (let i = 0; i < 16; i++) this.rings.push(add(this.ringGeo, this.dotMat, 0.016));
     for (let i = 0; i < 16; i++) this.dangers.push(add(this.ringGeo, this.dangerMat, 0.015));
+    this.wave = add(this.ringGeo, this.waveMat, 0.03);
+    this.wave.renderOrder = 5;
     buildBoard(tex, this.table, CHECKERS.light, CHECKERS.dark);
   }
 
@@ -182,6 +197,7 @@ export class ChessScene {
   /** Every piece where the board says (64 squares, ±type), no animation. */
   sync(board: readonly number[]): void {
     this.run = null;
+    this.endBounce();
     for (const p of this.pieces.values()) p.group.removeFromParent();
     this.pieces.clear();
     board.forEach((v, s) => {
@@ -241,8 +257,63 @@ export class ChessScene {
     this.hintTo = o.hint;
   }
 
+  /** A solved card: sparkles from the square and its piece bounces; `big` adds bursts around the board. */
+  celebrate(s: number, big: boolean): void {
+    const burst = (sq: number, n: number): void =>
+      this.sparkles.emit(
+        centre(colOf(sq)),
+        CHECKERS.floorY + CHESS.sparkY,
+        centre(rowOf(sq)),
+        n,
+        CHESS.sparkSpeed,
+        CHESS.sparkUp,
+        0.5,
+      );
+    burst(s, big ? CHESS.sparkBig : CHESS.sparkSmall);
+    if (big) for (const sq of [0, 7, 56, 63, 27, 36]) burst(sq, CHESS.sparkSmall);
+    this.wave.position.set(centre(colOf(s)), this.wave.position.y, centre(rowOf(s)));
+    this.wave.visible = true;
+    this.waveT = 0;
+    this.endBounce();
+    this.bounceSq = s;
+    this.bounceT = 0;
+  }
+
+  /** Screen point (CSS px) over a square's centre. */
+  screenOf(s: number, width: number, height: number): { x: number; y: number } {
+    const v = this.projected.set(centre(colOf(s)), CHECKERS.floorY + CHESS.sparkY, centre(rowOf(s)));
+    v.project(this.camera);
+    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height };
+  }
+
+  private endBounce(): void {
+    if (this.bounceSq >= 0) this.pieces.get(this.bounceSq)?.group.scale.setScalar(1);
+    this.bounceSq = -1;
+    this.bounceT = 1;
+  }
+
   update(dt: number): void {
     this.time += dt;
+    this.sparkles.update(dt);
+    if (this.waveT < 1) {
+      this.waveT = Math.min(1, this.waveT + dt / CHESS.waveTime);
+      const k = 1 - Math.pow(1 - this.waveT, 3);
+      this.wave.scale.setScalar(0.6 + k * CHESS.waveScale);
+      this.waveMat.opacity = (1 - this.waveT) * CHESS.waveOpacity;
+      this.wave.visible = this.waveT < 1;
+    }
+    if (this.bounceT < 1) {
+      this.bounceT = Math.min(1, this.bounceT + dt / CHESS.bounceTime);
+      const k = this.bounceT;
+      const g = this.pieces.get(this.bounceSq)?.group;
+      if (g)
+        g.scale.set(
+          1 + CHESS.bounceScale * Math.sin(Math.PI * k) * (1 - k * 0.5),
+          1 + CHESS.bounceScale * 1.6 * Math.sin(Math.PI * k),
+          1 + CHESS.bounceScale * Math.sin(Math.PI * k) * (1 - k * 0.5),
+        );
+      if (k >= 1) this.endBounce();
+    }
     if (this.hintTo >= 0) {
       const hx = centre(colOf(this.hintTo));
       const hz = centre(rowOf(this.hintTo));
@@ -393,6 +464,7 @@ export class ChessScene {
 
   dispose(): void {
     this.run = null;
+    this.sparkles.dispose();
     for (const p of this.pieces.values()) p.group.removeFromParent();
     this.pieces.clear();
     for (const f of this.fading) disposeClones(f.group);
@@ -414,6 +486,7 @@ export class ChessScene {
       this.lastMat,
       this.checkMat,
       this.dangerMat,
+      this.waveMat,
     ])
       m.dispose();
     this.atlas.dispose();

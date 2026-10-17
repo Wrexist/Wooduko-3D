@@ -65,3 +65,7 @@
 
 - **Lesson positions must be checked by the engine, not by eye:** of the first lesson drafts, four were wrong. Winning the queen with a lone knight or bishop is a draw (insufficient material), so the engine scored it 0. And a "mate in two" had a mate in one. `tests/chessSchool.test.ts` runs every step through the engine (mate distance for mates, material for tactics, a breadth-first par for "take every piece").
 
+
+- **Engine-mined puzzles come out easy; use the Lichess set:** mining blunders from noisy computer games gave ~2,000 puzzles, but re-rated by which computer level finds them, 90% were under 1000 (a loose piece is a loose piece), and filtering for ones a shallow search misses yielded almost nothing. The Lichess puzzle database is public domain (CC0) with ratings from real attempts and theme tags: `npm run chess:import` keeps ~60 per 100-point band from 500 to 2700. Its .zst starts with a skippable frame that Node's zstd rejects: read from byte 12.
+
+- **Python on Windows writes CRLF:** a one-off Python edit (text mode) turned a whole file into CRLF and broke escaped newline strings. Edit with Node (`fs`) or the editor instead.

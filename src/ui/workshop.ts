@@ -44,8 +44,13 @@ export class LevelPicker extends WorkshopOverlay {
     lead: string,
     private readonly total: number,
     h: { onPlay(n: number): void; onClose(): void },
-    /** `titles`: a list with names (lessons) instead of numbered stones; `allOpen`: no locks; `foot`: extra controls. */
-    private readonly opts: { titles?: readonly string[]; allOpen?: boolean; foot?: HTMLElement } = {},
+    /** `titles`: a list with names (lessons) instead of numbered stones; `allOpen`: no locks; `head` / `foot`: extra controls. */
+    private readonly opts: {
+      titles?: readonly string[];
+      allOpen?: boolean;
+      head?: HTMLElement;
+      foot?: HTMLElement;
+    } = {},
   ) {
     super('workshop dialog-layer', `${id}Title`);
     this.card.classList.add('wide', 'workshop-card');
@@ -59,6 +64,7 @@ export class LevelPicker extends WorkshopOverlay {
         el('div', {}, [el('h2', { id: `${id}Title` }, [title]), el('p', { class: 'k-lead' }, [lead])]),
         close,
       ]),
+      ...(opts.head ? [opts.head] : []),
       el('div', { class: 'k-progress' }, [
         el('span', { class: 'k-star', html: ICONS.star }),
         this.count,
@@ -232,6 +238,30 @@ export class GameTools {
 export interface WinStat {
   readonly label: string;
   readonly value: string;
+  /** Count the number up from `from` to `to` (shown with `format`); `gain` glows it. */
+  readonly count?: { readonly from: number; readonly to: number; format(n: number): string };
+  readonly gain?: boolean;
+}
+
+/** Seconds a counting stat takes. */
+const COUNT_UP_S = 1.1;
+const reducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+/** Count a number up in `node` (time-based, eased; instant with reduced motion). */
+export function countUp(node: HTMLElement, from: number, to: number, format: (n: number) => string): void {
+  if (reducedMotion() || from === to) {
+    node.textContent = format(to);
+    return;
+  }
+  const t0 = performance.now();
+  const tick = (now: number): void => {
+    const k = Math.min(1, (now - t0) / 1000 / COUNT_UP_S);
+    const e = 1 - Math.pow(1 - k, 3);
+    node.textContent = format(Math.round(from + (to - from) * e));
+    if (k < 1 && node.isConnected) requestAnimationFrame(tick);
+  };
+  node.textContent = format(from);
+  requestAnimationFrame(tick);
 }
 
 /** Solved card: stars that pop in, a row of stats, Next level, and Try again / Levels side by side. */
@@ -241,11 +271,12 @@ export class WinCard extends Overlay {
   private readonly note = el('p', { class: 'k-note' });
   private readonly next = el('button', { class: 'cta' }, [t('workshop.next')]);
   private readonly title = el('h2', { id: 'kWinTitle' }, [t('workshop.solved')]);
+  private readonly replay = el('button', { class: 'ghost-btn' }, [t('workshop.replay')]);
 
   constructor(h: { onNext(): void; onReplay(): void; onLevels(): void }) {
     super('workshop-win dialog-layer', 'kWinTitle');
     this.card.classList.add('k-win');
-    const replay = el('button', { class: 'ghost-btn' }, [t('workshop.replay')]);
+    const replay = this.replay;
     const levels = el('button', { class: 'ghost-btn' }, [t('workshop.levels')]);
     this.next.addEventListener('click', h.onNext);
     replay.addEventListener('click', h.onReplay);
@@ -260,8 +291,17 @@ export class WinCard extends Overlay {
   }
 
   /** `title` replaces "Solved!" (a lost game); a lost game (0 stars) shows no star row. */
-  present(stars: number, stats: readonly WinStat[], hasNext: boolean, note = '', title?: string): void {
+  present(
+    stars: number,
+    stats: readonly WinStat[],
+    hasNext: boolean,
+    note = '',
+    title?: string,
+    opts: { replay?: string; party?: boolean } = {},
+  ): void {
     this.title.textContent = title ?? t('workshop.solved');
+    this.replay.textContent = opts.replay ?? t('workshop.replay');
+    this.card.classList.toggle('party', opts.party === true);
     this.stars.hidden = stars === 0 && title !== undefined;
     this.stars.replaceChildren();
     for (let i = 0; i < 3; i++)
@@ -269,7 +309,11 @@ export class WinCard extends Overlay {
     this.stars.setAttribute('role', 'img');
     this.stars.setAttribute('aria-label', t('journey.stars', { n: stars }));
     this.stats.replaceChildren(
-      ...stats.map((s) => el('div', {}, [el('dt', {}, [s.label]), el('dd', {}, [s.value])])),
+      ...stats.map((s) => {
+        const dd = el('dd', { class: s.gain ? 'gain' : '' }, [s.value]);
+        if (s.count) countUp(dd, s.count.from, s.count.to, s.count.format);
+        return el('div', {}, [el('dt', {}, [s.label]), dd]);
+      }),
     );
     this.note.textContent = note;
     this.note.hidden = !note;

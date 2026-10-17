@@ -603,6 +603,115 @@ await page.screenshot({ path: 'shots/workshop-13-coach.png' });
 await page.evaluate(() => window.__grain.game.chess.leave(false));
 await page.waitForTimeout(200);
 
+// ---------- Chess school: daily training (spaced repetition) ----------
+check(
+  'training: the coached mistake became a training card',
+  await page.evaluate(() =>
+    Object.keys(JSON.parse(localStorage.getItem('grain_chess_train_v1') ?? '{}').cards ?? {}).some((k) =>
+      k.startsWith('m:'),
+    ),
+  ),
+);
+await page.evaluate(() => window.__grain.game.school.openPicker());
+await page.waitForTimeout(400);
+check(
+  'training: the panel shows a rating and a start button',
+  /\d/.test((await page.locator('.train-rating').textContent()) ?? '') &&
+    (await page.locator('.train-go').isVisible()),
+);
+await page.screenshot({ path: 'shots/workshop-14-training.png' });
+await page.locator('.train-go').click();
+await page.waitForFunction(
+  () => window.__grain.game.school.session?.idx === 0 && window.__grain.game.school.phase === 'player',
+);
+const queueLen = await page.evaluate(() => window.__grain.game.school.session.queue.length);
+check(
+  'training: a session of new and due cards, one strip segment each',
+  queueLen >= 6 && (await page.locator('.k-bar:not([hidden]) .train-strip i').count()) === queueLen,
+  `${queueLen} cards`,
+);
+const cardLine = () =>
+  page.evaluate(async () => {
+    const c = window.__grain.game.school;
+    const id = c.session.queue[c.session.idx];
+    const d = (await import('/src/core/chessTrain.ts')).drillOf(id);
+    return { id, line: d?.line ?? d?.moves ?? [] };
+  });
+const playLine = async (line) => {
+  for (let k = 0; k < line.length; k += 2) {
+    await page.waitForFunction(() => ['player', 'over'].includes(window.__grain.game.school.phase), null, {
+      timeout: 15000,
+    });
+    if ((await page.evaluate(() => window.__grain.game.school.phase)) === 'over') return;
+    await tapOn(line[k].slice(0, 2));
+    await tapOn(line[k].slice(2, 4));
+  }
+};
+const first = await cardLine();
+await playLine(first.line);
+await page.waitForFunction(() => window.__grain.game.school.session.marks[0] === 'ok', null, {
+  timeout: 20000,
+});
+check(
+  'training: a solved card is scheduled for a later day',
+  await page.evaluate((id) => {
+    const s = JSON.parse(localStorage.getItem('grain_chess_train_v1'));
+    const today = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
+    return (s.cards[id]?.due ?? 0) > today;
+  }, first.id),
+);
+await page.waitForFunction(
+  () => window.__grain.game.school.session.idx === 1 && window.__grain.game.school.phase === 'player',
+  null,
+  { timeout: 10000 },
+);
+// a wrong first move: the card is missed and comes back later in the session
+const second = await cardLine();
+const wrongMove = await page.evaluate((want) => {
+  const c = window.__grain.game.school;
+  const n = (s) => String.fromCharCode(97 + (s & 7)) + String(8 - (s >> 4));
+  const names = c.legal.map((m) => n(m & 127) + n((m >> 7) & 127));
+  return names.find((x) => x !== want.slice(0, 4)) ?? names[0];
+}, second.line[0]);
+await tapOn(wrongMove.slice(0, 2));
+await tapOn(wrongMove.slice(2, 4));
+await page.waitForFunction(
+  () => window.__grain.game.school.stepMistakes === 1 && window.__grain.game.school.phase === 'player',
+  null,
+  { timeout: 15000 },
+);
+await playLine(second.line);
+await page.waitForFunction(() => window.__grain.game.school.session.marks[1] !== '', null, {
+  timeout: 20000,
+});
+check(
+  'training: a missed card comes back in the same session',
+  await page.evaluate(
+    ([id, n]) => {
+      const s = window.__grain.game.school.session;
+      // a brand-new opening is being learned (its moves glow), so a slip there isn't a miss
+      if (id.startsWith('o:')) return s.marks[1] === 'ok' && s.queue.length === n;
+      return s.marks[1] === 'miss' && s.queue.length === n + 1 && s.queue.lastIndexOf(id) > 1;
+    },
+    [second.id, queueLen],
+  ),
+);
+await page.evaluate(() => {
+  const c = window.__grain.game.school;
+  c.advanceT = -1;
+  c.session.idx = c.session.queue.length - 1;
+  c.nextCard();
+});
+await page.waitForTimeout(1400);
+check(
+  'training: the summary counts the session and the streak',
+  (await page.locator('#kWinTitle:visible').textContent())?.includes('Training complete') &&
+    (await page.evaluate(() => JSON.parse(localStorage.getItem('grain_chess_train_v1')).streak)) === 1,
+);
+await page.screenshot({ path: 'shots/workshop-15-training-done.png' });
+await page.evaluate(() => window.__grain.game.school.leave(false));
+await page.waitForTimeout(200);
+
 // ---------- memory: cycling levels must not grow GPU resources ----------
 const mem = await page.evaluate(async () => {
   const g = window.__grain.game;

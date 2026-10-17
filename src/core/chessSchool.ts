@@ -32,15 +32,20 @@ import type { Pos, Side } from './chess';
  * - `move`: play one of the listed moves (long algebraic, e.g. "e5d6").
  * - `best`: play the engine's best move each turn for `moves` turns (it answers); mates must be exact.
  * - `mate`: checkmate the computer's lone king; stars against `par` moves.
+ * - `line`: play an opening line move by move (`accept` holds every move, both sides; the
+ *   computer plays the answers from it).
+ * - `puzzle`: find the solution (`accept`: your moves and the replies, from `fen`); any move that
+ *   mates at once also counts.
  */
-export type Goal = 'collect' | 'promote' | 'check' | 'escape' | 'castle' | 'move' | 'best' | 'mate';
+export type Goal =
+  'collect' | 'promote' | 'check' | 'escape' | 'castle' | 'move' | 'best' | 'mate' | 'line' | 'puzzle';
 
 export interface Step {
   readonly fen: string;
   readonly goal: Goal;
   /** `best`: how many of your moves; `mate`: moves for three stars. */
   readonly moves?: number;
-  /** `move`: the accepted moves. */
+  /** `move`: the accepted moves; `line`: the whole line. */
   readonly accept?: readonly string[];
 }
 
@@ -271,6 +276,9 @@ export function stepAllows(step: Step, p: Pos, m: number): boolean {
       return (mFlags(m) & F_CASTLE) !== 0;
     case 'move':
       return (step.accept ?? []).includes(plainName(m));
+    case 'line':
+      // moves since the line's start position
+      return (step.accept ?? [])[p.undo.length]?.slice(0, 4) === plainName(m);
     default:
       return true;
   }
@@ -406,6 +414,10 @@ export { BISHOP, KNIGHT, QUEEN, ROOK };
  * take everything / promote (Black never moves), or any move the step accepts.
  */
 export function goalHint(step: Step, p: Pos): number {
+  if (step.goal === 'line' || step.goal === 'puzzle') {
+    const want = (step.accept ?? [])[p.undo.length]?.slice(0, 4);
+    return legalMoves(p).find((m) => plainName(m) === want) ?? 0;
+  }
   if (step.goal !== 'collect' && step.goal !== 'promote')
     return legalMoves(p).find((m) => stepAllows(step, p, m)) ?? legalMoves(p)[0] ?? 0;
   let frontier: { pos: Pos; first: number }[] = [{ pos: fromFen(fenOf(p)), first: 0 }];

@@ -38,6 +38,28 @@ import {
   threatened,
 } from '../core/chessSchool';
 import type { Lesson, Reason, Step } from '../core/chessSchool';
+import {
+  addLessonCards,
+  addMistake,
+  buildSession,
+  dayOf,
+  drillOf,
+  dueCount,
+  emptyTrain,
+  finishSession,
+  fullFen,
+  moveOf,
+  parseTrain,
+  rankOf,
+  RANKS,
+  rateSolve,
+  recordResult,
+  SESSION,
+  themeOfCard,
+  uciOf,
+} from '../core/chessTrain';
+import type { TrainState } from '../core/chessTrain';
+import { floatText } from '../ui/floatText';
 import { kRecord, parseKProgress } from '../core/klotski';
 import type { KProgress } from '../core/klotski';
 import type { Haptics } from '../platform/haptics';
@@ -81,6 +103,22 @@ const PROMOS = [QUEEN, 4, 3, KNIGHT] as const;
 /** The lessons' opponent: full strength, quick. */
 const TEACHER: ChessOpponent = { ms: 700, depth: 64, noise: 0, blunder: 0 };
 const COACH_KEY = 'grain_chess_coach';
+const FLAME =
+  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c1 3.2-.6 5-2.2 6.8C8.3 10.4 7 12 7 14.5A5 5 0 0 0 12 20a5 5 0 0 0 5-5.4c-.1-1.9-1-3.3-2-4.4.1 1.5-.4 2.7-1.5 3.3.4-3.6-.7-8.6-1.5-11.5z"/></svg>';
+
+/** A training session: the cards in order, and how it's going. */
+interface Session {
+  readonly queue: string[];
+  idx: number;
+  /** Cards already tried once this session (later tries don't move the rating). */
+  readonly seen: Set<string>;
+  /** Per position in the queue: solved first time, missed, or not yet. */
+  readonly marks: ('ok' | 'miss' | '')[];
+  firsts: number;
+  solved: number;
+  combo: number;
+  readonly startRating: number;
+}
 
 /** "Promote to": four pieces in a row. */
 class PromoPicker extends Overlay {
@@ -166,6 +204,8 @@ export class ChessMode {
   /** Id of the review in flight, and the move count it was asked for. */
   private reviewId = 0;
   private reviewAt = -1;
+  /** The position the reviewed move was played from (your mistakes become training cards). */
+  private reviewFen = '';
   private worker: Worker | null = null;
   private brain: ChessBrain | null = null;
   private readonly pending = new Map<number, ChessAsk>();
@@ -183,6 +223,23 @@ export class ChessMode {
   private stepPar = 0;
   /** Seconds since the step was done (−1 = not yet): the next step follows after a beat. */
   private advanceT = -1;
+  // ---------- daily training ----------
+  private train: TrainState = emptyTrain();
+  private session: Session | null = null;
+  private cardStart = 0;
+  private cardHinted = false;
+  /** A new opening line: its moves glow (learn first, test from tomorrow). */
+  private cardStudy = false;
+  private readonly trainPanel = el('section', { class: 'train-panel', 'aria-labelledby': 'trainTitle' });
+  private readonly trainRating = el('b', { class: 'train-rating' });
+  private readonly trainRank = el('span', { class: 'train-rank' });
+  private readonly trainStreak = el('span', { class: 'train-streak' });
+  private readonly trainStreakN = el('b');
+  private readonly trainMeter = el('i');
+  private readonly trainNext = el('small', { class: 'train-next' });
+  private readonly trainDue = el('p', { class: 'train-due' });
+  private readonly trainGo = el('button', { class: 'cta train-go' }, [t('train.start')]);
+  private readonly strip = el('div', { class: 'train-strip', 'aria-hidden': 'true', hidden: '' });
   private width = 1;
   private height = 1;
   private safeBottom = 0;
@@ -215,12 +272,17 @@ export class ChessMode {
         },
       },
       school
-        ? { titles: LESSONS.map((l) => t(`school.${l.id}` as Key)), allOpen: true }
+        ? {
+            titles: LESSONS.map((l) => t(`school.${l.id}` as Key)),
+            allOpen: true,
+            head: this.buildTrainPanel(),
+          }
         : { foot: this.coachBtn },
     );
     this.bar = new GameBar({
       onBack: () => this.leave(true),
-      onRestart: () => (this.lesson ? this.loadStep(this.stepIdx) : this.start(this.n)),
+      onRestart: () =>
+        this.session ? this.loadCard() : this.lesson ? this.loadStep(this.stepIdx) : this.start(this.n),
     });
     this.tools = new GameTools(
       school ? { onHint: () => this.hint() } : { onUndo: () => this.undo(), onHint: () => this.hint() },
@@ -228,9 +290,10 @@ export class ChessMode {
     );
     this.win = new WinCard({
       onNext: () => this.start(Math.min(this.n + 1, count)),
-      onReplay: () => this.start(this.n),
+      onReplay: () => (this.session ? void this.startTraining() : this.start(this.n)),
       onLevels: () => this.leave(true),
     });
+    this.bar.node.append(this.strip);
     this.coachBtn.addEventListener('click', () => {
       this.coachOn = !this.coachOn;
       this.syncCoachBtn();
@@ -277,10 +340,13 @@ export class ChessMode {
   openPicker(): void {
     this.picker.update(this.progress.stars);
     this.picker.show();
+    if (this.school) void this.loadTrain().then(() => this.refreshTrainPanel());
   }
 
   start(n: number): void {
     if (n < 1 || n > this.count) return;
+    this.session = null;
+    this.strip.hidden = true;
     this.n = n;
     this.helps = 0;
     this.mistakes = 0;
@@ -323,6 +389,8 @@ export class ChessMode {
   }
 
   leave(toLevels: boolean): void {
+    this.session = null;
+    this.strip.hidden = true;
     this.askId++;
     this.reviewAt = -1;
     this.win.hide();
@@ -378,9 +446,10 @@ export class ChessMode {
     }
     if (this.advanceT >= 0) {
       this.advanceT += dt;
-      if (this.advanceT >= CHESS.stepPause) {
+      if (this.advanceT >= (this.session ? CHESS.cardPause : CHESS.stepPause)) {
         this.advanceT = -1;
-        if (this.lesson && this.stepIdx + 1 < this.lesson.steps.length) this.loadStep(this.stepIdx + 1);
+        if (this.session) this.nextCard();
+        else if (this.lesson && this.stepIdx + 1 < this.lesson.steps.length) this.loadStep(this.stepIdx + 1);
         else this.finishLesson();
       }
     }
@@ -440,7 +509,9 @@ export class ChessMode {
           ? 'school.wrongCheck'
           : step.goal === 'castle'
             ? 'school.wrongCastle'
-            : 'school.wrongMove',
+            : step.goal === 'line'
+              ? 'train.wrongLine'
+              : 'school.wrongMove',
       );
       return;
     }
@@ -465,6 +536,7 @@ export class ChessMode {
     this.liftNow = 0;
     if (!this.lesson) this.bar.coach('');
     this.refresh();
+    const fenBefore = this.lesson ? '' : fullFen(this.pos);
     const after = () => {
       const before = [...this.moves];
       makeMove(this.pos, m);
@@ -480,7 +552,7 @@ export class ChessMode {
         this.end(s);
         return;
       }
-      if (this.coachOn) this.askReview(before, m);
+      if (this.coachOn) this.askReview(before, m, fenBefore);
       this.think(chessOpponent(this.n));
     };
     if (dropped) {
@@ -518,7 +590,10 @@ export class ChessMode {
       const s = status(this.pos);
       if (this.lesson) {
         if (s !== 'play') this.failStep('school.wrongBest');
-        else this.beginTurn();
+        else {
+          this.beginTurn();
+          this.studyHint();
+        }
         return;
       }
       if (s !== 'play') this.end(s);
@@ -609,7 +684,8 @@ export class ChessMode {
 
   // ---------- the coach (games) ----------
 
-  private askReview(before: number[], played: number): void {
+  private askReview(before: number[], played: number, fen: string): void {
+    this.reviewFen = fen;
     this.reviewAt = this.moves.length;
     this.reviewId = this.ask({ kind: 'review', fen: this.startFen, moves: before, played });
   }
@@ -627,6 +703,7 @@ export class ChessMode {
     this.reviewAt = -1;
     if (this.lesson) return;
     if (rv.grade === 'mistake' || rv.grade === 'blunder') {
+      if (this.reviewFen && rv.best) void this.saveMistake(this.reviewFen, uciOf(rv.best));
       const label = t(rv.grade === 'blunder' ? 'coach.blunder' : 'coach.mistake');
       this.say(`${label} ${reasonText(rv.reason)}`, rv.grade === 'blunder' ? 'bad' : 'warn', {
         label: t('coach.takeBack'),
@@ -693,6 +770,46 @@ export class ChessMode {
         this.reviewId = this.ask({ kind: 'review', fen: this.startFen, moves: before, played: m });
         this.refresh();
         return;
+      case 'puzzle': {
+        const line = step.accept ?? [];
+        const want = line[this.moves.length - 1] ?? '';
+        const mate = status(this.pos) === 'mate';
+        if (!mate && uciOf(m).slice(0, want.length) !== want) {
+          // not the solution: back it goes, and after two tries the right move glows
+          unmakeMove(this.pos);
+          this.moves.pop();
+          this.stepMoves--;
+          this.last = [];
+          this.view.sync(this.board64());
+          this.beginTurn();
+          this.wrong('school.wrongBest', moveOf(this.pos, want));
+          return;
+        }
+        if (mate || this.moves.length >= line.length) {
+          this.stepDoneNow();
+          return;
+        }
+        this.phase = 'thinking';
+        this.thinkT = 0;
+        this.askId++;
+        this.reply = moveOf(this.pos, line[this.moves.length] ?? '');
+        this.refresh();
+        return;
+      }
+      case 'line': {
+        const line = step.accept ?? [];
+        if (this.moves.length >= line.length) {
+          this.stepDoneNow();
+          return;
+        }
+        // the answer from the line, after a natural pause
+        this.phase = 'thinking';
+        this.thinkT = 0;
+        this.askId++;
+        this.reply = moveOf(this.pos, line[this.moves.length] ?? '');
+        this.refresh();
+        return;
+      }
       case 'mate': {
         const s = status(this.pos);
         if (s === 'mate') this.stepDoneNow();
@@ -752,8 +869,11 @@ export class ChessMode {
   private failStep(key: Key): void {
     this.mistakes++;
     this.d.sound.nope();
-    const i = this.stepIdx;
-    this.loadStep(i);
+    if (this.session) {
+      const missed = this.stepMistakes + 1;
+      this.loadCard();
+      this.stepMistakes = missed;
+    } else this.loadStep(this.stepIdx);
     this.say(t(key), 'warn');
   }
 
@@ -763,6 +883,11 @@ export class ChessMode {
     this.phase = 'over';
     this.sel = -1;
     this.advanceT = 0;
+    if (this.session) {
+      this.cardDone();
+      this.refresh();
+      return;
+    }
     this.say(t('school.good'), 'good');
     this.d.sound.boardClear();
     this.d.haptics.pulse(HAPTICS.clear);
@@ -772,6 +897,8 @@ export class ChessMode {
   private finishLesson(): void {
     const stars = lessonStars(this.mistakes);
     this.save(stars, null);
+    const lesson = this.lesson;
+    if (lesson) void this.saveLessonCards(lesson);
     this.tools.show(false);
     this.say('');
     this.win.present(
@@ -791,6 +918,338 @@ export class ChessMode {
     this.sel = to64(mFrom(m));
     this.hintTo = to64(mTo(m));
     this.liftNow = 0;
+  }
+
+  // ---------- daily training ----------
+
+  private buildTrainPanel(): HTMLElement {
+    const flame = el('span', { class: 'train-flame', html: FLAME });
+    this.trainStreak.append(flame, this.trainStreakN);
+    this.trainPanel.append(
+      el('div', { class: 'train-head' }, [
+        el('h3', { id: 'trainTitle' }, [t('train.title')]),
+        this.trainStreak,
+      ]),
+      el('div', { class: 'train-score' }, [this.trainRating, this.trainRank]),
+      el('span', { class: 'train-meter', 'aria-hidden': 'true' }, [this.trainMeter]),
+      this.trainNext,
+      this.trainDue,
+      this.trainGo,
+      el('p', { class: 'train-lead' }, [t('train.lead')]),
+    );
+    this.trainGo.addEventListener('click', () => void this.startTraining());
+    return this.trainPanel;
+  }
+
+  private async loadTrain(): Promise<void> {
+    this.train = parseTrain(await this.d.storage.get(CHESS.trainKey));
+  }
+
+  private saveTrain(): void {
+    void this.d.storage.set(CHESS.trainKey, JSON.stringify(this.train));
+  }
+
+  private today(): number {
+    return dayOf(Date.now());
+  }
+
+  private refreshTrainPanel(): void {
+    const s = this.train;
+    const today = this.today();
+    const r = rankOf(s.rating);
+    const lo = RANKS[r] ?? 0;
+    const hi = RANKS[r + 1];
+    this.trainRating.textContent = num(s.rating);
+    this.trainRank.textContent = t(`train.rank.${r}` as Key);
+    const streak = s.lastDay >= today - 1 ? s.streak : 0;
+    this.trainStreakN.textContent = num(streak);
+    this.trainStreak.classList.toggle('hot', streak > 0 && s.lastDay === today);
+    this.trainStreak.setAttribute('aria-label', t('train.streak', { n: streak }));
+    this.trainNext.textContent =
+      hi !== undefined ? t('train.next', { rank: t(`train.rank.${r + 1}` as Key), n: num(hi) }) : '';
+    const fill = hi !== undefined ? Math.min(1, Math.max(0, (s.rating - lo) / (hi - lo))) : 1;
+    // grow the meter from empty each time the list opens
+    this.trainMeter.style.width = '0%';
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => (this.trainMeter.style.width = `${fill * 100}%`)),
+    );
+    const due = dueCount(s, today);
+    const fresh = buildSession(s, today).length - Math.min(due, SESSION.reviews);
+    this.trainDue.textContent = t('train.due', { due: num(due), fresh: num(Math.max(0, fresh)) });
+    this.trainGo.textContent = s.lastDay === today ? t('train.more') : t('train.start');
+    this.trainGo.classList.toggle('glow', s.lastDay !== today);
+  }
+
+  private async startTraining(): Promise<void> {
+    await this.loadTrain();
+    const queue = buildSession(this.train, this.today());
+    if (!queue.length) return;
+    this.session = {
+      queue,
+      idx: 0,
+      seen: new Set(),
+      marks: queue.map(() => ''),
+      firsts: 0,
+      solved: 0,
+      combo: 0,
+      startRating: this.train.rating,
+    };
+    this.helps = 0;
+    this.mistakes = 0;
+    this.picker.hide();
+    this.win.hide();
+    this.promo.hide();
+    this.bar.show(true);
+    this.tools.show(true);
+    this.strip.hidden = false;
+    if (!this.active) {
+      this.active = true;
+      this.d.onActive(true);
+    }
+    this.loadCard();
+    this.resize(this.width, this.height, this.safeBottom);
+    this.d.sound.tick();
+  }
+
+  /** Set up the session's current card. */
+  private loadCard(): void {
+    const ses = this.session;
+    const id = ses?.queue[ses.idx];
+    const drill = id ? drillOf(id) : null;
+    if (!ses || !id || !drill) {
+      if (ses) this.nextCard();
+      return;
+    }
+    this.stepIdx = 0;
+    this.stepMistakes = 0;
+    this.stepMoves = 0;
+    this.stepPar = 0;
+    this.cardHinted = false;
+    this.cardStudy = false;
+    this.cardStart = performance.now();
+    let step: Step;
+    let goal: string;
+    if (drill.kind === 'opening') {
+      step = { fen: START_FEN, goal: 'line', accept: drill.moves };
+      this.lesson = { id: 'train', steps: [step] };
+      this.cardStudy = !this.train.cards[id]?.reps;
+      const name = t(`open.${drill.id}` as Key);
+      goal = t(this.cardStudy ? 'train.goal.openNew' : 'train.goal.open', { name });
+    } else if (drill.kind === 'lesson') {
+      const lesson = LESSONS.find((l) => l.id === drill.lesson);
+      const real = lesson?.steps[drill.step];
+      if (!lesson || !real) {
+        this.nextCard();
+        return;
+      }
+      step = real;
+      this.lesson = { id: lesson.id, steps: [real] };
+      this.stepPar = real.goal === 'mate' ? (real.moves ?? 0) : 0;
+      goal = this.goalText(lesson, real, drill.step);
+    } else {
+      const moves = Math.ceil(drill.line.length / 2);
+      // Lichess puzzles follow their solution; your own mistakes are judged by the engine
+      step =
+        drill.rating === 0
+          ? { fen: drill.fen, goal: 'best', moves }
+          : { fen: drill.fen, goal: 'puzzle', accept: drill.line };
+      this.lesson = { id: 'train', steps: [step] };
+      const theme = themeOfCard(id);
+      goal =
+        drill.rating === 0
+          ? t('train.goal.mistake')
+          : theme.startsWith('mate')
+            ? t('train.goal.mate', { n: theme.slice(4) })
+            : moves > 1
+              ? t('train.goal.line', { n: moves })
+              : t('train.goal.win');
+    }
+    this.reset(step.fen);
+    this.say(goal, 'info');
+    this.beginTurn();
+    this.studyHint();
+    this.refreshStrip();
+  }
+
+  /** New opening lines: the next move glows. */
+  private studyHint(): void {
+    const step = this.step;
+    if (!this.session || !this.cardStudy || step?.goal !== 'line' || this.phase !== 'player') return;
+    const m = moveOf(this.pos, step.accept?.[this.moves.length] ?? '');
+    if (!m) return;
+    this.showMove(m);
+    this.refresh();
+  }
+
+  /** The card is done: schedule it, move the rating, and celebrate (or bring it back soon). */
+  private cardDone(): void {
+    const ses = this.session;
+    const id = ses?.queue[ses.idx];
+    if (!ses || !id) return;
+    const secs = (performance.now() - this.cardStart) / 1000;
+    const yourMoves = Math.max(1, Math.ceil(this.moves.length / 2));
+    const g = this.cardStudy ? 2 : rateSolve(this.stepMistakes, this.cardHinted, secs, yourMoves);
+    const first = !ses.seen.has(id);
+    ses.seen.add(id);
+    const today = this.today();
+    const before = this.train.rating;
+    const res = recordResult(this.train, id, g, today, first);
+    this.train = res.state;
+    this.saveTrain();
+    const ok = g > 1;
+    if (first) {
+      ses.firsts++;
+      if (ok) ses.solved++;
+      ses.marks[ses.idx] = ok ? 'ok' : 'miss';
+    }
+    const to = this.last[1] ?? 27;
+    if (!ok) {
+      ses.combo = 0;
+      // missed: it comes back a few cards later (once)
+      if (first) {
+        const at = Math.min(ses.queue.length, ses.idx + 1 + SESSION.again);
+        ses.queue.splice(at, 0, id);
+        ses.marks.splice(at, 0, '');
+      }
+      this.say(t('train.again'), 'warn');
+      this.d.sound.place();
+      this.d.haptics.pulse(HAPTICS.place);
+      this.view.celebrate(to, false);
+      this.refreshStrip();
+      return;
+    }
+    ses.combo++;
+    const days = res.card.due - today;
+    const theme = themeOfCard(id);
+    const themeText =
+      theme.startsWith('mate') ||
+      [
+        'fork',
+        'pin',
+        'skewer',
+        'discovered',
+        'deflection',
+        'sacrifice',
+        'hanging',
+        'promotion',
+        'endgame',
+      ].includes(theme)
+        ? t(`train.theme.${theme}` as Key)
+        : '';
+    const drill = drillOf(id);
+    this.say(
+      this.cardStudy && drill?.kind === 'opening'
+        ? t('train.learned', { idea: t(`open.${drill.id}.idea` as Key) })
+        : t('train.right', {
+            theme: themeText,
+            d: days === 1 ? t('train.day') : t('train.days', { n: days }),
+          }),
+      'good',
+    );
+    // the rewards: sparkles and a bounce, a rising chime that climbs with the run, numbers that float up
+    const rankUp = rankOf(this.train.rating) > rankOf(before);
+    this.view.celebrate(to, ses.combo >= 3 || rankUp);
+    this.d.sound.clear(Math.min(4, ses.combo), ses.combo);
+    this.d.haptics.pulse(ses.combo >= 3 ? HAPTICS.boardClear : HAPTICS.clear);
+    const p = this.view.screenOf(to, this.width, this.height);
+    const delta = this.train.rating - before;
+    if (delta)
+      floatText(document.body, `${delta > 0 ? '+' : '−'}${num(Math.abs(delta))}`, p.x, p.y - 10, true);
+    if (ses.combo >= 2)
+      window.setTimeout(
+        () => floatText(document.body, t('train.combo', { n: ses.combo }), p.x, p.y - 56, false),
+        260,
+      );
+    if (rankUp)
+      window.setTimeout(
+        () =>
+          floatText(
+            document.body,
+            t('train.rankUp', { rank: t(`train.rank.${rankOf(this.train.rating)}` as Key) }),
+            this.width / 2,
+            this.height * 0.42,
+            true,
+          ),
+        500,
+      );
+    this.refreshStrip();
+  }
+
+  private nextCard(): void {
+    const ses = this.session;
+    if (!ses) return;
+    ses.idx++;
+    if (ses.idx >= ses.queue.length) this.finishTraining();
+    else this.loadCard();
+  }
+
+  private finishTraining(): void {
+    const ses = this.session;
+    if (!ses) return;
+    const today = this.today();
+    this.train = finishSession(this.train, today);
+    this.saveTrain();
+    this.phase = 'over';
+    this.tools.show(false);
+    this.say('');
+    const acc = ses.firsts ? ses.solved / ses.firsts : 0;
+    const stars = acc >= 0.9 ? 3 : acc >= 0.7 ? 2 : 1;
+    const gain = this.train.rating - ses.startRating;
+    const rankUp = rankOf(this.train.rating) > rankOf(ses.startRating);
+    const tomorrow = Object.values(this.train.cards).filter((c) => c.due <= today + 1).length;
+    this.d.sound.boardClear();
+    this.d.haptics.pulse(HAPTICS.boardClear);
+    this.view.celebrate(27, true);
+    this.win.present(
+      stars,
+      [
+        {
+          label: t('train.statSolved'),
+          value: `${num(ses.solved)}/${num(ses.firsts)}`,
+          count: { from: 0, to: ses.solved, format: (n) => `${num(n)}/${num(ses.firsts)}` },
+        },
+        {
+          label: t('train.statRating'),
+          value: num(this.train.rating),
+          count: { from: ses.startRating, to: this.train.rating, format: (n) => num(n) },
+          gain: gain > 0,
+        },
+        { label: t('train.statStreak'), value: num(this.train.streak), gain: true },
+      ],
+      false,
+      t('train.tomorrow', { n: num(tomorrow) }),
+      rankUp
+        ? t('train.rankUp', { rank: t(`train.rank.${rankOf(this.train.rating)}` as Key) })
+        : t('train.done'),
+      { replay: t('train.more'), party: rankUp || stars === 3 },
+    );
+  }
+
+  /** The progress strip under the bar: one segment per card. */
+  private refreshStrip(): void {
+    const ses = this.session;
+    if (!ses) return;
+    if (this.strip.childElementCount !== ses.queue.length)
+      this.strip.replaceChildren(...ses.queue.map(() => el('i')));
+    [...this.strip.children].forEach((node, i) => {
+      node.className = `${ses.marks[i] ?? ''}${i === ses.idx ? ' now' : ''}`;
+    });
+  }
+
+  private async saveMistake(fen: string, best: string): Promise<void> {
+    await this.loadTrain();
+    this.train = addMistake(this.train, fen, best, this.today());
+    this.saveTrain();
+  }
+
+  private async saveLessonCards(lesson: Lesson): Promise<void> {
+    const ids = lesson.steps
+      .map((st, i) => (st.goal === 'best' || st.goal === 'mate' ? `l:${lesson.id}.${i}` : ''))
+      .filter(Boolean);
+    if (!ids.length) return;
+    await this.loadTrain();
+    this.train = addLessonCards(this.train, ids, this.today());
+    this.saveTrain();
   }
 
   // ---------- the computer (worker) ----------
@@ -884,6 +1343,7 @@ export class ChessMode {
   private hint(): void {
     if (this.phase !== 'player' || this.view.busy) return;
     this.helps++;
+    if (this.session && !this.cardStudy) this.cardHinted = true;
     const step = this.step;
     if (step) {
       // lessons: a hint counts as a mistake, so three stars mean you found it yourself
@@ -923,6 +1383,15 @@ export class ChessMode {
   private refreshLessonBar(): void {
     const lesson = this.lesson;
     if (!lesson) return;
+    const ses = this.session;
+    if (ses) {
+      this.bar.set(
+        t('train.title'),
+        t('train.card', { n: Math.min(ses.idx + 1, ses.queue.length), total: ses.queue.length }),
+        t('train.rating', { n: num(this.train.rating) }),
+      );
+      return;
+    }
     const par = this.stepPar
       ? `${t('workshop.moves', { n: num(this.stepMoves) })} · ${t('school.par', { n: num(this.stepPar) })}`
       : '';

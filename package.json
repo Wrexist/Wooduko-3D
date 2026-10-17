@@ -29,7 +29,8 @@
     "site": "node scripts/build-site.mjs",
     "journey:calibrate": "vitest run --config vitest.sim.config.ts tests/sim/journey-calibrate.sim.ts",
     "klotski:levels": "vitest run --config vitest.sim.config.ts tests/sim/klotski-levels.sim.ts",
-    "workshop": "node scripts/workshop.mjs"
+    "workshop": "node scripts/workshop.mjs",
+    "chess:import": "vitest run --config vitest.sim.config.ts tests/sim/chess-import.sim.ts"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.2.0",

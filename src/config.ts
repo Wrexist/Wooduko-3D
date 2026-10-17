@@ -917,6 +917,25 @@ export const CHESS = {
   stepPause: 1.1,
   storageKey: 'grain_chess_v1',
   schoolKey: 'grain_chess_school_v1',
+  /** Daily training (spaced repetition): cards, rating, streak. */
+  trainKey: 'grain_chess_train_v1',
+  /** Training: pause after a card before the next one (seconds). */
+  cardPause: 1.8,
+  /** Celebration on a solved card: sparkles (count, speed, rise, height over the board) and a bounce. */
+  sparkSmall: 50,
+  sparkBig: 110,
+  /** Gold shockwave ring: colour, seconds, how far it grows (squares) and its peak opacity. */
+  wave: 0xffc860,
+  waveTime: 0.6,
+  waveScale: 3.2,
+  waveOpacity: 0.95,
+  sparkSpeed: 2.4,
+  sparkUp: 3.2,
+  sparkY: 0.35,
+  bounceTime: 0.5,
+  bounceScale: 0.22,
+  /** Rating and stat numbers count up over this long (seconds). */
+  countUp: 1.1,
 } as const;
 
 export const HAPTICS = {
