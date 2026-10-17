@@ -93,5 +93,6 @@ describe('klotski levels', () => {
 
   it('have the par the solver finds (first ten; the rest are checked by klotski:levels)', () => {
     for (const { rows, par } of KLOTSKI_LEVELS.slice(0, 10)) expect(solve(parseLevel(rows))).toBe(par);
-  });
+    // ~3 s alone; more when the chess tests share the CPU
+  }, 30_000);
 });
