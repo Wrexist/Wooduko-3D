@@ -89,6 +89,9 @@ const CHECKERS_ICON =
 const CHESS_ICON =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 21h10M8 17h8l-1-5H9z"/><path d="M9 12c-1-2 0-5 3-7 2 1 3 3 3 7"/><path d="M12 2v3M10.5 3.5h3"/></svg>';
 
+const SCHOOL_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5"/><path d="M22 9v6"/></svg>';
+
 const PLANK_ICON =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h10v6h6v10H4z"/><path d="M4 12h6v8M10 4v8"/></svg>';
 
@@ -122,6 +125,7 @@ export class Game {
   private readonly plank: PlankMode;
   private readonly checkers: CheckersMode;
   private readonly chess: ChessMode;
+  private readonly school: ChessMode;
   /** Every Workshop game (each owns a scene, a level list, a bar, tools and a solved card). */
   private readonly workshop: readonly (KlotskiMode | PlankMode | CheckersMode | ChessMode)[];
   private readonly hub: WorkshopHub;
@@ -218,7 +222,8 @@ export class Game {
     this.plank = new PlankMode(wsDeps);
     this.checkers = new CheckersMode(wsDeps);
     this.chess = new ChessMode(wsDeps);
-    this.workshop = [this.klotski, this.plank, this.checkers, this.chess];
+    this.school = new ChessMode(wsDeps, true);
+    this.workshop = [this.klotski, this.plank, this.checkers, this.chess, this.school];
     this.hub = new WorkshopHub(
       [
         {
@@ -263,6 +268,17 @@ export class Game {
             this.sound.tick();
             this.hub.hide();
             this.chess.openPicker();
+          },
+        },
+        {
+          id: 'school',
+          icon: SCHOOL_ICON,
+          name: t('workshop.school'),
+          desc: t('workshop.schoolDesc'),
+          open: () => {
+            this.sound.tick();
+            this.hub.hide();
+            this.school.openPicker();
           },
         },
       ],
@@ -735,6 +751,7 @@ export class Game {
     this.hub.setStars('plank', ...this.plank.starCount);
     this.hub.setStars('checkers', ...this.checkers.starCount);
     this.hub.setStars('chess', ...this.chess.starCount);
+    this.hub.setStars('school', ...this.school.starCount);
     this.hub.show();
   }
 

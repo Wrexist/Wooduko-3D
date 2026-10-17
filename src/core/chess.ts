@@ -199,7 +199,8 @@ export function attacked(p: Pos, s: number, by: Side): boolean {
   return false;
 }
 
-export const inCheck = (p: Pos, side: Side = p.side): boolean => attacked(p, p.king(side), -side as Side);
+export const inCheck = (p: Pos, side: Side = p.side): boolean =>
+  p.b[p.king(side)] === side * KING && attacked(p, p.king(side), -side as Side);
 
 /** Pseudo-legal moves (may leave the king in check). `caps` = captures and queen promotions only. */
 export function genMoves(p: Pos, out: number[], caps = false): number[] {
@@ -404,6 +405,8 @@ function unmakeNull(p: Pos): void {
 export function legalMoves(p: Pos): number[] {
   const out: number[] = [];
   const side = p.side;
+  // lesson boards may have no king at all: then nothing can be left in check
+  if (p.b[p.king(side)] !== side * KING) return genMoves(p, out);
   for (const m of genMoves(p, [])) {
     makeMove(p, m);
     if (!inCheck(p, side)) out.push(m);

@@ -907,10 +907,16 @@ export const CHESS = {
   /** Ring around a piece that can be taken, and the red square under a king in check. */
   check: 0xff4a3a,
   checkOpacity: 0.55,
+  /** Coach: ring around your pieces in danger. */
+  danger: 0xff7a45,
+  dangerOpacity: 0.85,
   /** Seconds for a piece to glide one move; knights hop this high (units). */
   moveDuration: 0.26,
   knightHop: 0.3,
+  /** Lessons: pause after a step is done before the next one. */
+  stepPause: 1.1,
   storageKey: 'grain_chess_v1',
+  schoolKey: 'grain_chess_school_v1',
 } as const;
 
 export const HAPTICS = {

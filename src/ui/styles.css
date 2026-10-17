@@ -2515,7 +2515,7 @@ button {
 /* short landscape phones: Workshop games side by side, without the one-line description */
 @media (max-height: 500px) and (orientation: landscape) {
   .hub-list {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
   .hub-game {
@@ -2563,4 +2563,157 @@ button {
 .promo-btn img {
   width: 100%;
   height: 100%;
+}
+
+/* ---------- Workshop coach line (under the top bar) ---------- */
+.k-coach {
+  grid-column: 1 / -1;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 440px;
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border-left: 4px solid rgba(255, 246, 230, 0.35);
+  background: rgba(24, 12, 5, 0.62);
+  font-size: 14px;
+  line-height: 1.35;
+  text-align: left;
+  pointer-events: auto;
+  animation: kCoachIn 0.25s ease both;
+}
+.k-coach[hidden] {
+  display: none;
+}
+.k-coach[data-tone='good'] {
+  border-left-color: #7ad39b;
+}
+.k-coach[data-tone='warn'] {
+  border-left-color: #f0b94a;
+}
+.k-coach[data-tone='bad'] {
+  border-left-color: #ff8a72;
+}
+.k-coach span {
+  flex: 1;
+}
+.k-coach-btn {
+  flex: none;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 230, 190, 0.35);
+  background: rgba(255, 246, 230, 0.1);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.k-coach-btn[hidden] {
+  display: none;
+}
+@keyframes kCoachIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.reduce-motion .k-coach {
+  animation: none;
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .k-coach {
+    margin-top: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
+
+/* lesson lists: one row per lesson, its number, name and stars */
+.k-grid.k-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.k-list .k-level {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  aspect-ratio: auto;
+  padding: 12px 14px;
+  text-align: left;
+}
+.k-list .k-level b {
+  width: 22px;
+  font-size: 17px;
+  text-align: center;
+}
+.k-list .k-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.k-list .k-level.current {
+  box-shadow: 0 0 0 2px rgba(240, 185, 74, 0.35);
+}
+.k-list .k-level:not(.done):not(.current) {
+  background: rgba(255, 246, 230, 0.06);
+  border-color: rgba(255, 246, 230, 0.12);
+}
+.k-list .pips i {
+  width: 14px;
+  height: 14px;
+}
+.k-list .k-level:not(.done) .pips i {
+  color: rgba(255, 246, 230, 0.2);
+}
+.k-list .k-level.current .pips i {
+  color: rgba(58, 28, 12, 0.25);
+}
+@media (max-height: 500px) {
+  .k-grid.k-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .k-list .k-level {
+    padding: 8px 12px;
+  }
+}
+/* a small switch under a level list (e.g. Chess: coach on / off) */
+.k-switch {
+  align-self: center;
+  margin-top: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 230, 190, 0.25);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.k-switch[aria-pressed='true'] {
+  background: rgba(240, 185, 74, 0.18);
+  border-color: rgba(240, 185, 74, 0.6);
+}
+
+/* small phones: five Workshop games stay on screen without their one-line descriptions */
+@media (max-height: 700px) and (orientation: portrait) {
+  .hub-game {
+    padding: 10px 14px;
+  }
+  .hub-text small {
+    display: none;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .hub-game {
+    gap: 3px;
+    padding: 8px 6px;
+  }
+  .hub-game .icon {
+    width: 24px;
+    height: 24px;
+  }
 }

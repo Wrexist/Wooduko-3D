@@ -73,6 +73,9 @@ export class ChessScene {
   private readonly selMat: THREE.MeshBasicMaterial;
   private readonly lastMat: THREE.MeshBasicMaterial;
   private readonly checkMat: THREE.MeshBasicMaterial;
+  /** Coach: rings on your pieces that can be taken for free (or by something cheaper). */
+  private readonly dangerMat: THREE.MeshBasicMaterial;
+  private readonly dangers: THREE.Mesh[] = [];
   private readonly dots: THREE.Mesh[] = [];
   private readonly rings: THREE.Mesh[] = [];
   private readonly lasts: THREE.Mesh[] = [];
@@ -149,6 +152,7 @@ export class ChessScene {
     this.selMat = flat(CHECKERS.marker, CHECKERS.selOpacity);
     this.lastMat = flat(CHECKERS.marker, CHECKERS.lastOpacity);
     this.checkMat = flat(CHESS.check, CHESS.checkOpacity);
+    this.dangerMat = flat(CHESS.danger, CHESS.dangerOpacity);
     const y = CHECKERS.floorY;
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, dy: number): THREE.Mesh => {
       const m = new THREE.Mesh(geo, mat);
@@ -163,6 +167,7 @@ export class ChessScene {
     this.selSquare = add(this.squareGeo, this.selMat, 0.014);
     for (let i = 0; i < POOL; i++) this.dots.push(add(this.dotGeo, this.dotMat, 0.016));
     for (let i = 0; i < 16; i++) this.rings.push(add(this.ringGeo, this.dotMat, 0.016));
+    for (let i = 0; i < 16; i++) this.dangers.push(add(this.ringGeo, this.dangerMat, 0.015));
     buildBoard(tex, this.table, CHECKERS.light, CHECKERS.dark);
   }
 
@@ -214,6 +219,7 @@ export class ChessScene {
   mark(o: {
     dots: readonly number[];
     rings: readonly number[];
+    danger?: readonly number[];
     sel: number;
     last: readonly number[];
     check: number;
@@ -228,6 +234,7 @@ export class ChessScene {
       });
     put(this.dots, o.dots);
     put(this.rings, o.rings);
+    put(this.dangers, o.danger ?? []);
     put(this.lasts, o.last);
     put([this.selSquare], o.sel >= 0 ? [o.sel] : []);
     put([this.checkSquare], o.check >= 0 ? [o.check] : []);
@@ -406,6 +413,7 @@ export class ChessScene {
       this.selMat,
       this.lastMat,
       this.checkMat,
+      this.dangerMat,
     ])
       m.dispose();
     this.atlas.dispose();

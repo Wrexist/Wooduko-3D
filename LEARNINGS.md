@@ -63,3 +63,5 @@
 
 - **Lit dark ink washes out:** the scene's key light is bright enough that a dark-brown `MeshStandardMaterial` symbol rendered as caramel. Burned-in chess symbols use unlit `MeshBasicMaterial`.
 
+- **Lesson positions must be checked by the engine, not by eye:** of the first lesson drafts, four were wrong. Winning the queen with a lone knight or bishop is a draw (insufficient material), so the engine scored it 0. And a "mate in two" had a mate in one. `tests/chessSchool.test.ts` runs every step through the engine (mate distance for mates, material for tactics, a breadth-first par for "take every piece").
+

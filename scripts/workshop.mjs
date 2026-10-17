@@ -393,7 +393,7 @@ await page.waitForTimeout(200);
 // ---------- Chess ----------
 await page.getByRole('button', { name: /Workshop/ }).click();
 await page.waitForTimeout(300);
-await page.getByRole('button', { name: /^Chess/ }).click();
+await page.getByRole('button', { name: /^Chess. / }).click();
 await page.waitForTimeout(300);
 await page.locator('.overlay.workshop:not(.hidden) .k-grid .k-level').first().click();
 await page.waitForTimeout(500);
@@ -494,6 +494,115 @@ await page.waitForTimeout(200);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
 
+// ---------- Chess school and the coach ----------
+await page.getByRole('button', { name: /Workshop/ }).click();
+await page.waitForTimeout(300);
+await page.getByRole('button', { name: /Chess school/ }).click();
+await page.waitForTimeout(300);
+check(
+  'school: all 15 lessons are open',
+  (await page.locator('.overlay.workshop:not(.hidden) .k-list .k-level:not([disabled])').count()) === 15,
+);
+await page.locator('.overlay.workshop:not(.hidden) .k-level').first().click();
+await page.waitForTimeout(500);
+const sqOf = (name) => (8 - Number(name[1])) * 8 + (name.charCodeAt(0) - 97);
+const schoolSq = (name, mode) =>
+  page.evaluate(
+    ([s, mode]) => {
+      const v = window.__grain.game[mode].view;
+      const q = v.camera.position
+        .clone()
+        .set((s % 8) - 3.5, -0.06, Math.floor(s / 8) - 3.5)
+        .project(v.camera);
+      return [((q.x + 1) / 2) * innerWidth, ((1 - q.y) / 2) * innerHeight];
+    },
+    [sqOf(name), mode],
+  );
+const tapOn = async (name, mode = 'school') => {
+  const [x, y] = await schoolSq(name, mode);
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(150);
+};
+const coachLine = () =>
+  page.evaluate(
+    () => document.querySelector('.k-bar:not([hidden]) .k-coach:not([hidden])')?.textContent ?? '',
+  );
+check('school: the lesson explains the piece', (await coachLine()).includes('straight lines'));
+await tapOn('d1');
+await tapOn('d4');
+await page.waitForFunction(() => window.__grain.game.school.stepIdx === 1, null, { timeout: 5000 });
+check('school: taking the pawn moves on to step 2', true);
+await page.evaluate(() => window.__grain.game.school.start(7));
+await page.waitForTimeout(300);
+await tapOn('g1');
+await tapOn('h1');
+await page.waitForTimeout(300);
+check(
+  'school: a move that is not check bounces back with a reason',
+  (await page.evaluate(() => {
+    const c = window.__grain.game.school;
+    return c.moves.length === 0 && c.mistakes === 1;
+  })) && (await coachLine()).includes('isn’t check'),
+);
+await page.evaluate(() => window.__grain.game.school.start(8));
+await page.waitForTimeout(300);
+await tapOn('a1');
+await tapOn('a7');
+await page.waitForFunction(
+  () => window.__grain.game.school.phase === 'player' && window.__grain.game.school.mistakes === 1,
+  null,
+  { timeout: 10000 },
+);
+check(
+  'school: the engine turns down a move that is not mate',
+  (await coachLine()).includes('isn’t checkmate'),
+);
+await tapOn('a1');
+await tapOn('a8');
+await page.waitForFunction(() => window.__grain.game.school.stepIdx === 1, null, { timeout: 10000 });
+check('school: the mate is accepted and the next puzzle follows', true);
+await page.screenshot({ path: 'shots/workshop-12-school.png' });
+// the coach in a game: Nxe5 loses the knight for a pawn
+await page.evaluate(async () => {
+  const g = window.__grain.game;
+  g.school.leave(false);
+  const ch = await import('/src/core/chess.ts');
+  const c = g.chess;
+  c.start(5);
+  for (const n of ['e2e4', 'e7e5', 'g1f3', 'b8c6']) {
+    const m = ch.legalMoves(c.pos).find((x) => ch.moveName(x) === n);
+    ch.makeMove(c.pos, m);
+    c.moves.push(m);
+  }
+  c.view.sync(c.board64());
+  c.beginTurn();
+});
+await tapOn('f3', 'chess');
+await tapOn('e5', 'chess');
+await page.waitForFunction(
+  () => document.querySelector('.k-bar:not([hidden]) .k-coach-btn:not([hidden])'),
+  null,
+  { timeout: 15000 },
+);
+check(
+  'coach: a lost knight is called out, with Take back',
+  /knight on e5/.test(await coachLine()),
+  await coachLine(),
+);
+await page.waitForFunction(() => window.__grain.game.chess.phase === 'player', null, { timeout: 15000 });
+await page.locator('.k-bar:not([hidden]) .k-coach-btn').click();
+await page.waitForTimeout(300);
+check(
+  'coach: Take back undoes the move and lights a better one',
+  await page.evaluate(() => {
+    const c = window.__grain.game.chess;
+    return c.moves.length === 4 && c.sel >= 0 && c.hintTo >= 0;
+  }),
+);
+await page.screenshot({ path: 'shots/workshop-13-coach.png' });
+await page.evaluate(() => window.__grain.game.chess.leave(false));
+await page.waitForTimeout(200);
+
 // ---------- memory: cycling levels must not grow GPU resources ----------
 const mem = await page.evaluate(async () => {
   const g = window.__grain.game;
@@ -505,17 +614,20 @@ const mem = await page.evaluate(async () => {
     ['plank', g.plank],
     ['checkers', g.checkers],
     ['chess', g.chess],
+    ['school', g.school],
   ]) {
-    m.start(1);
-    await wait();
-    const a = { ...info };
-    for (let n = 2; n <= 12; n++) {
-      m.start(n);
+    // one pass to warm up (later levels may draw shared pieces for the first time), then measure a second
+    const pass = async () => {
+      for (let n = 1; n <= 12; n++) {
+        m.start(n);
+        await wait();
+      }
+      m.start(1);
       await wait();
-    }
-    m.start(1);
-    await wait();
-    out[name] = [a, { ...info }];
+      return { ...info };
+    };
+    const a = await pass();
+    out[name] = [a, await pass()];
     m.leave(false);
   }
   return out;
@@ -578,6 +690,7 @@ for (const [vw, vh] of [
     ['plank', 40],
     ['checkers', 15],
     ['chess', 15],
+    ['school', 15],
   ]) {
     const box = await pg.evaluate(
       async ([name, n]) => {
@@ -592,7 +705,7 @@ for (const [vw, vh] of [
           const L = m.level;
           for (const x of [-L.w / 2, L.w / 2])
             for (const z of [-L.h / 2, L.h / 2 + 0.5]) corners.push([x, z]);
-        } else if (name === 'checkers' || name === 'chess') {
+        } else if (name === 'checkers' || name === 'chess' || name === 'school') {
           for (const x of [-4, 4]) for (const z of [-4, 4]) corners.push([x, z]);
         } else {
           const L = m.level;

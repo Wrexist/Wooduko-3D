@@ -44,6 +44,8 @@ export class LevelPicker extends WorkshopOverlay {
     lead: string,
     private readonly total: number,
     h: { onPlay(n: number): void; onClose(): void },
+    /** `titles`: a list with names (lessons) instead of numbered stones; `allOpen`: no locks; `foot`: extra controls. */
+    private readonly opts: { titles?: readonly string[]; allOpen?: boolean; foot?: HTMLElement } = {},
   ) {
     super('workshop dialog-layer', `${id}Title`);
     this.card.classList.add('wide', 'workshop-card');
@@ -64,16 +66,26 @@ export class LevelPicker extends WorkshopOverlay {
       ]),
       this.grid,
       this.note,
+      ...(opts.foot ? [opts.foot] : []),
     );
+    if (opts.titles) this.grid.classList.add('k-list');
     for (let n = 1; n <= total; n++) {
-      const b = el('button', { class: 'k-level', role: 'listitem' }, [el('b', {}, [String(n)])]);
+      const name = opts.titles?.[n - 1];
+      const b = el('button', { class: 'k-level', role: 'listitem' }, [
+        el('b', {}, [String(n)]),
+        ...(name ? [el('span', { class: 'k-name' }, [name])] : []),
+      ]);
       b.addEventListener('click', () => h.onPlay(n));
       this.grid.append(b);
     }
   }
 
   update(best: readonly number[]): void {
-    const open = unlocked(best, this.total);
+    const open = this.opts.allOpen ? this.total : unlocked(best, this.total);
+    // the one to play next: the first unsolved (all open) or the newly unlocked one
+    const next = this.opts.allOpen
+      ? best.slice(0, this.total).findIndex((s) => !s) + 1 || (best.length < this.total ? best.length + 1 : 0)
+      : open;
     let solved = 0;
     let earned = 0;
     [...this.grid.children].forEach((node, i) => {
@@ -83,13 +95,13 @@ export class LevelPicker extends WorkshopOverlay {
       earned += stars;
       if (stars) solved++;
       const locked = n > open;
-      b.className = `k-level${locked ? ' locked' : ''}${n === open && !stars ? ' current' : ''}${stars ? ' done' : ''}`;
+      b.className = `k-level${locked ? ' locked' : ''}${n === next && !stars ? ' current' : ''}${stars ? ' done' : ''}`;
       b.disabled = locked;
       b.setAttribute(
         'aria-label',
         locked
           ? t('journey.locked', { n })
-          : `${t('journey.level', { n })}, ${t('journey.stars', { n: stars })}`,
+          : `${this.opts.titles?.[n - 1] ?? t('journey.level', { n })}, ${t('journey.stars', { n: stars })}`,
       );
       b.querySelector('.pips, .lock')?.remove();
       if (locked) b.append(el('span', { class: 'lock', html: ICONS.lock, 'aria-hidden': 'true' }));
@@ -123,6 +135,11 @@ export class GameBar {
   private readonly title = el('strong');
   private readonly moves = el('span', { class: 'k-moves', 'aria-live': 'polite' });
   private readonly par = el('small');
+  /** A coach's line under the bar (lessons, move feedback), with an optional button. */
+  private readonly note = el('p', { class: 'k-coach', 'aria-live': 'polite', hidden: '' });
+  private readonly noteText = el('span');
+  private readonly noteBtn = el('button', { class: 'k-coach-btn', hidden: '' });
+  private noteAction: (() => void) | null = null;
 
   constructor(h: { onBack(): void; onRestart(): void }) {
     const back = el('button', { class: 'btn', 'aria-label': t('workshop.back'), html: BACK });
@@ -133,7 +150,24 @@ export class GameBar {
       back,
       el('div', { class: 'k-info' }, [this.title, this.moves, this.par]),
       restart,
+      this.note,
     ]);
+    this.note.append(this.noteText, this.noteBtn);
+    this.noteBtn.addEventListener('click', () => this.noteAction?.());
+  }
+
+  /** Show (or with '' clear) the coach's line. `tone` colours its edge. */
+  coach(
+    text: string,
+    tone: 'info' | 'good' | 'warn' | 'bad' = 'info',
+    action?: { label: string; run(): void },
+  ): void {
+    this.note.hidden = !text;
+    this.note.dataset.tone = tone;
+    this.noteText.textContent = text;
+    this.noteAction = action?.run ?? null;
+    this.noteBtn.hidden = !action;
+    this.noteBtn.textContent = action?.label ?? '';
   }
 
   get bottom(): number {

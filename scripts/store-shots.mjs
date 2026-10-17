@@ -16,17 +16,21 @@ const DEVICES = {
 const CAPTIONS = {
   en: [
     'Satisfying clears',
+    '100 levels to master',
     'See every clear before you drop',
     'Chain combos, clear the board',
     'Unlock eight woods',
     'Calm. Offline. No timers.',
+    'Collect stars on your journey',
   ],
   sv: [
     'Rensningar som känns',
+    '100 banor att klara',
     'Se rensningen innan du släpper',
     'Bygg kombos, töm brädan',
     'Lås upp åtta träslag',
     'Lugnt. Offline. Ingen stress.',
+    'Samla stjärnor på äventyret',
   ],
 };
 const LOCALES = { en: 'en-US', sv: 'sv-SE' };
@@ -150,6 +154,8 @@ async function gamePage(lang, dev, save, opts = {}) {
       localStorage.setItem('grain_achievements_v1', JSON.stringify(x.ach));
       localStorage.setItem('grain_stats_v1', JSON.stringify(x.stats));
       if (s) localStorage.setItem('grain_save_v1', s);
+      // Journey: levels 1-11 done with stars, 12 next
+      localStorage.setItem('grain_journey_v1', JSON.stringify({ stars: [3, 3, 2, 3, 3, 2, 3, 3, 1, 3, 2] }));
     },
     [save ? JSON.stringify(save) : null, extra],
   );
@@ -202,30 +208,65 @@ const SCENES = [
     await dragTo(p, await slot(p, 0), await toScreen(p, -4, -0.94, 2.5), true);
     return p;
   },
-  // 2 dragging with the gold preview
+  // 2 a Journey level with crates, gems and goals in progress
+  async (lang, dev) => {
+    const p = await gamePage(lang, dev, null, { ach: ALL_ACH, stats: STATS, theme: 'cherry' });
+    await p.addStyleTag({ content: '.toast{display:none!important}' });
+    await p.evaluate(() => window.__grain.store.getState().playLevel(8));
+    await waitGame(p, 1.2);
+    // a few tidy moves along the bottom rows, so the goal pills show progress
+    for (let k = 0; k < 4; k++) {
+      await p.evaluate(() => {
+        const { store, game } = window.__grain;
+        const s = store.getState();
+        for (let r = 8; r >= 0; r--)
+          for (let c = 0; c < 9; c++)
+            for (const tp of game.world.tray) {
+              if (!tp || tp.anim) continue;
+              const ok = tp.shape.cells.every(([a, b]) => s.game.board.grid[a + r]?.[b + c] === 0);
+              if (ok) {
+                tp.anim = true;
+                game.commit(tp, r, c);
+                return;
+              }
+            }
+      });
+      await waitGame(p, 1.4);
+    }
+    await waitGame(p, 1);
+    return p;
+  },
+  // 3 dragging with the gold preview
   async (lang, dev) => {
     const p = await gamePage(lang, dev, TRIPLE);
     await dragTo(p, await slot(p, 0), await toScreen(p, -4, -0.94, 2.5), false);
     return p;
   },
-  // 3 board clear
+  // 4 board clear
   async (lang, dev) => {
     const p = await gamePage(lang, dev, BOARD_CLEAR);
     await dragTo(p, await slot(p, 0), await toScreen(p, 4, -0.94, 4), true);
     await waitGame(p, 0.08);
     return p;
   },
-  // 4 awards with every wood
+  // 5 awards with every wood
   async (lang, dev) => {
     const p = await gamePage(lang, dev, TRIPLE, { ach: ALL_ACH, stats: STATS, theme: 'walnut' });
     await p.evaluate(() => window.__grain.game.showAwards());
     await p.waitForTimeout(700);
     return p;
   },
-  // 5 a calm game in walnut
+  // 6 a calm game in walnut
   async (lang, dev) => {
     const p = await gamePage(lang, dev, { ...TRIPLE, score: 3260 }, { ach: ALL_ACH, theme: 'walnut' });
     await waitGame(p, 0.5);
+    return p;
+  },
+  // 7 the Journey map with stars
+  async (lang, dev) => {
+    const p = await gamePage(lang, dev, null, { ach: ALL_ACH, stats: STATS, theme: 'maple' });
+    await p.locator('.journey-btn').click();
+    await p.waitForTimeout(700);
     return p;
   },
 ];
@@ -250,10 +291,11 @@ async function compose(shot, caption, dev, out) {
   writeFileSync(out, pngToRgb(png));
 }
 
-for (const lang of Object.keys(CAPTIONS)) {
+for (const lang of (process.env.LANGS ?? 'en,sv').split(',')) {
   mkdirSync(`store/${lang}`, { recursive: true });
-  for (const dev of Object.keys(DEVICES)) {
+  for (const dev of (process.env.DEVICES ?? Object.keys(DEVICES).join(',')).split(',')) {
     for (let i = 0; i < SCENES.length; i++) {
+      if (process.env.ONLY && !process.env.ONLY.split(',').includes(String(i + 1))) continue;
       const page = await SCENES[i](lang, dev);
       const shot = await page.screenshot();
       await page.close();
