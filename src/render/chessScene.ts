@@ -27,7 +27,7 @@ export interface ChessArrow {
 /** Board coordinates in the square corners (files on the bottom row, ranks on the left file). */
 /** `flip`: the board turned round (you play Black): h..a along the bottom, 1..8 down the side. */
 function coordTexture(flip: boolean): THREE.CanvasTexture {
-  const px = 128;
+  const px = 192;
   const c = document.createElement('canvas');
   c.width = c.height = px * SIZE;
   const g = c.getContext('2d');
@@ -95,8 +95,13 @@ interface Piece {
   readonly body: THREE.Mesh;
   /** The bishop's groove (hidden on other pieces; a promotion can turn it on). */
   readonly slit: THREE.Mesh;
-  /** The flat silhouette shown from above instead of the turned body. */
+  /**
+   * The flat silhouette shown from above instead of the turned body. It sits on `group`, not
+   * `tilt`: leaning or squashing a flat picture just smears it, so it grows and pops instead.
+   */
   readonly flat: THREE.Mesh;
+  /** The flat piece's eased size (grows while held). */
+  grow: number;
   readonly white: boolean;
   /** Last frame's position (for the lean) and the landing settle (−1 = none). */
   readonly prev: THREE.Vector3;
@@ -599,7 +604,9 @@ export class ChessScene {
       p.tilt.rotation.z = rz;
       // from above a held piece can't be seen rising: it grows instead (eased)
       const grow = p === drag ? CHESS.iconLift : 1;
-      p.flat.scale.setScalar(p.flat.scale.x + (grow - p.flat.scale.x) * (1 - Math.exp(-CHESS.followRateY * dt)));
+      p.grow += (grow - p.grow) * (1 - Math.exp(-CHESS.followRateY * dt));
+      // landing: the same squash curve as the turned piece, as a small pop in size
+      p.flat.scale.setScalar(p.grow * (1 + (1 - sy) * CHESS.iconPop));
       if (p.group !== this.bounceGroup()) p.tilt.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
     }
   }
@@ -649,7 +656,9 @@ export class ChessScene {
     this.hits.length = 0;
     this.ray.intersectObjects(this.bodies, false, this.hits);
     const hit = this.hits[0]?.object;
-    if (hit) for (const [sq, pc] of this.pieces) if ((pc.body === hit || pc.flat === hit) && sq !== this.dragSq) return sq;
+    if (hit)
+      for (const [sq, pc] of this.pieces)
+        if ((pc.body === hit || pc.flat === hit) && sq !== this.dragSq) return sq;
     return ground;
   }
 
@@ -716,10 +725,22 @@ export class ChessScene {
     const flat = new THREE.Mesh(this.iconGeo(type, white), this.iconMat);
     flat.position.y = CHESS.iconY;
     flat.renderOrder = 3;
-    tilt.add(body, slit, flat);
-    group.add(tilt);
+    tilt.add(body, slit);
+    group.add(tilt, flat);
     this.scene.add(group);
-    const p: Piece = { group, tilt, body, slit, flat, white, prev: new THREE.Vector3(), settle: -1, sx: 0, sz: 0 };
+    const p: Piece = {
+      group,
+      tilt,
+      body,
+      slit,
+      flat,
+      grow: 1,
+      white,
+      prev: new THREE.Vector3(),
+      settle: -1,
+      sx: 0,
+      sz: 0,
+    };
     this.showFlat(p);
     return p;
   }

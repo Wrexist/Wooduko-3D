@@ -444,10 +444,12 @@ export const RENDER = {
   minPixelRatio: 1,
   pixelRatioStep: 0.25,
   /** Lower the pixel ratio when the average frame time stays above this for `slowSeconds`. */
-  slowFrameMs: 20,
-  slowSeconds: 2,
+  slowFrameMs: 18,
+  slowSeconds: 1.5,
   /** dt is clamped so a hitch never teleports anything. */
   maxDt: 0.05,
+  /** Seconds a covering menu keeps the scene drawing before it holds the last frame. */
+  coverGrace: 0.6,
   exposure: 0.94,
   background: 0x3a2415,
 } as const;
@@ -929,6 +931,8 @@ export const CHESS = {
   iconBlackDetail: '#e9c99a',
   iconBlackSeam: '#a8743f',
   iconLift: 1.22,
+  /** How much a flat piece swells as it lands (times the turned piece's squash). */
+  iconPop: 1.2,
   /** Room beside the board from above (squares). */
   sideRoomTop: 0.02,
   /** The last move's two squares and the selected piece's square: a clear yellow wash. */

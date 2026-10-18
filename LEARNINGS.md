@@ -79,3 +79,9 @@ Every lathe-turned piece is a circle seen from the top, so in the from-above vie
 
 ## Entrance animations can freeze a button's press
 A menu entrance animation with `animation-fill-mode: both` (or `forwards`) keeps holding its last keyframe (`transform: none`) after it ends, and animated values beat normal rules, so `:active { transform: scale(.96) }` stopped working. The `.rise` entrance uses `backwards`: it holds the first keyframe during the stagger delay, then lets go.
+
+## Smooth menus over a live WebGL scene
+Two things cost frames on iPhone: `backdrop-filter: blur()` on buttons over the canvas (iOS re-blurs the WebGL layer under each one every frame; the in-game buttons now use a tinted fill), and redrawing the full 3D scene at 3× with MSAA behind a menu that hides it. Overlays with a covering scrim (`home`, `pause`, `dialog-layer`) now stop the WebGL draw after `RENDER.coverGrace`; the canvas keeps its last frame and updates keep running, so nothing jumps when the menu closes. The adaptive pixel ratio steps down at 18 ms average (20 ms only caught ~45 fps).
+
+## `overflow: hidden` shrinks square grid items' rows
+Adding `overflow: hidden` (for a tap ripple) to the `aspect-ratio: 1` level stones made them scroll containers, whose automatic minimum height is 0, so the grid rows shrank below the stones and they overlapped. `contain: paint` clips the ripple without changing layout.

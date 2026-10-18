@@ -243,6 +243,14 @@ function reasonText(r: Reason): string {
  * mistakes and marks pieces in danger), and the Chess school (`school`), lessons from how the
  * pieces move to checkmate. The computer thinks in a worker; rules and engine live in core/.
  */
+/** An option row: 'Coach: on' shows as the name on the left and the value on the right. */
+function switchLabel(b: HTMLButtonElement, text: string): void {
+  const i = text.indexOf(':');
+  b.setAttribute('aria-label', text);
+  if (i < 0) b.textContent = text;
+  else b.replaceChildren(el('span', {}, [text.slice(0, i)]), el('b', {}, [text.slice(i + 1).trim()]));
+}
+
 export class ChessMode {
   readonly view: ChessScene;
   readonly picker: LevelPicker;
@@ -475,16 +483,16 @@ export class ChessMode {
   }
 
   private syncCoachBtn(): void {
-    this.coachBtn.textContent = t(this.coachOn ? 'coach.on' : 'coach.off');
+    switchLabel(this.coachBtn, t(this.coachOn ? 'coach.on' : 'coach.off'));
     this.coachBtn.setAttribute('aria-pressed', String(this.coachOn));
   }
 
   private syncColorBtn(): void {
-    this.colorBtn.textContent = t(`color.${this.colorPick}` as Key);
+    switchLabel(this.colorBtn, t(`color.${this.colorPick}` as Key));
   }
 
   private syncViewBtn(): void {
-    this.viewBtn.textContent = t(this.topView ? 'view.top' : 'view.tilted');
+    switchLabel(this.viewBtn, t(this.topView ? 'view.top' : 'view.tilted'));
     this.viewBtn.setAttribute('aria-pressed', String(this.topView));
     this.view.setTop(this.topView);
     if (this.active) this.resize(this.width, this.height, this.safeBottom);

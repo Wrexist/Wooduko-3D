@@ -71,9 +71,7 @@ const SHAPES: Record<number, () => Part[]> = {
     { path: p(BASE) },
     { path: p('M 31 69 L 69 69 L 74 81 L 26 81 Z') },
     {
-      path: p(
-        'M 29 69 L 18 31 L 33 50 L 35 24 L 44 48 L 50 19 L 56 48 L 65 24 L 67 50 L 82 31 L 71 69 Z',
-      ),
+      path: p('M 29 69 L 18 31 L 33 50 L 35 24 L 44 48 L 50 19 L 56 48 L 65 24 L 67 50 L 82 31 L 71 69 Z'),
     },
     { path: p(collar(69, 44, 8)) },
     ...[
@@ -89,18 +87,27 @@ const SHAPES: Record<number, () => Part[]> = {
     { path: p('M 31 69 L 69 69 L 74 81 L 26 81 Z') },
     { path: p('M 46 26 L 54 26 L 54 46 L 46 46 Z') },
     {
-      path: p(
-        'M 29 69 C 14 54 22 33 38 38 C 44 40 48 44 50 48 C 52 44 56 40 62 38 C 78 33 86 54 71 69 Z',
-      ),
+      path: p('M 29 69 C 14 54 22 33 38 38 C 44 40 48 44 50 48 C 52 44 56 40 62 38 C 78 33 86 54 71 69 Z'),
     },
     { path: p(collar(69, 44, 8)) },
-    { path: p('M 46 6 L 54 6 L 54 13 L 61 13 L 61 21 L 54 21 L 54 30 L 46 30 L 46 21 L 39 21 L 39 13 L 46 13 Z') },
+    {
+      path: p(
+        'M 46 6 L 54 6 L 54 13 L 61 13 L 61 21 L 54 21 L 54 30 L 46 30 L 46 21 L 39 21 L 39 13 L 46 13 Z',
+      ),
+    },
     { path: p('M 50 49 L 50 62'), detail: 'line' },
   ],
 };
 
 /** Draw one piece into a square canvas area (x, y, size in px). */
-function drawPiece(g: CanvasRenderingContext2D, type: number, white: boolean, x: number, y: number, size: number): void {
+function drawPiece(
+  g: CanvasRenderingContext2D,
+  type: number,
+  white: boolean,
+  x: number,
+  y: number,
+  size: number,
+): void {
   const parts = SHAPES[type]?.() ?? [];
   const k = size / 100;
   g.save();
@@ -118,8 +125,9 @@ function drawPiece(g: CanvasRenderingContext2D, type: number, white: boolean, x:
   // one soft shadow under a thick outline round the whole piece, then the parts on top
   g.save();
   g.shadowColor = 'rgba(30, 12, 0, 0.5)';
-  g.shadowBlur = 7;
-  g.shadowOffsetY = 3;
+  // shadow sizes are in canvas pixels (the transform doesn't scale them): scale by hand
+  g.shadowBlur = 3 * k;
+  g.shadowOffsetY = 1.3 * k;
   g.fillStyle = g.strokeStyle = outline;
   g.lineWidth = 7;
   for (const part of parts)
@@ -151,7 +159,8 @@ function drawPiece(g: CanvasRenderingContext2D, type: number, white: boolean, x:
   g.restore();
 }
 
-const ATLAS_CELL = 256;
+/** 512 px per piece: a square is ~120 pt on an iPad and 3 px per pt on an iPhone; 256 looked soft. */
+const ATLAS_CELL = 512;
 
 /**
  * One texture with every piece: 6 columns (pawn … king), White on the top row, Black below.
@@ -166,7 +175,14 @@ export function iconAtlas(): THREE.CanvasTexture {
     for (let type = 1; type <= 6; type++)
       for (const white of [true, false]) {
         const pad = ATLAS_CELL * 0.04;
-        drawPiece(g, type, white, (type - 1) * ATLAS_CELL + pad, (white ? 0 : 1) * ATLAS_CELL + pad, ATLAS_CELL - pad * 2);
+        drawPiece(
+          g,
+          type,
+          white,
+          (type - 1) * ATLAS_CELL + pad,
+          (white ? 0 : 1) * ATLAS_CELL + pad,
+          ATLAS_CELL - pad * 2,
+        );
       }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -187,4 +203,3 @@ export function iconGeometry(type: number, white: boolean): THREE.PlaneGeometry 
   uv.needsUpdate = true;
   return geo;
 }
-

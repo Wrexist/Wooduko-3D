@@ -132,20 +132,20 @@ button {
 .hud .side.right {
   justify-content: flex-end;
 }
+/* buttons over the live 3D scene: a tinted fill, never backdrop-filter (iOS re-blurs the
+   WebGL canvas under it every frame) */
 .btn {
   pointer-events: auto;
   width: 44px;
   height: 44px;
   border-radius: 50%;
   border: 1px solid var(--btn-line);
-  background: var(--btn);
+  background: linear-gradient(rgba(255, 246, 230, 0.1), rgba(255, 246, 230, 0.1)), rgba(30, 15, 5, 0.34);
   color: var(--ink);
   display: grid;
   place-items: center;
   cursor: pointer;
   padding: 0;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   transition: transform 0.12s ease;
 }
 .btn:active {
@@ -626,12 +626,10 @@ button {
   padding: 0 18px;
   border-radius: 999px;
   border: 1px solid var(--btn-line);
-  background: var(--btn);
+  background: linear-gradient(rgba(255, 246, 230, 0.1), rgba(255, 246, 230, 0.1)), rgba(30, 15, 5, 0.34);
   font-weight: 700;
   font-size: 15px;
   cursor: pointer;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
 }
 .tutorial .hand {
   position: fixed;
@@ -3583,4 +3581,81 @@ button {
   .home .offer {
     grid-column: 1 / -1;
   }
+}
+
+/* ---------- polish ---------- */
+/* New game under Continue: plain centred text (no play icon) */
+.ghost-btn.new-game {
+  display: grid;
+  place-items: center;
+}
+.ghost-btn.new-game .cta-icon {
+  display: none;
+}
+/* round close buttons never squeeze into ovals beside a long title */
+.k-head .close,
+.journey-head .close {
+  flex: none;
+}
+/* Settings: room for every camera name on one line */
+.overlay.settings .card {
+  width: min(360px, 100%);
+}
+/* chess options: one rounded panel, name on the left, value on the right */
+.k-switches {
+  display: grid;
+  gap: 0;
+  margin-top: 14px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: rgba(255, 246, 230, 0.05);
+  border: 1px solid rgba(255, 246, 230, 0.08);
+}
+.k-switches .k-switch,
+.k-switches .k-switch[aria-pressed='true'] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 46px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 15px;
+  text-align: left;
+}
+.k-switches .k-switch + .k-switch {
+  border-top: 1px solid rgba(255, 246, 230, 0.08);
+}
+.k-switch b {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(240, 185, 74, 0.14);
+  color: var(--honey);
+  font-weight: 800;
+  font-size: 14px;
+  transition: transform 0.3s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.k-switch:active b {
+  transform: scale(0.92);
+}
+.k-switch[aria-pressed='false'] b {
+  background: rgba(255, 246, 230, 0.08);
+  color: var(--ink-soft);
+}
+/* a lone option (outside a panel) stays a pill: name, then value */
+.k-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.k-switches {
+  justify-content: stretch;
+}
+/* level lists: title and line on the left, close on the right (like the Workshop hub) */
+.workshop-card .k-head {
+  text-align: left;
 }

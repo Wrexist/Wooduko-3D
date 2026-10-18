@@ -21,13 +21,25 @@ export interface ResultsInfo {
   readonly reviveLabels?: { readonly ad: string; readonly free: string };
 }
 
+/** Overlays whose scrim hides the 3D scene enough that it can stop redrawing (see sceneCovered). */
+const COVERS = ['home', 'pause', 'dialog-layer'];
+let covering = 0;
+
+/**
+ * True while a menu covers the scene: the game skips the WebGL draw (the canvas keeps its last
+ * frame), so the menu's own motion gets the whole GPU and stays smooth.
+ */
+export const sceneCovered = (): boolean => covering > 0;
+
 /** Full-screen scrim with a centred card. */
 export class Overlay {
   readonly node: HTMLDivElement;
   readonly card: HTMLDivElement;
   private lastFocus: Element | null = null;
+  private readonly covers: boolean;
 
   constructor(cls: string, labelId: string) {
+    this.covers = cls.split(' ').some((c) => COVERS.includes(c));
     this.card = el('div', {
       class: 'card',
       role: 'dialog',
@@ -44,6 +56,7 @@ export class Overlay {
 
   show(): void {
     if (this.open) return;
+    if (this.covers) covering++;
     this.lastFocus = document.activeElement;
     this.node.classList.remove('hidden');
     this.node.setAttribute('aria-hidden', 'false');
@@ -53,6 +66,7 @@ export class Overlay {
 
   hide(): void {
     if (!this.open) return;
+    if (this.covers) covering--;
     this.node.classList.add('hidden');
     this.node.setAttribute('aria-hidden', 'true');
     if (this.lastFocus instanceof HTMLElement) this.lastFocus.focus({ preventScroll: true });

@@ -63,7 +63,7 @@ import { World } from './render/world';
 import type { TrayPiece } from './render/world';
 import type { GameStore, StoreState } from './state/store';
 import { AchievementBanner, AwardsPanel } from './ui/awards';
-import { ConfirmDialog, ResultsCard } from './ui/dialogs';
+import { ConfirmDialog, ResultsCard, sceneCovered } from './ui/dialogs';
 import type { ResultsInfo } from './ui/dialogs';
 import { el, ICONS, installRipples, replay } from './ui/dom';
 import { floatText } from './ui/floatText';
@@ -192,6 +192,8 @@ export class Game {
   private height = 1;
   private last = performance.now();
   private time = 0;
+  /** Seconds the scene has been under a covering menu (draws stop after RENDER.coverGrace). */
+  private coveredT = 0;
   /** Dev/test only: slow motion for screenshots. */
   timeScale = 1;
   private raf = 0;
@@ -719,6 +721,7 @@ export class Game {
   }
 
   private applySettings(st: Settings): void {
+    this.coveredT = 0;
     this.sound.setSfx(st.sound);
     this.sound.setMusic(st.music);
     this.haptics.setEnabled(st.haptics);
@@ -1554,6 +1557,7 @@ export class Game {
   // =====================================================================================
 
   private resize(): void {
+    this.coveredT = 0;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.renderer.resize(this.width, this.height);
@@ -1570,14 +1574,18 @@ export class Game {
     const dt = Math.min(RENDER.maxDt, raw) * this.timeScale;
     this.last = now;
     this.time += dt;
-    this.renderer.sample(raw);
+    // under a menu the scene is only backdrop: after a short grace (so changes finish
+    // drawing) the WebGL draw is skipped and the canvas keeps its last frame
+    this.coveredT = sceneCovered() ? this.coveredT + raw : 0;
+    const draw = this.coveredT < RENDER.coverGrace;
+    if (draw) this.renderer.sample(raw);
 
     const ws = this.workshop.find((w) => w.active);
     if (ws) {
       ws.update(dt);
       // the banner queue keeps draining (hidden by CSS), so it never waits over a puzzle
       this.banner.update(dt);
-      this.renderer.gl.render(ws.view.scene, ws.view.camera);
+      if (draw) this.renderer.gl.render(ws.view.scene, ws.view.camera);
       this.raf = requestAnimationFrame((t) => this.frame(t));
       return;
     }
@@ -1604,7 +1612,10 @@ export class Game {
     this.offer.update(raw);
     this.updateTutorialHand(dt);
 
-    if (this.world.updateView(dt)) this.drag.refresh();
+    if (this.world.updateView(dt)) {
+      this.drag.refresh();
+      this.coveredT = 0;
+    }
     const shake = this.fx.updateShake(dt);
     const cb = this.world.camBase;
     const cam = this.world.camera;
@@ -1618,7 +1629,7 @@ export class Game {
       );
     } else cam.position.copy(cb);
 
-    this.renderer.gl.render(this.world.scene, cam);
+    if (draw) this.renderer.gl.render(this.world.scene, cam);
     this.raf = requestAnimationFrame((t) => this.frame(t));
   }
 
