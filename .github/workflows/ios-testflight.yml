@@ -144,6 +144,13 @@ jobs:
           chmod 600 "$KEY_PATH"
           echo "API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
+      # every fresh runner makes a new development certificate; clear the old CI ones first
+      - name: Revoke leftover CI development certificates
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: node scripts/asc-prune-certs.mjs
+
       - name: Archive
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
