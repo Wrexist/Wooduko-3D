@@ -5,6 +5,7 @@ import { Sparkles } from '../fx/particles';
 import { easeInOutCubic, easeInQuad } from '../fx/tween';
 import { createCamera, fitCamera } from './camera';
 import { buildBoard } from './checkersScene';
+import { iconAtlas, iconGeometry } from './chessIcons';
 import { bishopSlit, pieceGeometries } from './chessPieces';
 import { linearColor } from './color';
 import { addLights } from './lights';
@@ -94,6 +95,8 @@ interface Piece {
   readonly body: THREE.Mesh;
   /** The bishop's groove (hidden on other pieces; a promotion can turn it on). */
   readonly slit: THREE.Mesh;
+  /** The flat silhouette shown from above instead of the turned body. */
+  readonly flat: THREE.Mesh;
   readonly white: boolean;
   /** Last frame's position (for the lean) and the landing settle (−1 = none). */
   readonly prev: THREE.Vector3;
@@ -128,6 +131,10 @@ export class ChessScene {
   private run: Running | null = null;
   private readonly pieceGeos = pieceGeometries();
   private readonly slitGeo = bishopSlit();
+  /** Flat silhouettes for the view from above: one atlas, a quad per type and colour. */
+  private readonly iconMap = iconAtlas();
+  private readonly iconGeos = [true, false].map((w) => [1, 2, 3, 4, 5, 6].map((t) => iconGeometry(t, w)));
+  private readonly iconMat: THREE.MeshBasicMaterial;
   private readonly slitMat = new THREE.MeshStandardMaterial({
     color: linearColor(CHESS.slit),
     roughness: 0.8,
@@ -198,6 +205,12 @@ export class ChessScene {
       return m;
     };
     this.woodMats = [wood(CHESS.whiteTint), wood(CHESS.blackTint)];
+    this.iconMat = new THREE.MeshBasicMaterial({
+      map: this.iconMap,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
     const flat = (hex: number, opacity: number) =>
       new THREE.MeshBasicMaterial({
         color: linearColor(hex),
@@ -207,8 +220,8 @@ export class ChessScene {
         depthWrite: false,
       });
     this.dotMat = flat(CHECKERS.marker, CHECKERS.dotOpacity);
-    this.selMat = flat(CHECKERS.marker, CHECKERS.selOpacity);
-    this.lastMat = flat(CHECKERS.marker, CHECKERS.lastOpacity);
+    this.selMat = flat(CHESS.lit, CHESS.selOpacity);
+    this.lastMat = flat(CHESS.lit, CHESS.lastOpacity);
     this.checkMat = flat(CHESS.check, CHESS.checkOpacity);
     this.dangerMat = flat(CHESS.danger, CHESS.dangerOpacity);
     this.waveMat = flat(CHESS.wave, 0);
@@ -250,8 +263,21 @@ export class ChessScene {
     this.scene.add(this.coords, this.trays);
   }
 
+  /** From above: flat silhouettes; tilted: the turned pieces. */
   setTop(on: boolean): void {
     this.top = on;
+    for (const p of this.pieces.values()) this.showFlat(p);
+    this.trayKey = '';
+  }
+
+  private iconGeo(type: number, white: boolean): THREE.PlaneGeometry | undefined {
+    return this.iconGeos[white ? 0 : 1]?.[type - 1];
+  }
+
+  private showFlat(p: Piece): void {
+    p.flat.visible = this.top;
+    p.body.visible = !this.top;
+    p.slit.visible = !this.top && p.body.geometry === this.pieceGeos[2];
   }
 
   /** Turn the board round (you play Black). Call before `sync`. */
@@ -301,12 +327,20 @@ export class ChessScene {
    * what the computer took behind it. Types, most valuable first.
    */
   captured(byYou: readonly number[], byComputer: readonly number[], youWhite = true): void {
-    const key = `${byYou.join('')}|${byComputer.join('')}|${youWhite ? 1 : 0}`;
+    const key = `${byYou.join('')}|${byComputer.join('')}|${youWhite ? 1 : 0}|${this.top ? 1 : 0}`;
     if (key === this.trayKey) return;
     this.trayKey = key;
     for (const c of [...this.trays.children]) c.removeFromParent();
     const row = (types: readonly number[], white: boolean, z: number): void =>
       types.forEach((type, i) => {
+        if (this.top) {
+          const f = new THREE.Mesh(this.iconGeo(type, white), this.iconMat);
+          f.scale.setScalar(CHESS.trayScaleTop);
+          f.position.set(-SIZE / 2 + 0.3 + i * CHESS.trayStep * 0.8, 0.02, z);
+          f.renderOrder = 3;
+          this.trays.add(f);
+          return;
+        }
         const m = new THREE.Mesh(this.pieceGeos[type - 1], this.woodMats[white ? 0 : 1]);
         m.scale.setScalar(CHESS.trayScale);
         m.position.set(-SIZE / 2 + 0.3 + i * CHESS.trayStep, 0, z);
@@ -563,6 +597,9 @@ export class ChessScene {
       }
       p.tilt.rotation.x = rx;
       p.tilt.rotation.z = rz;
+      // from above a held piece can't be seen rising: it grows instead (eased)
+      const grow = p === drag ? CHESS.iconLift : 1;
+      p.flat.scale.setScalar(p.flat.scale.x + (grow - p.flat.scale.x) * (1 - Math.exp(-CHESS.followRateY * dt)));
       if (p.group !== this.bounceGroup()) p.tilt.scale.set(1 / Math.sqrt(sy), sy, 1 / Math.sqrt(sy));
     }
   }
@@ -576,7 +613,9 @@ export class ChessScene {
     const g = this.pieceGeos[type - 1];
     if (!p || !g) return;
     p.body.geometry = g;
-    p.slit.visible = type === 3;
+    const fg = this.iconGeo(type, p.white);
+    if (fg) p.flat.geometry = fg;
+    this.showFlat(p);
     p.body.rotation.y = type === 2 ? this.knightYaw(p.white) : 0;
   }
 
@@ -606,11 +645,11 @@ export class ChessScene {
     this.ndc.set((x / width) * 2 - 1, -(y / height) * 2 + 1);
     this.ray.setFromCamera(this.ndc, this.camera);
     this.bodies.length = 0;
-    for (const pc of this.pieces.values()) this.bodies.push(pc.body);
+    for (const pc of this.pieces.values()) this.bodies.push(this.top ? pc.flat : pc.body);
     this.hits.length = 0;
     this.ray.intersectObjects(this.bodies, false, this.hits);
     const hit = this.hits[0]?.object;
-    if (hit) for (const [sq, pc] of this.pieces) if (pc.body === hit && sq !== this.dragSq) return sq;
+    if (hit) for (const [sq, pc] of this.pieces) if ((pc.body === hit || pc.flat === hit) && sq !== this.dragSq) return sq;
     return ground;
   }
 
@@ -632,7 +671,8 @@ export class ChessScene {
   }
 
   resize(width: number, height: number, topPx: number, bottomPx: number, leftPx = 0): void {
-    const m = SIZE / 2 + CHECKERS.wallGap + TABLE.bevel + 0.3;
+    // from above nothing stands up past the edges: the board can fill the width
+    const m = SIZE / 2 + CHECKERS.wallGap + TABLE.bevel + (this.top ? CHESS.sideRoomTop : 0.3);
     const spec: LayoutSpec = {
       landscape: false,
       slots: [],
@@ -673,11 +713,15 @@ export class ChessScene {
     body.castShadow = true;
     body.receiveShadow = true;
     const slit = new THREE.Mesh(this.slitGeo, this.slitMat);
-    slit.visible = type === 3;
-    tilt.add(body, slit);
+    const flat = new THREE.Mesh(this.iconGeo(type, white), this.iconMat);
+    flat.position.y = CHESS.iconY;
+    flat.renderOrder = 3;
+    tilt.add(body, slit, flat);
     group.add(tilt);
     this.scene.add(group);
-    return { group, tilt, body, slit, white, prev: new THREE.Vector3(), settle: -1, sx: 0, sz: 0 };
+    const p: Piece = { group, tilt, body, slit, flat, white, prev: new THREE.Vector3(), settle: -1, sx: 0, sz: 0 };
+    this.showFlat(p);
+    return p;
   }
 
   dispose(): void {
@@ -700,6 +744,9 @@ export class ChessScene {
     cm.dispose();
     this.coords.geometry.dispose();
     this.slitMat.dispose();
+    this.iconMat.dispose();
+    this.iconMap.dispose();
+    for (const g of this.iconGeos.flat()) g.dispose();
     for (const g of [...this.pieceGeos, this.slitGeo, this.dotGeo, this.ringGeo, this.squareGeo]) g.dispose();
     for (const m of [
       ...this.woodMats,

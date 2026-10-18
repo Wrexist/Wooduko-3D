@@ -916,6 +916,27 @@ export const CHESS = {
   camTop: [0, 1, 0.14] as const,
   backRoomTop: 0.75,
   frontRoomTop: 0.75,
+  /**
+   * From above the turned pieces all look round, so they're drawn as flat silhouettes instead:
+   * size (squares), wood gradients (light → dark, CSS colours), outline and detail colours, and
+   * how much bigger a held piece grows.
+   */
+  iconSize: 1,
+  iconWhite: ['#fff6e4', '#f3d7a6', '#d9a866'] as const,
+  iconBlack: ['#6b3e1e', '#3d200d', '#1f0f05'] as const,
+  iconWhiteLine: '#3b2010',
+  iconBlackLine: '#120804',
+  iconBlackDetail: '#e9c99a',
+  iconBlackSeam: '#a8743f',
+  iconLift: 1.22,
+  /** Room beside the board from above (squares). */
+  sideRoomTop: 0.02,
+  /** The last move's two squares and the selected piece's square: a clear yellow wash. */
+  lit: 0xffe24a,
+  lastOpacity: 0.42,
+  selOpacity: 0.6,
+  /** Height of the silhouettes over the board (above the markers). */
+  iconY: 0.02,
   /** Held / moving pieces: follow speed (1/s), lean per unit of speed, the most lean, how fast it eases. */
   followRate: 26,
   followRateY: 14,
@@ -940,6 +961,7 @@ export const CHESS = {
   arrowHint: 0xffc04a,
   /** Captured pieces: size, spacing, gap from the board edge; room in front of the board for them. */
   trayScale: 0.5,
+  trayScaleTop: 0.6,
   trayStep: 0.42,
   trayGap: 0.45,
   frontRoom: 0.9,

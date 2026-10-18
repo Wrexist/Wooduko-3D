@@ -614,6 +614,13 @@ check(
   'view: chess starts seen from above',
   await page.evaluate(() => window.__grain.game.chess.view.top === true),
 );
+check(
+  'view: from above every piece is a flat silhouette (the turned bodies are hidden)',
+  await page.evaluate(() => {
+    const ps = [...window.__grain.game.chess.view.pieces.values()];
+    return ps.length === 32 && ps.every((p) => p.flat.visible && !p.body.visible && !p.slit.visible);
+  }),
+);
 await page.locator('.k-teach:visible').click();
 await page.waitForFunction(() => window.__grain.game.chess.teachMove, null, { timeout: 15000 });
 check(

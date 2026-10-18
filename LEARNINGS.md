@@ -73,3 +73,6 @@
 - **Tall 3D chess pieces hide the squares behind them:** with a tilted camera the e1 king covers the e2 square on screen, so tapping the base of a square picks the wrong piece. Hit testing tries, in order: a legal target square under the finger, then the piece body the ray touches, then the board. Browser checks tap a piece's body (a raised point), not its base.
 
 - **A hidden result card can come back:** the chess controller shows its result card from `update()` once `resultT` passes the delay and the card isn't open. Hiding the card to open the review brought it straight back over the review. Anything that replaces the card must also stop that timer (`resultT = -1`).
+
+## Turned chess pieces can't be read from straight above
+Every lathe-turned piece is a circle seen from the top, so in the from-above view a pawn, queen and king looked alike. Lichess and chess.com use flat silhouettes for top-down boards; we now draw our own (`src/render/chessIcons.ts`, one canvas atlas) and swap them in from above, keeping the 3D pieces for the tilted view.
