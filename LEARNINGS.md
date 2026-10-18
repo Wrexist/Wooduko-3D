@@ -76,3 +76,6 @@
 
 ## Turned chess pieces can't be read from straight above
 Every lathe-turned piece is a circle seen from the top, so in the from-above view a pawn, queen and king looked alike. Lichess and chess.com use flat silhouettes for top-down boards; we now draw our own (`src/render/chessIcons.ts`, one canvas atlas) and swap them in from above, keeping the 3D pieces for the tilted view.
+
+## Entrance animations can freeze a button's press
+A menu entrance animation with `animation-fill-mode: both` (or `forwards`) keeps holding its last keyframe (`transform: none`) after it ends, and animated values beat normal rules, so `:active { transform: scale(.96) }` stopped working. The `.rise` entrance uses `backwards`: it holds the first keyframe during the stagger delay, then lets go.

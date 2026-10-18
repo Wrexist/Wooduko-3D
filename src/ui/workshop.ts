@@ -1,6 +1,6 @@
 import { num, t } from '../i18n';
 import { Overlay } from './dialogs';
-import { el, ICONS } from './dom';
+import { el, ICONS, rise } from './dom';
 
 /**
  * While the Workshop hub or a level list is open the Home card hides behind it. A class on the
@@ -395,7 +395,10 @@ export class WorkshopHub extends WorkshopOverlay {
         el('span', { class: 'icon', html: g.icon }),
         el('span', { class: 'hub-text' }, [el('strong', {}, [g.name]), el('small', {}, [g.desc])]),
         count,
+        el('span', { class: 'chev', html: ICONS.chevron }),
       ]);
+      b.dataset.game = g.id;
+      rise([b], list.children.length + 1);
       this.buttons.set(g.id, { b, name: g.name, desc: g.desc });
       b.addEventListener('click', () => g.open());
       list.append(b);

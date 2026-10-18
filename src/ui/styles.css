@@ -538,26 +538,6 @@ button {
 }
 
 /* ---------- home ---------- */
-.home .card {
-  padding-top: 34px;
-}
-.home .title {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 56px;
-  line-height: 1;
-  letter-spacing: -0.01em;
-  text-shadow: 0 3px 0 var(--shadow-text);
-}
-.home .subtitle {
-  color: var(--ink-soft);
-  font-size: 15px;
-  margin-top: 6px;
-}
-.home .best {
-  margin-top: 16px;
-  font-size: 15px;
-}
 
 /* ---------- settings ---------- */
 .settings-list {
@@ -948,113 +928,6 @@ button {
     transform: scale(1.3);
   }
 }
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-.tile {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 9px 4px 8px;
-  border-radius: 14px;
-  cursor: pointer;
-  border: 1px solid var(--btn-line);
-  background: var(--btn);
-  color: var(--ink);
-  min-width: 0;
-}
-.tile:active {
-  transform: translateY(1px);
-}
-.tile:focus-visible {
-  outline: 2px solid var(--honey);
-  outline-offset: 2px;
-}
-.tile .icon {
-  width: 22px;
-  height: 22px;
-  color: var(--honey);
-}
-.tile .icon svg {
-  width: 100%;
-  height: 100%;
-}
-.tile strong {
-  font-size: 15px;
-}
-.tile small {
-  font-size: 12px;
-  color: var(--ink-soft);
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
-}
-.tile.daily {
-  border-color: var(--honey);
-}
-.tile.daily.done small {
-  color: var(--honey);
-}
-.tile .streak {
-  position: absolute;
-  top: 5px;
-  right: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  font-size: 12px;
-  font-weight: 800;
-  color: #ffb066;
-}
-.tile .streak svg {
-  width: 13px;
-  height: 13px;
-}
-.tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 48px 48px;
-  gap: 8px;
-}
-.icon-btn {
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-.icon-btn svg {
-  width: 22px;
-  height: 22px;
-}
-.quests-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 8px;
-  font-size: 15px;
-  white-space: nowrap;
-}
-.quests-btn svg {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  color: var(--honey);
-}
-.quests-btn span:first-of-type {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.quests-btn .count {
-  color: var(--honey);
-  font-variant-numeric: tabular-nums;
-}
-.quests-btn.done {
-  border-color: var(--honey);
-}
 .quests {
   list-style: none;
   margin: 0;
@@ -1128,22 +1001,6 @@ button {
     flex-direction: column;
     align-items: flex-end;
   }
-  .home .card {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-  .tiles {
-    gap: 6px;
-  }
-  .tile small {
-    font-size: 11px;
-  }
-  .quests-btn svg {
-    display: none;
-  }
-  .tools {
-    grid-template-columns: minmax(0, 1fr) 44px 44px;
-  }
 }
 /* short screens (landscape phones): compact cards, tutorial tip beside the board */
 @media (max-height: 500px) {
@@ -1165,29 +1022,6 @@ button {
   .ghost-btn {
     height: 40px;
   }
-  .home .card {
-    padding-top: 20px;
-  }
-  .home .title {
-    font-size: 40px;
-  }
-  .home .best {
-    margin-top: 8px;
-  }
-  .home .subtitle {
-    display: none;
-  }
-  .tile {
-    padding: 5px 4px;
-    gap: 0;
-  }
-  .tile .icon {
-    width: 18px;
-    height: 18px;
-  }
-  .tools {
-    grid-template-columns: minmax(0, 1fr) 40px 40px;
-  }
   .card .final {
     font-size: 48px;
     margin: 4px 0 0;
@@ -1202,30 +1036,6 @@ button {
 }
 @media (max-height: 500px) and (orientation: landscape) {
   /* home: title on the left, buttons on the right, so it fits a phone on its side */
-  .home .card {
-    width: min(580px, 100%);
-    display: grid;
-    grid-template-columns: 1fr 1.5fr;
-    grid-template-rows: auto auto 1fr;
-    column-gap: 24px;
-    align-items: center;
-  }
-  .home .title,
-  .home .best {
-    grid-column: 1;
-  }
-  .home .best {
-    justify-self: center;
-    align-self: start;
-  }
-  .home .stack {
-    grid-column: 2;
-    grid-row: 1 / span 3;
-    margin-top: 0;
-  }
-  .home .offer {
-    grid-column: 1 / -1;
-  }
   .tutorial .tip {
     top: 50%;
     left: calc(var(--safe-left) + 16px);
@@ -1562,64 +1372,6 @@ button {
   outline-offset: 1px;
 }
 
-/* ---------- journey ---------- */
-.journey-btn,
-.workshop-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 52px;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 0;
-  cursor: pointer;
-  color: #2b1608;
-  background: linear-gradient(110deg, #9fe7cf, #3fe0b4 55%, #23b08b);
-  box-shadow:
-    0 3px 0 #11735a,
-    0 10px 20px rgba(0, 0, 0, 0.28);
-  font-size: 16px;
-  text-align: left;
-}
-.journey-btn:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #11735a;
-}
-.journey-btn:focus-visible,
-.workshop-btn:focus-visible {
-  outline: 2px solid var(--honey);
-  outline-offset: 2px;
-}
-.journey-btn .icon,
-.workshop-btn .icon {
-  width: 24px;
-  height: 24px;
-  flex: none;
-}
-.journey-btn .icon svg,
-.workshop-btn .icon svg {
-  width: 100%;
-  height: 100%;
-}
-.journey-btn strong,
-.workshop-btn strong {
-  flex: 1;
-}
-.journey-btn .jstars {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-.journey-btn .jstars svg {
-  width: 16px;
-  height: 16px;
-  color: #fff3c4;
-  filter: drop-shadow(0 1px 0 #7a5a10);
-}
-
 /* HUD goal pills */
 .goals {
   display: flex;
@@ -1909,76 +1661,7 @@ button {
   margin-top: 4px;
 }
 
-/* small phones: the home card has a lot to hold (Play, Journey, modes, quests) */
-@media (max-height: 640px) {
-  .home .card {
-    padding-top: 20px;
-    padding-bottom: 18px;
-  }
-  .home .title {
-    font-size: 44px;
-  }
-  .home .subtitle {
-    display: none;
-  }
-  .home .best {
-    margin-top: 6px;
-  }
-  .home .stack {
-    gap: 8px;
-    margin-top: 14px;
-  }
-  .journey-btn,
-  .workshop-btn {
-    min-height: 46px;
-  }
-}
-@media (max-height: 500px) {
-  .journey-btn,
-  .workshop-btn {
-    min-height: 40px;
-    font-size: 15px;
-  }
-  .home .stack {
-    gap: 6px;
-  }
-  .home .card .cta {
-    height: 40px;
-  }
-  .home .card .ghost-btn {
-    height: 38px;
-  }
-}
-
 /* ---------- Workshop: Sliding blocks ---------- */
-.journey-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-.workshop-btn {
-  width: 84px;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 4px 6px;
-  font-size: 13px;
-  color: #fff4e0;
-  background: linear-gradient(110deg, #8a5a33, #6b3f1f 55%, #4e2a12);
-  box-shadow:
-    0 3px 0 #2e170a,
-    0 10px 20px rgba(0, 0, 0, 0.28);
-}
-.workshop-btn strong {
-  flex: none;
-}
-.workshop-btn .icon {
-  width: 20px;
-  height: 20px;
-}
-.workshop-btn:active {
-  box-shadow: 0 1px 0 #2e170a;
-}
 .workshop-on .hud,
 .workshop-on .overlay.home {
   display: none;
@@ -2414,47 +2097,7 @@ button {
   }
 }
 
-/* ---------- calmer Home and Settings ---------- */
-/* Journey and Workshop: the same quiet card as the mode tiles; colour only on the icon */
-.journey-btn,
-.workshop-btn {
-  color: var(--ink);
-  background: var(--btn);
-  border: 1px solid var(--btn-line);
-  box-shadow: none;
-}
-.journey-btn:active,
-.workshop-btn:active {
-  box-shadow: none;
-}
-.journey-btn .icon {
-  color: #3fe0b4;
-}
-.workshop-btn .icon {
-  color: var(--honey);
-}
-.journey-btn .jstars svg {
-  color: #ffd77a;
-  filter: none;
-}
-.tile.daily {
-  border-color: var(--btn-line);
-}
-/* bottom row: quiet text and icon buttons */
-.tools .ghost-btn {
-  background: transparent;
-  border-color: transparent;
-}
-.tools .ghost-btn:active {
-  background: var(--btn);
-}
-.quests-btn.done {
-  border-color: transparent;
-}
-/* Home sits on a deeper scrim, so the board behind it reads as backdrop, not clutter */
-.overlay.home {
-  background: rgba(20, 10, 4, 0.72);
-}
+/* ---------- settings groups ---------- */
 .set-group {
   margin: 14px 0 2px;
   font-size: 12px;
@@ -2485,32 +2128,8 @@ button {
 .settings-foot .link-btn {
   margin-top: 0;
 }
-.jtext {
-  flex: 1;
-  display: grid;
-  text-align: left;
-  line-height: 1.15;
-}
-.jtext small {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-soft);
-}
 .link-btn.danger {
   color: #ff9f86;
-}
-@media (max-height: 500px) {
-  .jtext small {
-    display: none;
-  }
-}
-@media (max-height: 500px) {
-  .workshop-btn {
-    flex-direction: row;
-    width: auto;
-    gap: 6px;
-    padding: 0 12px;
-  }
 }
 /* short landscape phones: Workshop games side by side, without the one-line description */
 @media (max-height: 500px) and (orientation: landscape) {
@@ -2726,8 +2345,7 @@ button {
   padding: 14px 16px 12px;
   border-radius: 18px;
   background:
-    radial-gradient(120% 140% at 0% 0%, rgba(240, 185, 74, 0.22), transparent 60%),
-    rgba(255, 246, 230, 0.07);
+    radial-gradient(120% 140% at 0% 0%, rgba(240, 185, 74, 0.22), transparent 60%), rgba(255, 246, 230, 0.07);
   border: 1px solid rgba(240, 185, 74, 0.35);
   overflow: hidden;
   animation: train-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
@@ -3209,5 +2827,760 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .chess-moves {
     scroll-behavior: auto;
+  }
+}
+
+/* ---------- Home ---------- */
+/* a deep scrim with a warm glow from the top, so the board behind reads as backdrop */
+.overlay.home {
+  background:
+    radial-gradient(120% 55% at 50% 0%, rgba(240, 185, 74, 0.14), transparent 65%), rgba(18, 9, 3, 0.74);
+}
+.home .card.home-card {
+  width: min(400px, 100%);
+  padding: 14px 16px 16px;
+  text-align: left;
+  background: linear-gradient(180deg, rgba(58, 35, 19, 0.95), rgba(30, 18, 9, 0.96));
+  border-color: rgba(255, 230, 190, 0.13);
+  border-radius: 26px;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 240, 210, 0.08);
+}
+.overlay.home:not(.hidden) .card.home-card {
+  animation: homeIn 0.5s ease-out backwards;
+}
+@keyframes homeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+/* top bar: best score on the left, Awards and Settings on the right */
+.h-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.home .best {
+  height: 34px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  background: rgba(240, 185, 74, 0.12);
+  border: 1px solid rgba(240, 185, 74, 0.32);
+  color: var(--gold-float);
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-shadow: none;
+}
+.home .best svg {
+  width: 18px;
+  height: 18px;
+  color: var(--honey);
+}
+.h-actions {
+  display: flex;
+  gap: 6px;
+}
+.icon-btn {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--btn-line);
+  background: var(--btn);
+  color: var(--ink);
+  cursor: pointer;
+}
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.5s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.icon-btn:active svg {
+  transform: rotate(-25deg) scale(0.88);
+}
+
+/* the title: the letters drop in like blocks, then rest */
+.h-brand {
+  margin: 8px 0 2px;
+  text-align: center;
+}
+.home .title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 60px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-shadow:
+    0 3px 0 var(--shadow-text),
+    0 10px 30px rgba(240, 185, 74, 0.22);
+}
+.home .title span {
+  display: inline-block;
+}
+.overlay.home:not(.hidden) .title span {
+  animation: letterDrop 0.8s cubic-bezier(0.25, 1.6, 0.4, 1) backwards;
+  animation-delay: calc(var(--l, 0) * 70ms + 120ms);
+}
+@keyframes letterDrop {
+  0% {
+    opacity: 0;
+    transform: translateY(-46px) rotate(-14deg) scale(0.8);
+  }
+  45% {
+    opacity: 1;
+  }
+}
+.home .subtitle {
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* one big Play (or Continue); New game is quiet under it */
+.h-main {
+  margin-top: 16px;
+  gap: 8px;
+}
+.cta.hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 58px;
+  border-radius: 16px;
+  font-size: 19px;
+}
+.cta-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+}
+.cta-icon svg {
+  width: 100%;
+  height: 100%;
+}
+/* a slow shine across the main button, now and then */
+.cta.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.5) 50%, transparent 65%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+.overlay.home:not(.hidden) .cta.hero::after {
+  animation: ctaShine 4.5s ease-in-out 1.4s infinite;
+}
+@keyframes ctaShine {
+  0% {
+    transform: translateX(-120%);
+  }
+  26%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+.ghost-btn.new-game {
+  height: 44px;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+/* modes: four cards, each with its own colour on the icon chip and edge */
+.h-label {
+  margin: 18px 4px 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.h-more .tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.mode,
+.h-row {
+  --c: var(--honey);
+  --c-soft: rgba(240, 185, 74, 0.15);
+  --c-line: rgba(240, 185, 74, 0.28);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border-radius: 16px;
+  border: 1px solid var(--c-line);
+  background:
+    linear-gradient(150deg, var(--c-soft), rgba(255, 246, 230, 0.03) 70%), rgba(255, 246, 230, 0.04);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.3s cubic-bezier(0.2, 1.5, 0.4, 1),
+    border-color 0.2s ease;
+}
+.mode {
+  min-height: 62px;
+  padding: 10px;
+}
+.journey-btn {
+  --c: #3fe0b4;
+  --c-soft: rgba(63, 224, 180, 0.15);
+  --c-line: rgba(63, 224, 180, 0.28);
+}
+.tile.zen {
+  --c: #9ad66b;
+  --c-soft: rgba(154, 214, 107, 0.13);
+  --c-line: rgba(154, 214, 107, 0.26);
+}
+.tile.blitz {
+  --c: #ff8a65;
+  --c-soft: rgba(255, 138, 101, 0.14);
+  --c-line: rgba(255, 138, 101, 0.28);
+}
+.workshop-btn {
+  --c: #7cc4ff;
+  --c-soft: rgba(124, 196, 255, 0.13);
+  --c-line: rgba(124, 196, 255, 0.26);
+}
+.chip-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: var(--c);
+  background: var(--c-soft);
+  box-shadow: inset 0 0 0 1px var(--c-line);
+  transition: transform 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.chip-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.mode:active,
+.h-row:active {
+  transform: scale(0.965);
+}
+.mode:active .chip-icon,
+.h-row:active .chip-icon {
+  transform: scale(1.14) rotate(-8deg);
+}
+@media (hover: hover) {
+  .mode:hover,
+  .h-row:hover {
+    border-color: var(--c);
+  }
+  .mode:hover .chip-icon,
+  .h-row:hover .chip-icon {
+    transform: rotate(-8deg) scale(1.08);
+  }
+}
+.mode:focus-visible,
+.h-row:focus-visible,
+.icon-btn:focus-visible {
+  outline: 2px solid var(--honey);
+  outline-offset: 2px;
+}
+/* name on top; the short line and its badge (stars, streak) under it */
+.mode-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 4px;
+  row-gap: 1px;
+}
+.mode-text strong {
+  grid-column: 1 / -1;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mode small,
+.h-row small {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.tile.daily.done small {
+  color: var(--honey);
+}
+.mode .jstars,
+.mode .streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px 1px 4px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.mode .jstars {
+  color: var(--gold-float);
+  background: rgba(255, 215, 122, 0.12);
+}
+.mode .streak {
+  color: #ffb066;
+  background: rgba(255, 140, 60, 0.14);
+}
+.mode .jstars svg,
+.mode .streak svg {
+  width: 13px;
+  height: 13px;
+}
+.overlay.home:not(.hidden) .mode .streak svg {
+  transform-origin: 50% 90%;
+  animation: flicker 1.6s ease-in-out infinite;
+}
+@keyframes flicker {
+  30% {
+    transform: scale(1.12, 0.94) rotate(-4deg);
+  }
+  60% {
+    transform: scale(0.95, 1.08) rotate(3deg);
+  }
+}
+
+/* Workshop and quests: full-width rows */
+.h-row {
+  width: 100%;
+  min-height: 60px;
+  margin-top: 8px;
+  padding: 10px 14px 10px 10px;
+  gap: 12px;
+}
+.h-row-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.h-row strong {
+  font-size: 16px;
+}
+.chev {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--ink-faint);
+  transition: transform 0.3s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.chev svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.h-row:active .chev,
+.hub-game:active .chev {
+  transform: translateX(4px);
+}
+.quests-btn .bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 246, 230, 0.1);
+  overflow: hidden;
+}
+.quests-btn .bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ffd77a, var(--honey));
+  transition: width 0.9s cubic-bezier(0.2, 1, 0.3, 1);
+}
+.quests-btn .count {
+  font-weight: 800;
+  color: var(--honey);
+  font-variant-numeric: tabular-nums;
+}
+.quests-btn.done {
+  border-color: var(--honey);
+}
+
+/* ---------- menu motion: entrance, ripple, exit ---------- */
+/* each item fades up a beat after the one before (delay from --i); `backwards` so the
+   animation lets go afterwards and :active can still press it */
+.overlay:not(.hidden) .rise {
+  animation: riseIn 0.55s cubic-bezier(0.2, 1.25, 0.35, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms + 80ms);
+}
+@keyframes riseIn {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+}
+.overlay.hidden .card {
+  transform: scale(0.97) translateY(6px);
+  transition: transform 0.3s ease;
+}
+.cta,
+.ghost-btn,
+.hub-game {
+  position: relative;
+  overflow: hidden;
+}
+/* level stones are square grid items: overflow:hidden would let the row shrink under them,
+   so clip the ripple with paint containment instead */
+.k-level {
+  contain: paint;
+}
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(255, 250, 235, 0.32),
+    rgba(255, 250, 235, 0.12) 45%,
+    transparent 70%
+  );
+  transform: scale(0);
+  animation: ripple 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+.cta .ripple,
+.k-level.done .ripple,
+.k-level.current .ripple {
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.6),
+    rgba(255, 255, 255, 0.2) 45%,
+    transparent 70%
+  );
+}
+@keyframes ripple {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+.reduced .overlay:not(.hidden) .rise,
+.reduced .overlay:not(.hidden) .card.home-card,
+.reduced .overlay.home:not(.hidden) .title span,
+.reduced .overlay.home:not(.hidden) .cta.hero::after,
+.reduced .overlay.home:not(.hidden) .mode .streak svg {
+  animation: none;
+}
+.reduced .overlay.hidden .card {
+  transform: none;
+}
+
+/* ---------- Workshop hub: a colour per game ---------- */
+.hub-game {
+  --c: var(--honey);
+  --c-soft: rgba(240, 185, 74, 0.15);
+  --c-line: rgba(240, 185, 74, 0.28);
+  border-color: var(--c-line);
+  border-radius: 16px;
+  background:
+    linear-gradient(150deg, var(--c-soft), rgba(255, 246, 230, 0.03) 70%), rgba(255, 246, 230, 0.04);
+  transition:
+    transform 0.3s cubic-bezier(0.2, 1.5, 0.4, 1),
+    border-color 0.2s ease;
+}
+.hub-game:active {
+  transform: scale(0.97);
+}
+.hub-game[data-game='klotski'] {
+  --c: #7cc4ff;
+  --c-soft: rgba(124, 196, 255, 0.13);
+  --c-line: rgba(124, 196, 255, 0.26);
+}
+.hub-game[data-game='checkers'] {
+  --c: #ff8a65;
+  --c-soft: rgba(255, 138, 101, 0.14);
+  --c-line: rgba(255, 138, 101, 0.28);
+}
+.hub-game[data-game='chess'] {
+  --c: #3fe0b4;
+  --c-soft: rgba(63, 224, 180, 0.14);
+  --c-line: rgba(63, 224, 180, 0.28);
+}
+.hub-game[data-game='school'] {
+  --c: #c7a2ff;
+  --c-soft: rgba(199, 162, 255, 0.14);
+  --c-line: rgba(199, 162, 255, 0.28);
+}
+.hub-game .icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 10px;
+  border-radius: 14px;
+  color: var(--c);
+  background: var(--c-soft);
+  box-shadow: inset 0 0 0 1px var(--c-line);
+  transition: transform 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.hub-game:active .icon {
+  transform: scale(1.12) rotate(-8deg);
+}
+@media (hover: hover) {
+  .hub-game:hover {
+    border-color: var(--c);
+  }
+}
+.hub-game .chev {
+  margin-left: -4px;
+}
+
+/* ---------- Settings: each group in one rounded panel ---------- */
+.set-card {
+  padding: 0 14px;
+  border-radius: 16px;
+  background: rgba(255, 246, 230, 0.05);
+  border: 1px solid rgba(255, 246, 230, 0.08);
+}
+.set-card > .setting + .setting {
+  border-top: 1px solid rgba(255, 246, 230, 0.08);
+}
+.settings-list .set-group {
+  margin: 16px 4px 8px;
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+}
+.settings-list .set-group:first-child {
+  margin-top: 0;
+}
+.toggle[aria-checked='true'] {
+  box-shadow: 0 0 14px rgba(240, 185, 74, 0.35);
+}
+
+/* ---------- Home on small and sideways screens ---------- */
+@media (max-height: 740px) {
+  .home .card.home-card {
+    padding: 10px 14px 14px;
+  }
+  .h-brand {
+    margin-top: 2px;
+  }
+  .home .title {
+    font-size: 48px;
+  }
+  .home .subtitle {
+    display: none;
+  }
+  .h-main {
+    margin-top: 12px;
+  }
+  .cta.hero {
+    height: 52px;
+  }
+  .h-label {
+    margin: 14px 4px 6px;
+  }
+  .mode {
+    min-height: 56px;
+    padding: 8px;
+  }
+  .h-row {
+    min-height: 54px;
+    padding: 8px 12px 8px 8px;
+  }
+}
+@media (max-height: 640px) {
+  .h-label {
+    display: none;
+  }
+  .h-more {
+    margin-top: 10px;
+  }
+  .workshop-btn small {
+    display: none;
+  }
+  .chip-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+  .mode {
+    min-height: 52px;
+  }
+  .h-row {
+    min-height: 50px;
+    margin-top: 6px;
+  }
+  .h-more .tiles {
+    gap: 6px;
+  }
+}
+@media (max-width: 379px) {
+  .overlay.home {
+    padding-left: calc(var(--safe-left) + 12px);
+    padding-right: calc(var(--safe-right) + 12px);
+  }
+  .chip-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .mode {
+    gap: 8px;
+  }
+  .mode-text strong {
+    font-size: 15px;
+  }
+}
+/* phones on their side: title and Play on the left, modes on the right */
+@media (max-height: 500px) and (orientation: landscape) {
+  .home .card.home-card {
+    width: min(700px, 100%);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    align-content: start;
+    column-gap: 16px;
+    padding: 12px 14px 12px;
+  }
+  .h-top,
+  .h-brand,
+  .h-main {
+    grid-column: 1;
+  }
+  .h-more {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin-top: 0;
+  }
+  .home .offer {
+    grid-column: 1 / -1;
+  }
+  .home .title {
+    font-size: 40px;
+  }
+  .h-main {
+    margin-top: 8px;
+  }
+  .cta.hero {
+    height: 46px;
+    font-size: 17px;
+  }
+  .ghost-btn.new-game {
+    height: 38px;
+  }
+  .mode {
+    min-height: 48px;
+    padding: 6px 8px;
+  }
+  .chip-icon {
+    width: 30px;
+    height: 30px;
+  }
+  .chip-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  .h-row {
+    min-height: 46px;
+    padding: 6px 12px 6px 8px;
+  }
+  .h-row small {
+    display: none;
+  }
+  .hub-game .chev {
+    display: none;
+  }
+}
+/* Workshop hub: icon | name and line, stars under them | chevron */
+.hub-game {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'icon text chev'
+    'icon stars chev';
+  column-gap: 14px;
+  row-gap: 4px;
+}
+.hub-game .icon {
+  grid-area: icon;
+}
+.hub-game .hub-text {
+  grid-area: text;
+}
+.hub-game .hub-stars {
+  grid-area: stars;
+  justify-self: start;
+  padding: 1px 8px 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 215, 122, 0.12);
+  color: var(--gold-float);
+  font-size: 13px;
+}
+.hub-game .hub-stars svg {
+  width: 13px;
+  height: 13px;
+}
+.hub-game .chev {
+  grid-area: chev;
+  margin-left: 0;
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  .hub-game {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'icon'
+      'text'
+      'stars';
+    justify-items: center;
+  }
+  .hub-game .icon {
+    width: 36px;
+    height: 36px;
+    padding: 7px;
+  }
+  .hub-game .hub-stars {
+    justify-self: center;
+  }
+}
+/* landscape tablets and laptops: the same two columns at full size (one column is too tall) */
+@media (orientation: landscape) and (min-height: 501px) and (max-height: 860px) {
+  .home .card.home-card {
+    width: min(760px, 100%);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-content: start;
+    column-gap: 20px;
+  }
+  .h-top,
+  .h-brand,
+  .h-main {
+    grid-column: 1;
+  }
+  .h-brand {
+    margin-top: 24px;
+  }
+  .h-more {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+  .h-label {
+    margin-top: 4px;
+  }
+  .home .offer {
+    grid-column: 1 / -1;
   }
 }

@@ -15,6 +15,37 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+/**
+ * Give nodes the menu entrance (`.rise`): each one fades up a beat after the one before.
+ * The delay comes from `--i`; the animation replays every time the overlay opens.
+ */
+export function rise(nodes: readonly HTMLElement[], start = 0): void {
+  nodes.forEach((n, i) => {
+    n.classList.add('rise');
+    n.style.setProperty('--i', String(start + i));
+  });
+}
+
+/** Buttons that answer a tap with a soft ripple from the finger (menus only, not the board). */
+const RIPPLE = '.cta, .mode, .h-row, .hub-game, .ghost-btn, .icon-btn, .k-level';
+
+/** One listener for the whole UI: a ripple where the finger lands (skipped when motion is reduced). */
+export function installRipples(root: HTMLElement): void {
+  root.addEventListener('pointerdown', (e) => {
+    if (document.documentElement.classList.contains('reduced')) return;
+    const b = e.target instanceof Element ? e.target.closest<HTMLElement>(RIPPLE) : null;
+    if (!b || (b as HTMLButtonElement).disabled) return;
+    const r = b.getBoundingClientRect();
+    const size = Math.max(r.width, r.height) * 2.2;
+    const dot = el('span', { class: 'ripple', 'aria-hidden': 'true' });
+    dot.style.width = dot.style.height = `${size}px`;
+    dot.style.left = `${e.clientX - r.left - size / 2}px`;
+    dot.style.top = `${e.clientY - r.top - size / 2}px`;
+    b.append(dot);
+    dot.addEventListener('animationend', () => dot.remove(), { once: true });
+  });
+}
+
 /** Restart a CSS animation class. */
 export function replay(node: HTMLElement, cls: string): void {
   node.classList.remove(cls);
@@ -62,5 +93,8 @@ export const ICONS = {
   moves:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3.5" width="7" height="7" rx="1.6"/><rect x="4" y="13.5" width="7" height="7" rx="1.6"/><rect x="14" y="13.5" width="7" height="7" rx="1.6"/></svg>',
   map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.9l10.6-6.8a1 1 0 0 0 0-1.7L9.5 4.3A1 1 0 0 0 8 5.2z" fill="currentColor"/></svg>',
+  chevron:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
   hand: '<svg viewBox="0 0 64 64" aria-hidden="true"><path fill="#fff6e6" stroke="#3a2010" stroke-width="2.5" stroke-linejoin="round" d="M22 30V9a5 5 0 0 1 10 0v15l2-.6a5 5 0 0 1 6 3.4l.3 1.1 1.4-.4a5 5 0 0 1 6 3.4l.4 1.4 1-.2a5 5 0 0 1 5.8 3.8l1.6 8.2c1.6 8.4-3.3 16.7-11.5 19.2l-3.2 1A18 18 0 0 1 21.4 56L12 44.5a5.2 5.2 0 0 1 7.6-7.1L22 40z"/></svg>',
 } as const;

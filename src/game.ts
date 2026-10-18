@@ -65,7 +65,7 @@ import type { GameStore, StoreState } from './state/store';
 import { AchievementBanner, AwardsPanel } from './ui/awards';
 import { ConfirmDialog, ResultsCard } from './ui/dialogs';
 import type { ResultsInfo } from './ui/dialogs';
-import { el, ICONS, replay } from './ui/dom';
+import { el, ICONS, installRipples, replay } from './ui/dom';
 import { floatText } from './ui/floatText';
 import { Hud } from './ui/hud';
 import { HomeMenu, PauseMenu, QuestsPanel, SettingsPanel } from './ui/menus';
@@ -375,6 +375,7 @@ export class Game {
       visibility: 'hidden',
       paddingBottom: 'env(safe-area-inset-bottom, 0px)',
     });
+    installRipples(d.uiRoot);
     d.uiRoot.append(
       el('div', { class: 'vignette', 'aria-hidden': 'true' }),
       this.hud.node,

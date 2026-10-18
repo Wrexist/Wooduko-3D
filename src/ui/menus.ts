@@ -4,7 +4,7 @@ import type { Settings } from '../core/types';
 import { num, t } from '../i18n';
 import type { Key } from '../i18n';
 import { Overlay } from './dialogs';
-import { el, ICONS } from './dom';
+import { el, ICONS, rise } from './dom';
 
 export interface QuestView {
   readonly text: string;
@@ -50,39 +50,59 @@ function questRows(quests: readonly QuestView[]): HTMLLIElement[] {
   });
 }
 
-/** A mode tile: icon, name, one short line. */
-function tile(icon: string, name: string, sub: HTMLElement, onClick: () => void): HTMLButtonElement {
-  const b = el('button', { class: 'tile' }, [
-    el('span', { class: 'icon', html: icon }),
-    el('strong', {}, [name]),
-    sub,
+/** A mode card: a tinted icon chip, the name, and one short line with an optional badge beside it. */
+function modeCard(
+  cls: string,
+  icon: string,
+  name: string,
+  sub: HTMLElement,
+  badge: HTMLElement | null,
+  onClick: () => void,
+): HTMLButtonElement {
+  const b = el('button', { class: `mode ${cls}` }, [
+    el('span', { class: 'chip-icon', html: icon }),
+    el('span', { class: 'mode-text' }, [el('strong', {}, [name]), sub, ...(badge ? [badge] : [])]),
   ]);
   b.addEventListener('click', onClick);
   return b;
 }
 
+/** A full-width row: icon chip, a title with a line (or bar) under it, something on the right. */
+function homeRow(cls: string, icon: string, body: HTMLElement[], end: HTMLElement): HTMLButtonElement {
+  return el('button', { class: `h-row ${cls}` }, [
+    el('span', { class: 'chip-icon', html: icon }),
+    el('span', { class: 'h-row-text' }, body),
+    end,
+  ]);
+}
+
 /**
- * Home: title, best, Continue (when a save exists), Play / New game, the other modes (Daily,
- * Zen, Blitz) as tiles, today's quests, Awards and Settings.
+ * Home, top to bottom: best score with Awards and Settings, the title, one big Play (Continue
+ * when a save exists, with New game under it), the four modes as cards, the Workshop, and
+ * today's quests with a progress bar. Everything rises in, one beat after the other.
  */
 export class HomeMenu extends Overlay {
   private readonly bestVal = el('span', {}, ['0']);
-  private readonly cont = el('button', { class: 'cta' }, [t('home.continue')]);
-  private readonly play = el('button', { class: 'cta' }, [t('home.play')]);
+  private readonly cont = el('button', { class: 'cta hero' }, [
+    el('span', { class: 'cta-icon', html: ICONS.play }),
+    el('span', {}, [t('home.continue')]),
+  ]);
+  private readonly playLabel = el('span', {}, [t('home.play')]);
+  private readonly play = el('button', { class: 'cta hero' }, [
+    el('span', { class: 'cta-icon', html: ICONS.play }),
+    this.playLabel,
+  ]);
   private readonly daily: HTMLButtonElement;
   private readonly dailySub = el('small');
   private readonly dailyStreak = el('span', { class: 'streak', hidden: '' });
   private readonly blitzSub = el('small', {}, [t('mode.blitzDesc')]);
-  private readonly questsBtn = el('button', { class: 'ghost-btn quests-btn' });
-  private readonly journeyBtn = el('button', { class: 'journey-btn' });
+  private readonly questsBtn: HTMLButtonElement;
+  private readonly questsFill = el('i');
+  private readonly questsCount = el('span', { class: 'count' });
+  private readonly journeyBtn: HTMLButtonElement;
   /** "Journey" with the next level under it (two short lines, never a wrapped long one). */
   private readonly journeyLevel = el('small');
-  private readonly journeyText = el('span', { class: 'jtext' }, [
-    el('strong', {}, [t('mode.journey')]),
-    this.journeyLevel,
-  ]);
   private readonly journeyStars = el('span', { class: 'jstars' });
-  private readonly questsCount = el('span', { class: 'count' });
 
   /** Soft ask for the daily reminder (shown once, after a few sessions, native only). */
   private readonly offer: HTMLDivElement;
@@ -101,16 +121,17 @@ export class HomeMenu extends Overlay {
     onReminder(yes: boolean): void;
   }) {
     super('home', 'homeTitle');
+    this.card.classList.add('home-card');
     const best = el('div', { class: 'best' });
     best.innerHTML = ICONS.crown;
     best.append(this.bestVal);
     const settings = el('button', {
-      class: 'ghost-btn icon-btn',
+      class: 'icon-btn',
       'aria-label': t('home.settings'),
       html: ICONS.gear,
     });
     const awards = el('button', {
-      class: 'ghost-btn icon-btn',
+      class: 'icon-btn',
       'aria-label': t('home.awards'),
       html: ICONS.trophy,
     });
@@ -118,38 +139,72 @@ export class HomeMenu extends Overlay {
     settings.addEventListener('click', h.onSettings);
     this.cont.addEventListener('click', h.onContinue);
     this.play.addEventListener('click', h.onPlay);
-    this.journeyBtn.append(
-      el('span', { class: 'icon', html: ICONS.map }),
-      this.journeyText,
+
+    this.journeyBtn = modeCard(
+      'journey-btn',
+      ICONS.map,
+      t('mode.journey'),
+      this.journeyLevel,
       this.journeyStars,
+      h.onJourney,
     );
-    this.journeyBtn.addEventListener('click', h.onJourney);
-    const workshop = el('button', { class: 'workshop-btn' }, [
-      el('span', { class: 'icon', html: ICONS.moves }),
-      el('strong', {}, [t('mode.workshop')]),
-    ]);
+    this.daily = modeCard(
+      'tile daily',
+      ICONS.calendar,
+      t('mode.dailyShort'),
+      this.dailySub,
+      this.dailyStreak,
+      h.onDaily,
+    );
+    const zen = modeCard(
+      'tile zen',
+      ICONS.leaf,
+      t('mode.zen'),
+      el('small', {}, [t('mode.zenDesc')]),
+      null,
+      h.onZen,
+    );
+    const blitz = modeCard('tile blitz', ICONS.clock, t('mode.blitz'), this.blitzSub, null, h.onBlitz);
+
+    const workshop = homeRow(
+      'workshop-btn',
+      ICONS.moves,
+      [el('strong', {}, [t('mode.workshop')]), el('small', {}, [t('home.workshopDesc')])],
+      el('span', { class: 'chev', html: ICONS.chevron }),
+    );
     workshop.addEventListener('click', h.onWorkshop);
-    this.questsBtn.innerHTML = ICONS.list;
-    this.questsBtn.append(el('span', {}, [t('quests.short')]), this.questsCount);
+    this.questsBtn = homeRow(
+      'quests-btn',
+      ICONS.list,
+      [
+        el('strong', {}, [t('quests.short')]),
+        el('span', { class: 'bar', 'aria-hidden': 'true' }, [this.questsFill]),
+      ],
+      this.questsCount,
+    );
     this.questsBtn.addEventListener('click', h.onQuests);
 
-    this.daily = tile(ICONS.calendar, t('mode.dailyShort'), this.dailySub, h.onDaily);
-    this.daily.classList.add('daily');
-    this.daily.append(this.dailyStreak);
-    const zen = tile(ICONS.leaf, t('mode.zen'), el('small', {}, [t('mode.zenDesc')]), h.onZen);
-    const blitz = tile(ICONS.clock, t('mode.blitz'), this.blitzSub, h.onBlitz);
+    // the title's letters drop in like blocks, one after the other
+    const title = el('div', { class: 'title', id: 'homeTitle' });
+    [...t('app.title')].forEach((ch, i) => {
+      const s = el('span', {}, [ch]);
+      s.style.setProperty('--l', String(i));
+      title.append(s);
+    });
+    const top = el('div', { class: 'h-top' }, [best, el('div', { class: 'h-actions' }, [awards, settings])]);
+    const brand = el('div', { class: 'h-brand' }, [
+      title,
+      el('div', { class: 'subtitle' }, [t('app.subtitle')]),
+    ]);
+    const label = el('div', { class: 'h-label' }, [t('home.modes')]);
+    const modes = [this.journeyBtn, this.daily, zen, blitz];
+    rise([top, brand, this.cont, this.play, label, ...modes, workshop, this.questsBtn]);
 
     this.card.append(
-      el('div', { class: 'title', id: 'homeTitle' }, [t('app.title')]),
-      el('div', { class: 'subtitle' }, [t('app.subtitle')]),
-      best,
-      el('div', { class: 'stack' }, [
-        this.cont,
-        this.play,
-        el('div', { class: 'journey-row' }, [this.journeyBtn, workshop]),
-        el('div', { class: 'tiles' }, [this.daily, zen, blitz]),
-        el('div', { class: 'tools' }, [this.questsBtn, awards, settings]),
-      ]),
+      top,
+      brand,
+      el('div', { class: 'stack h-main' }, [this.cont, this.play]),
+      el('div', { class: 'h-more' }, [label, el('div', { class: 'tiles' }, modes), workshop, this.questsBtn]),
     );
     const yes = el('button', { class: 'cta small' }, [t('home.reminderYes')]);
     const no = el('button', { class: 'ghost-btn small' }, [t('home.reminderNo')]);
@@ -162,6 +217,12 @@ export class HomeMenu extends Overlay {
     this.card.append(this.offer);
   }
 
+  /** Focus lands on the main button (Continue or Play), not the small ones in the top bar. */
+  override show(): void {
+    super.show();
+    (this.cont.hidden ? this.play : this.cont).focus({ preventScroll: true });
+  }
+
   setOffer(visible: boolean): void {
     this.offer.hidden = !visible;
   }
@@ -169,8 +230,9 @@ export class HomeMenu extends Overlay {
   update(v: HomeView): void {
     this.bestVal.textContent = num(v.best);
     this.cont.hidden = !v.hasSave;
-    this.play.textContent = v.hasSave ? t('home.newGame') : t('home.play');
-    this.play.className = v.hasSave ? 'ghost-btn' : 'cta';
+    this.playLabel.textContent = v.hasSave ? t('home.newGame') : t('home.play');
+    // with a save, New game steps back to a quiet button under Continue
+    this.play.className = v.hasSave ? 'ghost-btn new-game rise' : 'cta hero rise';
 
     const goal = t('daily.goal', { n: num(v.daily.goal) });
     this.daily.classList.toggle('done', v.daily.done);
@@ -187,6 +249,7 @@ export class HomeMenu extends Overlay {
 
     const done = v.quests.filter((q) => q.progress >= q.target).length;
     this.questsCount.textContent = `${done}/${v.quests.length}`;
+    this.questsFill.style.width = `${v.quests.length ? Math.round((100 * done) / v.quests.length) : 0}%`;
     this.questsBtn.classList.toggle('done', v.questsDone);
     this.journeyLevel.textContent = t('journey.level', { n: v.journeyLevel });
     this.journeyStars.innerHTML = ICONS.star;
@@ -225,7 +288,9 @@ export class QuestsPanel extends Overlay {
   }
 
   update(v: HomeView): void {
-    this.list.replaceChildren(...questRows(v.quests));
+    const rows = questRows(v.quests);
+    rise(rows, 1);
+    this.list.replaceChildren(...rows);
     this.streak.textContent = String(v.questStreak);
     this.note.textContent = v.questsDone ? t('quests.allDone') : t('quests.hint');
   }
@@ -250,14 +315,11 @@ export class PauseMenu extends Overlay {
     restart.addEventListener('click', h.onRestart);
     settings.addEventListener('click', h.onSettings);
     home.addEventListener('click', h.onHome);
+    const pair = el('div', { class: 'pair' }, [awards, settings]);
+    rise([resume, restart, pair, home], 1);
     this.card.append(
       el('h2', { id: 'pauseTitle' }, [t('pause.title')]),
-      el('div', { class: 'stack' }, [
-        resume,
-        restart,
-        el('div', { class: 'pair' }, [awards, settings]),
-        home,
-      ]),
+      el('div', { class: 'stack' }, [resume, restart, pair, home]),
     );
   }
 }
@@ -329,10 +391,17 @@ export class SettingsPanel extends Overlay {
     // two calm groups: sound first, then how the game looks and helps
     const SOUND: readonly ToggleKey[] = ['sound', 'music', 'haptics'];
     const order: ToggleKey[] = [...SOUND, 'hints', 'shake', 'reduceMotion'];
+    let group = el('div', { class: 'set-card' });
     for (const key of order) {
-      if (key === 'sound') list.append(el('h3', { class: 'set-group' }, [t('settings.groupSound')]));
-      if (key === 'hints')
-        list.append(el('h3', { class: 'set-group' }, [t('settings.groupGame')]), this.camera.node);
+      if (key === 'sound' || key === 'hints') {
+        const head = el('h3', { class: 'set-group' }, [
+          t(key === 'sound' ? 'settings.groupSound' : 'settings.groupGame'),
+        ]);
+        group = el('div', { class: 'set-card' });
+        if (key === 'hints') group.append(this.camera.node);
+        list.append(head, group);
+        rise([head, group], list.children.length - 2);
+      }
       const id = `set-${key}`;
       const sw = el('button', {
         class: 'toggle',
@@ -346,7 +415,7 @@ export class SettingsPanel extends Overlay {
       if (key === 'hints') label.append(this.hintsTag);
       const row = el('div', { class: 'setting' }, [label, sw]);
       if (key === 'hints') this.hintsRow = row;
-      list.append(row);
+      group.append(row);
     }
     this.reminderToggle = el('button', {
       class: 'toggle',
@@ -359,7 +428,7 @@ export class SettingsPanel extends Overlay {
       el('span', { id: 'set-reminder' }, [t('settings.reminder')]),
       this.reminderToggle,
     ]);
-    list.append(this.reminderRow);
+    group.append(this.reminderRow);
     this.buy.addEventListener('click', h.onBuy);
     this.restore.addEventListener('click', h.onRestore);
     this.privacy.addEventListener('click', h.onPrivacy);
