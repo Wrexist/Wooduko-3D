@@ -88,3 +88,6 @@ Adding `overflow: hidden` (for a tap ripple) to the `aspect-ratio: 1` level ston
 
 ## CI signing fills the account with development certificates
 Every fresh GitHub macOS runner has no signing key, so Xcode's cloud signing creates a new "Apple Development: Created via API" certificate per build. After a few dozen builds the archive failed: "Your account has reached the maximum number of certificates". `scripts/asc-prune-certs.mjs` (a workflow step before Archive) now revokes those API-created development certificates; personal and distribution certificates are left alone. The first run revoked 12.
+
+## iPhone Duo (foldable, Oct 2026)
+Opening or closing it resizes the running app (no relaunch): window `resize` must re-fit everything, mid-game, in any order. The inner display ignores the app's supported orientations (it scales a portrait-only app), so landscape matters. Sizes we test, in points: outer 466×678, inner 626×890 / 890×626, Split View half 445×626 (`layout.mjs`, `workshop.mjs`, plus a fold/unfold sequence). Only apps built with the iOS 27.1 SDK fill the inner display edge to edge; CI picks the newest Xcode ≥ 27.1 on the runner. App Store Connect has one iPhone Duo screenshot slot (inner 2007×2853 or outer 1398×2034), optional until April 2027.

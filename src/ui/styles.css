@@ -2766,8 +2766,12 @@ button {
   flex: 1;
   min-width: 0;
   max-width: 140px;
-  padding-left: 8px;
-  padding-right: 8px;
+  padding-left: 6px;
+  padding-right: 6px;
+  gap: 6px;
+  font-size: 15px;
+  /* "Teach me" must stay on one line in a third of a 390 pt phone */
+  white-space: nowrap;
 }
 .k-teach.on {
   color: var(--pill-ink);

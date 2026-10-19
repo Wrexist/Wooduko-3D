@@ -20,6 +20,12 @@ const VIEWPORTS = {
   'ipadpro-land-1366x1024': [1366, 1024],
   'split-600x600': [600, 600],
   'desktop-1920x1080': [1920, 1080],
+  // iPhone Duo (foldable, Oct 2026): outer display closed, inner display open, Split View half
+  'duo-outer-466x678': [466, 678],
+  'duo-outer-land-678x466': [678, 466],
+  'duo-inner-626x890': [626, 890],
+  'duo-inner-land-890x626': [890, 626],
+  'duo-split-445x626': [445, 626],
 };
 const seed = { a: 1, s: 1, jx: 0, jy: 0, t: 0.9 };
 // the longest piece (i5) lying along the tray in both end slots, across it in the middle
@@ -57,12 +63,15 @@ for (const [name, [width, height]] of Object.entries(VIEWPORTS)) {
   const page = await browser.newPage({ locale: 'en-US', viewport: { width, height } });
   page.on('pageerror', (e) => (errors++, console.log(`[${name}] pageerror:`, e.message)));
   page.on('console', (m) => m.type() === 'error' && (errors++, console.log(`[${name}]`, m.text())));
-  await page.addInitScript((s) => {
-    localStorage.clear();
-    localStorage.setItem('grain_tutorial_v1', '1');
-    localStorage.setItem('grain_best_v1', '123456');
-    localStorage.setItem('grain_save_v1', s);
-  }, JSON.stringify({ ...save, tray: trayFor(width / height > 1.15) }));
+  await page.addInitScript(
+    (s) => {
+      localStorage.clear();
+      localStorage.setItem('grain_tutorial_v1', '1');
+      localStorage.setItem('grain_best_v1', '123456');
+      localStorage.setItem('grain_save_v1', s);
+    },
+    JSON.stringify({ ...save, tray: trayFor(width / height > 1.15) }),
+  );
   await page.goto(url);
   await page.waitForFunction(() => window.__grain);
   await page.waitForTimeout(300);
@@ -199,6 +208,61 @@ for (const [name, [width, height]] of Object.entries(VIEWPORTS)) {
   });
   check(`${name}: tutorial tip clear of the board`, !tut.overlaps, JSON.stringify(tut));
   if (name.startsWith('se1')) await page.screenshot({ path: `${out}/layout-${name}-tutorial.png` });
+  await page.close();
+}
+
+// iPhone Duo: opening or closing it resizes the running app (no relaunch), mid-game, in
+// any order; board and tray must re-fit every time
+{
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 466, height: 678 } });
+  page.on('pageerror', (e) => (errors++, console.log('[duo fold] pageerror:', e.message)));
+  await page.addInitScript(
+    (s) => {
+      localStorage.clear();
+      localStorage.setItem('grain_tutorial_v1', '1');
+      localStorage.setItem('grain_save_v1', s);
+    },
+    JSON.stringify({ ...save, tray: trayFor(false) }),
+  );
+  await page.goto(url);
+  await page.waitForFunction(() => window.__grain);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.waitForTimeout(800);
+  for (const [w, h] of [
+    [890, 626],
+    [466, 678],
+    [626, 890],
+    [445, 626],
+    [678, 466],
+    [890, 626],
+  ]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForTimeout(900);
+    const off = await page.evaluate(() => {
+      const w = window.__grain.game.world;
+      const W = innerWidth;
+      const H = innerHeight;
+      const hudBottom = document.querySelector('.hud').getBoundingClientRect().bottom;
+      const pts = [];
+      for (const x of [-4.9, 4.9])
+        for (const z of [-4.9, 4.9]) pts.push(['board', w.toScreen(x, 0, z, W, H)]);
+      for (const t of w.tray) {
+        if (!t) continue;
+        const p = w.slotPos(t.slot, t.pivot.position.clone());
+        for (const dx of [-1, 1])
+          for (const dz of [-1, 1])
+            pts.push([
+              `tray${t.slot}`,
+              w.toScreen(p.x + (dx * t.shape.w * t.scale) / 2, 0, p.z + (dz * t.shape.h * t.scale) / 2, W, H),
+            ]);
+      }
+      return pts
+        .filter(([, q]) => q.x < 0 || q.x > W || q.y < hudBottom || q.y > H)
+        .map(([n, q]) => `${n}@${q.x | 0},${q.y | 0}`);
+    });
+    check(`duo fold to ${w}x${h}: board + tray re-fit`, off.length === 0, off.slice(0, 4).join(' '));
+  }
+  await page.screenshot({ path: `${out}/layout-duo-unfolded.png` });
   await page.close();
 }
 

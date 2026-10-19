@@ -119,6 +119,21 @@ jobs:
           npx cap sync ios
           node scripts/ios-setup.mjs
 
+      # iPhone Duo: apps built with the iOS 27.1 SDK or later fill its inner display edge to edge
+      # (older SDKs run there in a compatibility frame). Use the newest Xcode >= 27.1 on the runner;
+      # without one, keep the default and say so.
+      - name: Use the newest Xcode (27.1+ for iPhone Duo)
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -vi beta \
+            | sed -E 's|.*/Xcode_([0-9.]+)\.app|\1|' | sort -V \
+            | awk -F. '$1 > 27 || ($1 == 27 && $2 >= 1)' | tail -1)
+          if [ -n "$NEWEST" ]; then
+            sudo xcode-select -s "/Applications/Xcode_$NEWEST.app/Contents/Developer"
+            echo "Using Xcode $NEWEST"
+          else
+            echo "::warning::No Xcode 27.1+ on this runner ($(xcodebuild -version | head -1)); iPhone Duo shows the app in a compatibility frame until it is."
+          fi
+
       - name: Check Xcode
         run: |
           xcodebuild -version

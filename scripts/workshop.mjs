@@ -901,6 +901,10 @@ for (const [vw, vh] of [
   [568, 320],
   [844, 390],
   [1024, 768],
+  // iPhone Duo: outer display, inner display open, Split View half
+  [466, 678],
+  [890, 626],
+  [445, 626],
 ]) {
   const pg = await browser.newPage({ locale: 'sv-SE', viewport: { width: vw, height: vh } });
   pg.on('pageerror', (e) => (errors++, console.log(`[${vw}x${vh}] pageerror:`, e.message)));
