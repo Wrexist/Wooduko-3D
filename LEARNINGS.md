@@ -91,3 +91,6 @@ Every fresh GitHub macOS runner has no signing key, so Xcode's cloud signing cre
 
 ## iPhone Duo (foldable, Oct 2026)
 Opening or closing it resizes the running app (no relaunch): window `resize` must re-fit everything, mid-game, in any order. The inner display ignores the app's supported orientations (it scales a portrait-only app), so landscape matters. Sizes we test, in points: outer 466×678, inner 626×890 / 890×626, Split View half 445×626 (`layout.mjs`, `workshop.mjs`, plus a fold/unfold sequence). Only apps built with the iOS 27.1 SDK fill the inner display edge to edge; CI picks the newest Xcode ≥ 27.1 on the runner. App Store Connect has one iPhone Duo screenshot slot (inner 2007×2853 or outer 1398×2034), optional until April 2027.
+
+## Resubmitting an in-app purchase after cancelling a review
+Cancelling a review submission leaves the IAP's in-flight version `DEVELOPER_REJECTED`, and `POST /v1/inAppPurchaseSubmissions` then fails with "has no pending version for submission" (re-saving the IAP doesn't help). What works: add the app version to a review submission, then add the IAP version as its own item, `POST /v1/reviewSubmissionItems` with relationship `inAppPurchaseVersion` (id from `GET /v2/inAppPurchases/{id}/versions`), and submit. Always check the submission holds both items before `submitted: true`; never submit a first IAP's app without it.
