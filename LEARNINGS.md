@@ -85,3 +85,6 @@ Two things cost frames on iPhone: `backdrop-filter: blur()` on buttons over the 
 
 ## `overflow: hidden` shrinks square grid items' rows
 Adding `overflow: hidden` (for a tap ripple) to the `aspect-ratio: 1` level stones made them scroll containers, whose automatic minimum height is 0, so the grid rows shrank below the stones and they overlapped. `contain: paint` clips the ripple without changing layout.
+
+## CI signing fills the account with development certificates
+Every fresh GitHub macOS runner has no signing key, so Xcode's cloud signing creates a new "Apple Development: Created via API" certificate per build. After a few dozen builds the archive failed: "Your account has reached the maximum number of certificates". `scripts/asc-prune-certs.mjs` (a workflow step before Archive) now revokes those API-created development certificates; personal and distribution certificates are left alone. The first run revoked 12.
